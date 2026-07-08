@@ -1,7 +1,8 @@
 {
   "dependencies": {
     "discord.js": "^14.26.4",
-    "dotenv": "^17.4.2"
+    "dotenv": "^17.4.2",
+    "lowdb": "^7.0.1"
   },
   "name": "bot",
   "version": "1.0.0",

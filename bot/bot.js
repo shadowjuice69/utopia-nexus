@@ -1,6 +1,12 @@
-require('dotenv').config();
+require("dotenv").config();
 
-const { Client, GatewayIntentBits } = require('discord.js');
+const { Client, GatewayIntentBits } = require("discord.js");
+const loadCommands = require("./commandLoader");
+const loadEvents = require("./eventLoader");
+const logger = require("./services/logger");
+const validator = require("./services/validator");
+const errorHandler = require("./services/errorHandler");
+const database = require("./services/database");
 
 const client = new Client({
   intents: [
@@ -10,18 +16,15 @@ const client = new Client({
   ]
 });
 
-client.once('clientReady', () => {
-  console.log(`✅ Logged in as ${client.user.tag}`);
-});
+errorHandler.attach(client);
 
-client.on('messageCreate', message => {
-  if (message.author.bot) return;
+loadCommands(client);
+loadEvents(client);
 
-  if (message.content === '!ping') {
-    message.reply('Pong!');
-  }
-});
+logger.info("🚀 Utopia Nexus Bot Starting...");
 
-console.log("🚀 Utopia Nexus Bot Starting...");
+validator.checkEnv();
+
+database.connect();
 
 client.login(process.env.DISCORD_TOKEN);
