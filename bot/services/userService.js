@@ -46,4 +46,24 @@ module.exports = {
 
     return user;
   },
+
+  async restoreUser(userId) {
+    const db = database.getDb();
+
+    const user = db.data.users.find(
+      (u) => u.id === userId
+    );
+
+    if (!user) {
+      return null;
+    }
+
+    user.status = "active";
+    user.removedAt = null;
+    user.removalReason = null;
+
+    await db.write();
+
+    return user;
+  },
 };
