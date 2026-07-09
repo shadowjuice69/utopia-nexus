@@ -33,7 +33,7 @@
       "status": "active",
       "removedAt": null,
       "removalReason": null,
-      "xp": 15,
+      "xp": 25,
       "level": 1,
       "kingdomRole": "Steward"
     },
@@ -115,7 +115,7 @@
       "province": null,
       "coordinates": null,
       "kingdomRole": "Member",
-      "xp": 110,
+      "xp": 115,
       "level": 1
     }
   ],
