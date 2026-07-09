@@ -28,10 +28,23 @@ if (xpResult && xpResult.leveledUp) {
     if (!command) return;
 
     try {
-      await command.execute(message, args);
-    } catch (error) {
-      console.error(error);
-      await message.reply("There was an error executing that command.");
-    }
+  await command.execute(message, args);
+
+  setTimeout(() => {
+    message.delete().catch(() => {});
+  }, 90000);
+
+} catch (error) {
+  console.error(error);
+
+  const reply = await message.reply(
+    "There was an error executing that command."
+  );
+
+  setTimeout(() => {
+    reply.delete().catch(() => {});
+    message.delete().catch(() => {});
+  }, 90000);
+}
   },
 };

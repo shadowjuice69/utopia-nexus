@@ -19,6 +19,10 @@ module.exports = {
       status: "active",
       removedAt: null,
       removalReason: null,
+      province: null,
+      coordinates: null,
+kingdomRole: "Member",
+
     };
 
     db.data.users.push(newUser);

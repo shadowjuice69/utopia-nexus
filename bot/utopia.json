@@ -4,22 +4,27 @@
       "id": "653534906277822494",
       "username": "shadowjuice69",
       "createdAt": "2026-07-08T19:06:34.337Z",
-      "xp": 185,
-      "level": 10
+      "xp": 390,
+      "level": 2,
+      "province": "Sumi Gaeshi",
+      "coordinates": "4:9",
+      "kingdomRole": "Member"
     },
     {
       "id": "775475061296463892",
       "username": "nicolaij1251",
       "createdAt": "2026-07-08T23:09:28.843Z",
-      "xp": 5,
-      "level": 1
+      "xp": 105,
+      "level": 1,
+      "kingdomRole": "Steward"
     },
     {
       "id": "991076208911482910",
       "username": "spider05158",
       "createdAt": "2026-07-08T23:14:40.398Z",
-      "xp": 5,
-      "level": 1
+      "xp": 15,
+      "level": 1,
+      "kingdomRole": "Monarch"
     },
     {
       "id": "202617053574594561",
@@ -28,8 +33,9 @@
       "status": "active",
       "removedAt": null,
       "removalReason": null,
-      "xp": 10,
-      "level": 1
+      "xp": 15,
+      "level": 1,
+      "kingdomRole": "Steward"
     },
     {
       "id": "1248190189893980284",
@@ -38,7 +44,7 @@
       "status": "active",
       "removedAt": null,
       "removalReason": null,
-      "xp": 30,
+      "xp": 40,
       "level": 1
     },
     {
@@ -58,7 +64,58 @@
       "status": "active",
       "removedAt": null,
       "removalReason": null,
-      "xp": 10,
+      "xp": 255,
+      "level": 2
+    },
+    {
+      "id": "1491484474632966327",
+      "username": "guest1230889",
+      "createdAt": "2026-07-09T03:46:28.804Z",
+      "status": "active",
+      "removedAt": null,
+      "removalReason": null,
+      "province": null,
+      "coordinates": null,
+      "xp": 15,
+      "level": 1
+    },
+    {
+      "id": "1469624494510571715",
+      "username": "kavu76",
+      "createdAt": "2026-07-09T04:04:50.286Z",
+      "status": "active",
+      "removedAt": null,
+      "removalReason": null,
+      "province": "Harai-Goshi",
+      "coordinates": "4:9",
+      "kingdomRole": "Member",
+      "xp": 115,
+      "level": 1
+    },
+    {
+      "id": "1293877521481207860",
+      "username": "santobugito_38259",
+      "createdAt": "2026-07-09T05:53:27.245Z",
+      "status": "active",
+      "removedAt": null,
+      "removalReason": null,
+      "province": "rstatyi",
+      "coordinates": "dont know",
+      "kingdomRole": "Member",
+      "xp": 225,
+      "level": 2
+    },
+    {
+      "id": "176291827706626049",
+      "username": "lazialu2002",
+      "createdAt": "2026-07-09T06:01:58.591Z",
+      "status": "active",
+      "removedAt": null,
+      "removalReason": null,
+      "province": null,
+      "coordinates": null,
+      "kingdomRole": "Member",
+      "xp": 110,
       "level": 1
     }
   ],
