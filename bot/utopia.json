@@ -4,8 +4,8 @@
       "id": "653534906277822494",
       "username": "shadowjuice69",
       "createdAt": "2026-07-08T19:06:34.337Z",
-      "xp": 390,
-      "level": 2,
+      "xp": 485,
+      "level": 3,
       "province": "Sumi Gaeshi",
       "coordinates": "4:9",
       "kingdomRole": "Member"
@@ -14,7 +14,7 @@
       "id": "775475061296463892",
       "username": "nicolaij1251",
       "createdAt": "2026-07-08T23:09:28.843Z",
-      "xp": 105,
+      "xp": 110,
       "level": 1,
       "kingdomRole": "Steward"
     },
@@ -22,7 +22,7 @@
       "id": "991076208911482910",
       "username": "spider05158",
       "createdAt": "2026-07-08T23:14:40.398Z",
-      "xp": 15,
+      "xp": 75,
       "level": 1,
       "kingdomRole": "Monarch"
     },
@@ -33,7 +33,7 @@
       "status": "active",
       "removedAt": null,
       "removalReason": null,
-      "xp": 25,
+      "xp": 90,
       "level": 1,
       "kingdomRole": "Steward"
     },
@@ -54,8 +54,8 @@
       "status": "active",
       "removedAt": null,
       "removalReason": null,
-      "xp": 40,
-      "level": 3
+      "xp": 110,
+      "level": 1
     },
     {
       "id": "1491172357052567632",
@@ -64,8 +64,8 @@
       "status": "active",
       "removedAt": null,
       "removalReason": null,
-      "xp": 255,
-      "level": 2
+      "xp": 410,
+      "level": 3
     },
     {
       "id": "1491484474632966327",
@@ -76,7 +76,7 @@
       "removalReason": null,
       "province": null,
       "coordinates": null,
-      "xp": 15,
+      "xp": 35,
       "level": 1
     },
     {
@@ -89,7 +89,7 @@
       "province": "Harai-Goshi",
       "coordinates": "4:9",
       "kingdomRole": "Member",
-      "xp": 115,
+      "xp": 190,
       "level": 1
     },
     {
@@ -102,7 +102,7 @@
       "province": "rstatyi",
       "coordinates": "dont know",
       "kingdomRole": "Member",
-      "xp": 225,
+      "xp": 265,
       "level": 2
     },
     {
@@ -112,10 +112,23 @@
       "status": "active",
       "removedAt": null,
       "removalReason": null,
+      "province": "Tomoe-Nage",
+      "coordinates": "4:9",
+      "kingdomRole": "Member",
+      "xp": 140,
+      "level": 1
+    },
+    {
+      "id": "266852430216560640",
+      "username": "cantcatchme",
+      "createdAt": "2026-07-09T16:08:44.543Z",
+      "status": "active",
+      "removedAt": null,
+      "removalReason": null,
       "province": null,
       "coordinates": null,
       "kingdomRole": "Member",
-      "xp": 115,
+      "xp": 25,
       "level": 1
     }
   ],

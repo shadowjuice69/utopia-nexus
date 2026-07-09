@@ -1,6 +1,5 @@
 const database = require("../services/database");
 const permissionService = require("../services/permissionService");
-const auditService = require("../services/auditService");
 
 const {
   ModalBuilder,
@@ -14,10 +13,9 @@ module.exports = {
   name: "interactionCreate",
 
   async execute(interaction) {
-console.log("Interaction received:", interaction.commandName, interaction.options.getSubcommand());
-
     const db = database.getDb();
 
+    // Registration form submit
     if (interaction.isModalSubmit()) {
       if (interaction.customId === "utopia_register") {
         const user = db.data.users.find(
@@ -62,6 +60,7 @@ console.log("Interaction received:", interaction.commandName, interaction.option
       (u) => u.id === interaction.user.id
     );
 
+    // REGISTER
     if (subcommand === "register") {
       if (!user) {
         return interaction.reply({
@@ -93,6 +92,7 @@ console.log("Interaction received:", interaction.commandName, interaction.option
       const coordinates = new TextInputBuilder()
         .setCustomId("coordinates")
         .setLabel("Coordinates")
+        .setPlaceholder("Example: 4:9")
         .setStyle(TextInputStyle.Short)
         .setRequired(true);
 
@@ -104,6 +104,7 @@ console.log("Interaction received:", interaction.commandName, interaction.option
       return interaction.showModal(modal);
     }
 
+    // PROVINCE
     if (subcommand === "province") {
       if (!user) {
         return interaction.reply({
@@ -125,6 +126,7 @@ console.log("Interaction received:", interaction.commandName, interaction.option
       });
     }
 
+    // PROFILE
     if (subcommand === "profile") {
       if (!user) {
         return interaction.reply({
@@ -145,6 +147,7 @@ console.log("Interaction received:", interaction.commandName, interaction.option
       });
     }
 
+    // CITIZENS
     if (subcommand === "citizens") {
       let reply = "🏰 Kingdom Roster\n\n";
 
@@ -161,6 +164,7 @@ console.log("Interaction received:", interaction.commandName, interaction.option
       });
     }
 
+    // LEADERSHIP
     if (subcommand === "leadership") {
       const leaders = db.data.users.filter(
         (member) =>
@@ -181,42 +185,8 @@ console.log("Interaction received:", interaction.commandName, interaction.option
       });
     }
 
-    if (subcommand === "admins") {
-      const roles = require("../config/roles");
-      const admins = db.data.admins || [];
-
-      let reply = `👑 Owner:\n• <@${roles.owner}>\n\n`;
-      reply += "🛡️ Admins:\n";
-
-      admins.forEach((id) => {
-        reply += `• <@${id}>\n`;
-      });
-
-      return interaction.reply({
-        content: reply,
-        flags: MessageFlags.Ephemeral,
-      });
-    }
-
-    if (subcommand === "admin") {
-  await interaction.deferReply({
-    flags: MessageFlags.Ephemeral,
-  });
-
-  if (!permissionService.isAdmin(interaction.user.id)) {
-    return interaction.editReply(
-      "❌ Admin access required."
-    );
-  }
-
-  console.log("Admin reply reached");
-
-  return interaction.editReply(
-    "✅ Admin access confirmed."
-  );
-}
-
-    if (subcommand === "logs") {
+    // ROLE
+    if (subcommand === "role") {
       if (!permissionService.isAdmin(interaction.user.id)) {
         return interaction.reply({
           content: "❌ Admin access required.",
@@ -224,20 +194,53 @@ console.log("Interaction received:", interaction.commandName, interaction.option
         });
       }
 
-      const logs = db.data.logs || [];
+      const target =
+        interaction.options.getUser("user");
 
-      if (!logs.length) {
+      const role =
+        interaction.options.getString("role");
+
+      const member = db.data.users.find(
+        (u) => u.id === target.id
+      );
+
+      if (!member) {
         return interaction.reply({
-          content: "📋 No admin logs found.",
+          content: "❌ User profile not found.",
           flags: MessageFlags.Ephemeral,
         });
       }
 
-      let reply = "📋 Recent Admin Logs:\n\n";
+      member.kingdomRole = role;
 
-      logs.slice(-10).reverse().forEach((log) => {
-        reply += `• ${log.action}\n`;
+      await db.write();
+
+      return interaction.reply({
+        content:
+          `✅ ${target.username} is now:\n` +
+          `👑 Kingdom Role: ${role}`,
+        flags: MessageFlags.Ephemeral,
       });
+    }
+
+    // ADMINS
+    if (subcommand === "admins") {
+      const roles = require("../config/roles");
+
+      let reply = "👑 Owner:\n";
+      reply += `• <@${roles.owner}>\n\n`;
+
+      reply += "🛡️ Admins:\n";
+
+      const admins = db.data.admins || [];
+
+      if (!admins.length) {
+        reply += "• No admins added";
+      } else {
+        admins.forEach((id) => {
+          reply += `• <@${id}>\n`;
+        });
+      }
 
       return interaction.reply({
         content: reply,

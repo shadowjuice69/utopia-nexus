@@ -33,6 +33,79 @@ const commands = [
         type: 1,
       },
       {
+        name: "admins",
+        description: "View kingdom admins",
+        type: 1,
+      },
+      {
+        name: "admin",
+        description: "Verify admin access",
+        type: 1,
+      },
+      {
+        name: "logs",
+        description: "View admin audit logs",
+        type: 1,
+      },
+      {
+        name: "addadmin",
+        description: "Add a kingdom admin",
+        type: 1,
+        options: [
+          {
+            name: "user",
+            description: "User to promote to admin",
+            type: 6,
+            required: true,
+          },
+        ],
+      },
+      {
+        name: "removeadmin",
+        description: "Remove a kingdom admin",
+        type: 1,
+        options: [
+          {
+            name: "user",
+            description: "User to remove from admin",
+            type: 6,
+            required: true,
+          },
+        ],
+      },
+      {
+        name: "restore",
+        description: "Restore a removed member",
+        type: 1,
+        options: [
+          {
+            name: "user",
+            description: "User to restore",
+            type: 6,
+            required: true,
+          },
+        ],
+      },
+      {
+        name: "remove",
+        description: "Remove a member",
+        type: 1,
+        options: [
+          {
+            name: "user",
+            description: "User to remove",
+            type: 6,
+            required: true,
+          },
+          {
+            name: "reason",
+            description: "Reason for removal",
+            type: 3,
+            required: false,
+          },
+        ],
+      },
+      {
         name: "role",
         description: "Assign a kingdom role",
         type: 1,
@@ -68,11 +141,6 @@ const commands = [
             ],
           },
         ],
-      },
-      {
-        name: "admins",
-        description: "View kingdom admins",
-        type: 1,
       },
     ],
   },
