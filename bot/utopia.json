@@ -4,7 +4,7 @@
       "id": "653534906277822494",
       "username": "shadowjuice69",
       "createdAt": "2026-07-08T19:06:34.337Z",
-      "xp": 180,
+      "xp": 185,
       "level": 10
     },
     {
@@ -19,6 +19,46 @@
       "username": "spider05158",
       "createdAt": "2026-07-08T23:14:40.398Z",
       "xp": 5,
+      "level": 1
+    },
+    {
+      "id": "202617053574594561",
+      "username": "vaellian",
+      "createdAt": "2026-07-09T01:17:01.664Z",
+      "status": "active",
+      "removedAt": null,
+      "removalReason": null,
+      "xp": 10,
+      "level": 1
+    },
+    {
+      "id": "1248190189893980284",
+      "username": "jems00902",
+      "createdAt": "2026-07-09T01:17:35.431Z",
+      "status": "active",
+      "removedAt": null,
+      "removalReason": null,
+      "xp": 30,
+      "level": 1
+    },
+    {
+      "id": "693293979437105202",
+      "username": "kinslayerdc",
+      "createdAt": "2026-07-09T01:39:07.991Z",
+      "status": "active",
+      "removedAt": null,
+      "removalReason": null,
+      "xp": 40,
+      "level": 3
+    },
+    {
+      "id": "1491172357052567632",
+      "username": "jdiggzle7",
+      "createdAt": "2026-07-09T02:04:28.483Z",
+      "status": "active",
+      "removedAt": null,
+      "removalReason": null,
+      "xp": 10,
       "level": 1
     }
   ],

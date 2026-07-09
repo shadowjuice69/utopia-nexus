@@ -16,11 +16,34 @@ module.exports = {
       id: user.id,
       username: user.username,
       createdAt: new Date().toISOString(),
+      status: "active",
+      removedAt: null,
+      removalReason: null,
     };
 
     db.data.users.push(newUser);
     await db.write();
 
     return newUser;
+  },
+
+  async removeUser(userId, reason) {
+    const db = database.getDb();
+
+    const user = db.data.users.find(
+      (u) => u.id === userId
+    );
+
+    if (!user) {
+      return null;
+    }
+
+    user.status = "former_member";
+    user.removedAt = new Date().toISOString();
+    user.removalReason = reason;
+
+    await db.write();
+
+    return user;
   },
 };

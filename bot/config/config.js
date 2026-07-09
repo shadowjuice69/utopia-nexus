@@ -4,7 +4,7 @@ module.exports = {
 
   xp: {
     amountPerMessage: 5,
-    cooldown: 5000,
-    xpPerLevel: 20,
+    cooldown: 60000,
+    xpPerLevel: 200,
   },
 };
