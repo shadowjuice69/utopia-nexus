@@ -1,4 +1,5 @@
 const permissionService = require("../services/permissionService");
+const auditService = require("../services/auditService");
 
 module.exports = {
   name: "removeadmin",
@@ -21,6 +22,18 @@ if (user.id === roles.owner) {
 }
 
 await permissionService.removeAdmin(user.id);
+
+await auditService.log({
+  action: "ADD_ADMIN",
+  actor: {
+    id: message.author.id,
+    username: message.author.username,
+  },
+  target: {
+    id: user.id,
+    username: user.username,
+  },
+});
 
 await message.reply(
   `✅ ${user.username} is no longer an admin.`
