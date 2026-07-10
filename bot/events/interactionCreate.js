@@ -135,25 +135,6 @@ if (subcommand === "resetage") {
       return interaction.showModal(modal);
      }
 
-    if (subcommand === "leadership") {
-      const leaders = db.data.users.filter(
-        (member) =>
-          member.kingdomRole &&
-          member.kingdomRole !== "Member"
-      );
-
-      let reply = "🏰 Kingdom Leadership\n\n";
-
-      leaders.forEach((leader) => {
-        reply += `👑 ${leader.kingdomRole}\n`;
-        reply += `<@${leader.id}>\n\n`;
-      });
-
-      return interaction.reply({
-        content: reply || "No leadership assigned.",
-        flags: MessageFlags.Ephemeral,
-      });
-    }
 
     if (subcommand === "admins") {
       const roles = require("../config/roles");
