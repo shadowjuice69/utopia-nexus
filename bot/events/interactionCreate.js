@@ -135,24 +135,6 @@ if (subcommand === "resetage") {
       return interaction.showModal(modal);
      }
 
-
-    if (subcommand === "admins") {
-      const roles = require("../config/roles");
-      const admins = db.data.admins || [];
-
-      let reply = `👑 Owner:\n• <@${roles.owner}>\n\n`;
-      reply += "🛡️ Admins:\n";
-
-      admins.forEach((id) => {
-        reply += `• <@${id}>\n`;
-      });
-
-      return interaction.reply({
-        content: reply,
-        flags: MessageFlags.Ephemeral,
-      });
-    }
-
     if (subcommand === "admin") {
   await interaction.deferReply({
     flags: MessageFlags.Ephemeral,

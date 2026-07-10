@@ -2,6 +2,7 @@ const profileHandler = require("./commands/profileHandler");
 const provinceHandler = require("./commands/provinceHandler");
 const citizensHandler = require("./commands/citizensHandler");
 const leadershipHandler = require("./commands/leadershipHandler");
+const adminsHandler = require("./commands/adminsHandler");
 
 module.exports = async function commandHandler(interaction) {
 
@@ -27,6 +28,10 @@ module.exports = async function commandHandler(interaction) {
 
     if (subcommand === "leadership") {
         return leadershipHandler(interaction);
+    }
+
+    if (subcommand === "admins") {
+        return adminsHandler(interaction);
     }
 
 };
