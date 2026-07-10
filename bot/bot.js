@@ -1,7 +1,6 @@
 require("dotenv").config();
 
 const { Client, GatewayIntentBits } = require("discord.js");
-const loadCommands = require("./commandLoader");
 const loadEvents = require("./eventLoader");
 const logger = require("./services/logger");
 const validator = require("./services/validator");
@@ -18,7 +17,6 @@ const client = new Client({
 
 errorHandler.attach(client);
 
-loadCommands(client);
 loadEvents(client);
 
 logger.info("🚀 Utopia Nexus Bot Starting...");
