@@ -56,7 +56,7 @@ return modalHandler(interaction);
     }
 
     if (!interaction.isChatInputCommand()) return;
-await commandHandler(interaction);
+    return commandHandler(interaction);
 
     if (interaction.commandName !== "utopia") return;
 
