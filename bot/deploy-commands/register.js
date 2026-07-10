@@ -43,6 +43,11 @@ const commands = [
         type: 1,
       },
       {
+        name: "resetage",
+        description: "Reset all province names and coordinates for a new age",
+        type: 1,
+      },
+      {
         name: "logs",
         description: "View admin audit logs",
         type: 1,
@@ -146,24 +151,22 @@ const commands = [
   },
 ];
 
-const rest = new REST({ version: "10" })
-  .setToken(process.env.DISCORD_TOKEN);
+const rest = new REST({ version: "10" }).setToken(
+  process.env.DISCORD_TOKEN
+);
 
 (async () => {
   try {
-    console.log("Registering slash commands...");
+    console.log("Started refreshing application commands.");
 
     await rest.put(
-      Routes.applicationGuildCommands(
-        process.env.CLIENT_ID,
-        process.env.GUILD_ID
-      ),
+      Routes.applicationCommands(process.env.CLIENT_ID),
       {
         body: commands,
       }
     );
 
-    console.log("Slash commands registered.");
+    console.log("Successfully reloaded application commands.");
   } catch (error) {
     console.error(error);
   }

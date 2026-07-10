@@ -1,6 +1,8 @@
 const database = require("../services/database");
 const permissionService = require("../services/permissionService");
 const auditService = require("../services/auditService");
+const modalHandler = require("../handlers/modalHandler");
+const commandHandler = require("../handlers/commandHandler");
 
 const {
   ModalBuilder,
@@ -14,11 +16,13 @@ module.exports = {
   name: "interactionCreate",
 
   async execute(interaction) {
-console.log("Interaction received:", interaction.commandName, interaction.options.getSubcommand());
+    console.log("Interaction received:", interaction.type, interaction.commandName);
 
     const db = database.getDb();
 
     if (interaction.isModalSubmit()) {
+return modalHandler(interaction);
+
       if (interaction.customId === "utopia_register") {
         const user = db.data.users.find(
           (u) => u.id === interaction.user.id
@@ -52,8 +56,11 @@ console.log("Interaction received:", interaction.commandName, interaction.option
     }
 
     if (!interaction.isChatInputCommand()) return;
+await commandHandler(interaction);
 
     if (interaction.commandName !== "utopia") return;
+
+    await require("../services/userService").getOrCreateUser(interaction.user);
 
     const subcommand =
       interaction.options.getSubcommand();
@@ -61,6 +68,30 @@ console.log("Interaction received:", interaction.commandName, interaction.option
     const user = db.data.users.find(
       (u) => u.id === interaction.user.id
     );
+
+if (subcommand === "resetage") {
+  if (!permissionService.isOwner(interaction.user.id)) {
+    return interaction.reply({
+      content: "❌ Owner access required.",
+      flags: MessageFlags.Ephemeral,
+    });
+  }
+
+  const db = database.getDb();
+
+  db.data.users.forEach((member) => {
+    member.province = null;
+    member.coordinates = null;
+  });
+
+  await db.write();
+
+  return interaction.reply({
+    content:
+      "✅ New age reset complete. Provinces and coordinates have been cleared.",
+    flags: MessageFlags.Ephemeral,
+  });
+}
 
     if (subcommand === "register") {
       if (!user) {
@@ -125,25 +156,6 @@ console.log("Interaction received:", interaction.commandName, interaction.option
       });
     }
 
-    if (subcommand === "profile") {
-      if (!user) {
-        return interaction.reply({
-          content: "❌ No profile found.",
-          flags: MessageFlags.Ephemeral,
-        });
-      }
-
-      return interaction.reply({
-        content:
-          `👤 Profile\n\n` +
-          `🏰 Province: ${user.province || "None"}\n` +
-          `📍 Location: ${user.coordinates || "None"}\n` +
-          `👑 Role: ${user.kingdomRole || "Member"}\n` +
-          `🟢 Status: ${user.status || "active"}\n` +
-          `⭐ Level: ${user.level || 1}`,
-        flags: MessageFlags.Ephemeral,
-      });
-    }
 
     if (subcommand === "citizens") {
       let reply = "🏰 Kingdom Roster\n\n";
@@ -244,5 +256,328 @@ console.log("Interaction received:", interaction.commandName, interaction.option
         flags: MessageFlags.Ephemeral,
       });
     }
-  },
+ 
+
+    if (subcommand === "addadmin") {
+      const roles = require("../config/roles");
+
+      if (!permissionService.isOwner(interaction.user.id)) {
+        return interaction.reply({
+          content: "❌ Only the owner can add admins.",
+          flags: MessageFlags.Ephemeral,
+        });
+      }
+
+      const user = interaction.options.getUser("user");
+
+      if (!user) {
+        return interaction.reply({
+          content: "❌ Select a user to add as admin.",
+          flags: MessageFlags.Ephemeral,
+        });
+      }
+
+      await permissionService.addAdmin(user.id);
+
+      await auditService.log({
+        action: "ADD_ADMIN",
+        actor: {
+          id: interaction.user.id,
+          username: interaction.user.username,
+        },
+        target: {
+          id: user.id,
+          username: user.username,
+        },
+      });
+
+      return interaction.reply({
+        content: `✅ ${user.username} is now an admin.`,
+        flags: MessageFlags.Ephemeral,
+      });
+    }
+
+    if (subcommand === "removeadmin") {
+      const roles = require("../config/roles");
+
+      if (!permissionService.isOwner(interaction.user.id)) {
+        return interaction.reply({
+          content: "❌ Only the owner can remove admins.",
+          flags: MessageFlags.Ephemeral,
+        });
+      }
+
+      const user = interaction.options.getUser("user");
+
+      if (!user) {
+        return interaction.reply({
+          content: "❌ Select a user to remove.",
+          flags: MessageFlags.Ephemeral,
+        });
+      }
+
+      if (user.id === roles.owner) {
+        return interaction.reply({
+          content: "❌ The owner cannot be removed.",
+          flags: MessageFlags.Ephemeral,
+        });
+      }
+
+      await permissionService.removeAdmin(user.id);
+
+      await auditService.log({
+        action: "REMOVE_ADMIN",
+        actor: {
+          id: interaction.user.id,
+          username: interaction.user.username,
+        },
+        target: {
+          id: user.id,
+          username: user.username,
+        },
+      });
+
+      return interaction.reply({
+        content: `✅ ${user.username} is no longer an admin.`,
+        flags: MessageFlags.Ephemeral,
+      });
+    }
+
+    if (subcommand === "restore") {
+      const userService = require("../services/userService");
+
+      if (!permissionService.isAdmin(interaction.user.id)) {
+        return interaction.reply({
+          content: "❌ Admin access required.",
+          flags: MessageFlags.Ephemeral,
+        });
+      }
+
+      const user = interaction.options.getUser("user");
+
+      if (!user) {
+        return interaction.reply({
+          content: "❌ Select a user to restore.",
+          flags: MessageFlags.Ephemeral,
+        });
+      }
+
+      const restoredUser = await userService.restoreUser(user.id);
+
+      if (!restoredUser) {
+        return interaction.reply({
+          content: "❌ User profile not found.",
+          flags: MessageFlags.Ephemeral,
+        });
+      }
+
+      await auditService.log({
+        action: "RESTORE_MEMBER",
+        actor: {
+          id: interaction.user.id,
+          username: interaction.user.username,
+        },
+        target: {
+          id: user.id,
+          username: user.username,
+        },
+      });
+
+      return interaction.reply({
+        content: `✅ ${user.username} is now an active member again.`,
+        flags: MessageFlags.Ephemeral,
+      });
+    }
+
+    if (subcommand === "removecheck") {
+      if (!permissionService.isAdmin(interaction.user.id)) {
+        return interaction.reply({
+          content: "❌ Admin access required.",
+          flags: MessageFlags.Ephemeral,
+        });
+      }
+
+      const user = interaction.options.getUser("user");
+      const reason =
+        interaction.options.getString("reason") ||
+        "No reason provided";
+
+      if (!user) {
+        return interaction.reply({
+          content: "❌ Select a user to check.",
+          flags: MessageFlags.Ephemeral,
+        });
+      }
+
+      return interaction.reply({
+        content:
+          `🗑️ Removal Preview\n\n` +
+          `User: ${user.username}\n` +
+          `New Status: former_member\n` +
+          `Reason: ${reason}\n\n` +
+          `No changes made.`,
+        flags: MessageFlags.Ephemeral,
+
+      });
+    }
+
+    if (subcommand === "member") {
+      if (!permissionService.isAdmin(interaction.user.id)) {
+        return interaction.reply({
+          content: "❌ Admin access required.",
+          flags: MessageFlags.Ephemeral,
+        });
+      }
+
+      const user = interaction.options.getUser("user");
+
+      if (!user) {
+        return interaction.reply({
+          content: "❌ Select a user to view.",
+          flags: MessageFlags.Ephemeral,
+        });
+      }
+
+      const member = db.data.users.find(
+        (u) => u.id === user.id
+      );
+
+      if (!member) {
+        return interaction.reply({
+          content: "❌ No member record found.",
+          flags: MessageFlags.Ephemeral,
+        });
+      }
+
+      return interaction.reply({
+        content:
+          `👤 Member Profile\n\n` +
+          `Name: ${member.username}\n` +
+          `Status: ${member.status || "active"}\n` +
+          `Joined: ${member.createdAt}\n` +
+          `Removed: ${member.removedAt || "N/A"}\n` +
+          `Reason: ${member.removalReason || "N/A"}`,
+        flags: MessageFlags.Ephemeral,
+      });
+    }
+
+    if (subcommand === "role") {
+      if (!permissionService.isAdmin(interaction.user.id)) {
+        return interaction.reply({
+          content: "❌ Admin access required.",
+          flags: MessageFlags.Ephemeral,
+        });
+      }
+
+      const user = interaction.options.getUser("user");
+      const role = interaction.options.getString("role");
+
+      if (!user) {
+        return interaction.reply({
+          content: "❌ Select a user to assign a role.",
+          flags: MessageFlags.Ephemeral,
+        });
+      }
+
+      const allowedRoles = [
+        "Monarch",
+        "Steward",
+        "War Leader",
+        "Member",
+      ];
+
+      if (!role) {
+        return interaction.reply({
+          content: "❌ Provide a kingdom role.",
+          flags: MessageFlags.Ephemeral,
+        });
+      }
+
+      if (!allowedRoles.includes(role)) {
+        return interaction.reply({
+          content:
+            "❌ Invalid role.\nAvailable: Monarch, Steward, War Leader, Member",
+          flags: MessageFlags.Ephemeral,
+        });
+      }
+
+      const member = db.data.users.find(
+        (u) => u.id === user.id
+      );
+
+      if (!member) {
+        return interaction.reply({
+          content: "❌ User profile not found.",
+          flags: MessageFlags.Ephemeral,
+        });
+      }
+
+      member.kingdomRole = role;
+
+      await db.write();
+
+      return interaction.reply({
+        content:
+          `✅ ${user.username} is now:\n` +
+          `👑 Kingdom Role: ${role}`,
+        flags: MessageFlags.Ephemeral,
+      });
+    }
+
+    if (subcommand === "remove") {
+      const userService = require("../services/userService");
+
+      if (!permissionService.isAdmin(interaction.user.id)) {
+        return interaction.reply({
+          content: "❌ Admin access required.",
+          flags: MessageFlags.Ephemeral,
+        });
+      }
+
+      const user = interaction.options.getUser("user");
+      const reason =
+        interaction.options.getString("reason") ||
+        "No reason provided";
+
+      if (!user) {
+        return interaction.reply({
+          content: "❌ Select a user to remove.",
+          flags: MessageFlags.Ephemeral,
+        });
+      }
+
+      const removedUser = await userService.removeUser(
+        user.id,
+        reason
+      );
+
+      if (!removedUser) {
+        return interaction.reply({
+          content: "❌ User profile not found.",
+          flags: MessageFlags.Ephemeral,
+        });
+      }
+
+      await auditService.log({
+        action: "REMOVE_MEMBER",
+        actor: {
+          id: interaction.user.id,
+          username: interaction.user.username,
+        },
+        target: {
+          id: user.id,
+          username: user.username,
+        },
+        reason,
+      });
+
+      return interaction.reply({
+        content:
+          `✅ ${user.username} is now a former member.\n` +
+          `Reason: ${reason}`,
+        flags: MessageFlags.Ephemeral,
+      });
+
+      }
+    },
 };

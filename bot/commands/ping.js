@@ -1,7 +1,7 @@
 module.exports = {
-  name: 'ping',
+    name: "ping",
 
-  async execute(message) {
-    await message.reply('Pong!');
-  }
+    async execute(interaction) {
+        await interaction.reply("Pong!");
+    }
 };
