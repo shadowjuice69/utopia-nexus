@@ -4,7 +4,7 @@
       "id": "653534906277822494",
       "username": "shadowjuice69",
       "createdAt": "2026-07-08T19:06:34.337Z",
-      "xp": 515,
+      "xp": 565,
       "level": 3,
       "province": "Sumi Gaeshi",
       "coordinates": "4:9",
@@ -14,7 +14,7 @@
       "id": "775475061296463892",
       "username": "nicolaij1251",
       "createdAt": "2026-07-08T23:09:28.843Z",
-      "xp": 120,
+      "xp": 125,
       "level": 1,
       "kingdomRole": "Steward"
     },
@@ -33,7 +33,7 @@
       "status": "active",
       "removedAt": null,
       "removalReason": null,
-      "xp": 90,
+      "xp": 95,
       "level": 1,
       "kingdomRole": "Steward"
     },
@@ -115,7 +115,7 @@
       "province": "Tomoe-Nage",
       "coordinates": "4:9",
       "kingdomRole": "Member",
-      "xp": 150,
+      "xp": 160,
       "level": 1
     },
     {
@@ -241,6 +241,30 @@
         "username": "nicolaij1251"
       },
       "time": "2026-07-10T20:04:02.094Z"
+    },
+    {
+      "action": "REMOVE_ADMIN",
+      "actor": {
+        "id": "653534906277822494",
+        "username": "shadowjuice69"
+      },
+      "target": {
+        "id": "775475061296463892",
+        "username": "nicolaij1251"
+      },
+      "time": "2026-07-10T20:22:39.203Z"
+    },
+    {
+      "action": "ADD_ADMIN",
+      "actor": {
+        "id": "653534906277822494",
+        "username": "shadowjuice69"
+      },
+      "target": {
+        "id": "775475061296463892",
+        "username": "nicolaij1251"
+      },
+      "time": "2026-07-10T20:24:30.169Z"
     }
   ]
 }

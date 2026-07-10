@@ -38,6 +38,19 @@ const commands = [
         type: 1,
       },
       {
+        name: "member",
+        description: "View a member profile",
+        type: 1,
+        options: [
+          {
+            name: "user",
+            description: "User to view",
+            type: 6,
+            required: true,
+          },
+        ],
+      },
+      {
         name: "admin",
         description: "Verify admin access",
         type: 1,
@@ -52,7 +65,6 @@ const commands = [
         description: "View admin audit logs",
         type: 1,
       },
-
       {
         name: "addadmin",
         description: "Add a kingdom admin",
@@ -79,6 +91,7 @@ const commands = [
           },
         ],
       },
+
       {
         name: "restore",
         description: "Restore a removed member",
@@ -95,6 +108,25 @@ const commands = [
       {
         name: "remove",
         description: "Remove a member",
+        type: 1,
+        options: [
+          {
+            name: "user",
+            description: "User to remove",
+            type: 6,
+            required: true,
+          },
+          {
+            name: "reason",
+            description: "Reason for removal",
+            type: 3,
+            required: false,
+          },
+        ],
+      },
+      {
+        name: "removecheck",
+        description: "Preview a member removal",
         type: 1,
         options: [
           {

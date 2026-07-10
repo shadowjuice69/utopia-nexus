@@ -5,6 +5,11 @@ const leadershipHandler = require("./commands/leadershipHandler");
 const adminsHandler = require("./commands/adminsHandler");
 const wikiHandler = require("./commands/wikiHandler");
 const addadminHandler = require("./commands/addadminHandler");
+const removeadminHandler = require("./commands/removeadminHandler");
+const memberHandler = require("./commands/memberHandler");
+const roleHandler = require("./commands/roleHandler");
+const removeHandler = require("./commands/removeHandler");
+const removecheckHandler = require("./commands/removecheckHandler");
 
 module.exports = async function commandHandler(interaction) {
 
@@ -42,5 +47,25 @@ if (subcommand === "wiki") {
 
 if (subcommand === "addadmin") {
   return addadminHandler(interaction);
+}
+
+if (subcommand === "removeadmin") {
+  return removeadminHandler(interaction);
+}
+
+if (subcommand === "member") {
+  return memberHandler(interaction);
+}
+
+if (subcommand === "role") {
+  return roleHandler(interaction);
+}
+
+if (subcommand === "remove") {
+  return removeHandler(interaction);
+}
+
+if (subcommand === "removecheck") {
+  return removecheckHandler(interaction);
 }
 };
