@@ -133,24 +133,7 @@ if (subcommand === "resetage") {
       );
 
       return interaction.showModal(modal);
-    }
-
-
-    if (subcommand === "citizens") {
-      let reply = "🏰 Kingdom Roster\n\n";
-
-      db.data.users.forEach((member) => {
-        reply += `👤 <@${member.id}>\n`;
-        reply += `🏰 Province: ${member.province || "None"}\n`;
-        reply += `📍 Location: ${member.coordinates || "None"}\n`;
-        reply += `👑 Role: ${member.kingdomRole || "Member"}\n\n`;
-      });
-
-      return interaction.reply({
-        content: reply,
-        flags: MessageFlags.Ephemeral,
-      });
-    }
+     }
 
     if (subcommand === "leadership") {
       const leaders = db.data.users.filter(
