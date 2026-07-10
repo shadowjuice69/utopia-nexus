@@ -52,6 +52,7 @@ const commands = [
         description: "View admin audit logs",
         type: 1,
       },
+
       {
         name: "addadmin",
         description: "Add a kingdom admin",
@@ -146,6 +147,11 @@ const commands = [
             ],
           },
         ],
+      },
+      {
+        name: "wiki",
+        description: "Open the Utopia Nexus Wiki",
+        type: 1,
       },
     ],
   },
