@@ -69,30 +69,6 @@ return modalHandler(interaction);
       (u) => u.id === interaction.user.id
     );
 
-if (subcommand === "resetage") {
-  if (!permissionService.isOwner(interaction.user.id)) {
-    return interaction.reply({
-      content: "❌ Owner access required.",
-      flags: MessageFlags.Ephemeral,
-    });
-  }
-
-  const db = database.getDb();
-
-  db.data.users.forEach((member) => {
-    member.province = null;
-    member.coordinates = null;
-  });
-
-  await db.write();
-
-  return interaction.reply({
-    content:
-      "✅ New age reset complete. Provinces and coordinates have been cleared.",
-    flags: MessageFlags.Ephemeral,
-  });
-}
-
     if (subcommand === "register") {
       if (!user) {
         return interaction.reply({
@@ -152,38 +128,7 @@ if (subcommand === "resetage") {
     "✅ Admin access confirmed."
   );
 }
-
-    if (subcommand === "logs") {
-      if (!permissionService.isAdmin(interaction.user.id)) {
-        return interaction.reply({
-          content: "❌ Admin access required.",
-          flags: MessageFlags.Ephemeral,
-        });
-      }
-
-      const logs = db.data.logs || [];
-
-      if (!logs.length) {
-        return interaction.reply({
-          content: "📋 No admin logs found.",
-          flags: MessageFlags.Ephemeral,
-        });
-      }
-
-      let reply = "📋 Recent Admin Logs:\n\n";
-
-      logs.slice(-10).reverse().forEach((log) => {
-        reply += `• ${log.action}\n`;
-      });
-
-      return interaction.reply({
-        content: reply,
-        flags: MessageFlags.Ephemeral,
-      });
-    }
- 
-
-    if (subcommand === "addadmin") {
+      if (subcommand === "addadmin") {
       const roles = require("../config/roles");
 
       if (!permissionService.isOwner(interaction.user.id)) {
@@ -265,56 +210,10 @@ if (subcommand === "resetage") {
       return interaction.reply({
         content: `✅ ${user.username} is no longer an admin.`,
         flags: MessageFlags.Ephemeral,
-      });
+     });
     }
 
-    if (subcommand === "restore") {
-      const userService = require("../services/userService");
-
-      if (!permissionService.isAdmin(interaction.user.id)) {
-        return interaction.reply({
-          content: "❌ Admin access required.",
-          flags: MessageFlags.Ephemeral,
-        });
-      }
-
-      const user = interaction.options.getUser("user");
-
-      if (!user) {
-        return interaction.reply({
-          content: "❌ Select a user to restore.",
-          flags: MessageFlags.Ephemeral,
-        });
-      }
-
-      const restoredUser = await userService.restoreUser(user.id);
-
-      if (!restoredUser) {
-        return interaction.reply({
-          content: "❌ User profile not found.",
-          flags: MessageFlags.Ephemeral,
-        });
-      }
-
-      await auditService.log({
-        action: "RESTORE_MEMBER",
-        actor: {
-          id: interaction.user.id,
-          username: interaction.user.username,
-        },
-        target: {
-          id: user.id,
-          username: user.username,
-        },
-      });
-
-      return interaction.reply({
-        content: `✅ ${user.username} is now an active member again.`,
-        flags: MessageFlags.Ephemeral,
-      });
-    }
-
-    if (subcommand === "removecheck") {
+if (subcommand === "removecheck") {
       if (!permissionService.isAdmin(interaction.user.id)) {
         return interaction.reply({
           content: "❌ Admin access required.",

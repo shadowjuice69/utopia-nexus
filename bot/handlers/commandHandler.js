@@ -10,6 +10,9 @@ const memberHandler = require("./commands/memberHandler");
 const roleHandler = require("./commands/roleHandler");
 const removeHandler = require("./commands/removeHandler");
 const removecheckHandler = require("./commands/removecheckHandler");
+const logsHandler = require("./commands/logsHandler");
+const resetageHandler = require("./commands/resetageHandler");
+const restoreHandler = require("./commands/restoreHandler");
 
 module.exports = async function commandHandler(interaction) {
 
@@ -67,5 +70,17 @@ if (subcommand === "remove") {
 
 if (subcommand === "removecheck") {
   return removecheckHandler(interaction);
+}
+
+if (subcommand === "logs") {
+  return logsHandler(interaction);
+}
+
+if (subcommand === "resetage") {
+  return resetageHandler(interaction);
+}
+
+if (subcommand === "restore") {
+  return restoreHandler(interaction);
 }
 };
