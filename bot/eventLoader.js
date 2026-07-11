@@ -5,7 +5,7 @@ const logger = require("./services/logger");
 module.exports = (client) => {
   const eventFiles = fs
     .readdirSync(path.join(__dirname, "events"))
-    .filter(file => file.endsWith(".js"));
+    .filter(file => file.endsWith(".js") && !file.includes(".legacy"));
 
   for (const file of eventFiles) {
     const event = require(`./events/${file}`);

@@ -4,8 +4,8 @@
       "id": "653534906277822494",
       "username": "shadowjuice69",
       "createdAt": "2026-07-08T19:06:34.337Z",
-      "xp": 565,
-      "level": 3,
+      "xp": 620,
+      "level": 4,
       "province": "Sumi Gaeshi",
       "coordinates": "4:9",
       "kingdomRole": "Member"
@@ -14,7 +14,7 @@
       "id": "775475061296463892",
       "username": "nicolaij1251",
       "createdAt": "2026-07-08T23:09:28.843Z",
-      "xp": 125,
+      "xp": 145,
       "level": 1,
       "kingdomRole": "Steward"
     },
@@ -22,7 +22,7 @@
       "id": "991076208911482910",
       "username": "spider05158",
       "createdAt": "2026-07-08T23:14:40.398Z",
-      "xp": 80,
+      "xp": 110,
       "level": 1,
       "kingdomRole": "Monarch"
     },
@@ -33,7 +33,7 @@
       "status": "active",
       "removedAt": null,
       "removalReason": null,
-      "xp": 95,
+      "xp": 105,
       "level": 1,
       "kingdomRole": "Steward"
     },
@@ -54,7 +54,7 @@
       "status": "active",
       "removedAt": null,
       "removalReason": null,
-      "xp": 140,
+      "xp": 170,
       "level": 1
     },
     {
@@ -64,7 +64,7 @@
       "status": "active",
       "removedAt": null,
       "removalReason": null,
-      "xp": 410,
+      "xp": 445,
       "level": 3
     },
     {
@@ -102,7 +102,7 @@
       "province": "rstatyi",
       "coordinates": "dont know",
       "kingdomRole": "Member",
-      "xp": 265,
+      "xp": 300,
       "level": 2
     },
     {
@@ -115,8 +115,8 @@
       "province": "Tomoe-Nage",
       "coordinates": "4:9",
       "kingdomRole": "Member",
-      "xp": 160,
-      "level": 1
+      "xp": 215,
+      "level": 2
     },
     {
       "id": "266852430216560640",
