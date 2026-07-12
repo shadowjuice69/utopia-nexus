@@ -1,12 +1,15 @@
 const config = require("../config/config");
 const userService = require("../services/userService");
 const xpService = require("../services/xpService");
+const { saveOpsMessage } = require("../services/opsService");
 
 module.exports = {
   name: "messageCreate",
 
   async execute(message) {
     if (message.author.bot) return;
+
+if (!config.opsChannelIds.includes(message.channel.id)) return;
 
 await userService.getOrCreateUser(message.author);
 
@@ -17,6 +20,11 @@ if (xpResult && xpResult.leveledUp) {
     `🎉 ${message.author.username} reached Level ${xpResult.user.level}!`
   );
 }
+
+await saveOpsMessage({
+  msgId: message.id,
+  message: message.content
+});
 
     if (!message.content.startsWith(config.prefix)) return;
 
