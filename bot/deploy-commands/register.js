@@ -180,11 +180,26 @@ const commands = [
           },
         ],
       },
+
       {
-        name: "wiki",
-        description: "Open the Utopia Nexus Wiki",
-        type: 1,
-      },
+  name: "wiki",
+  description: "Open the Utopia Nexus Wiki",
+  type: 1,
+},
+{
+  name: "ask",
+  description: "Ask Utopia Nexus AI",
+  type: 1,
+  options: [
+    {
+      name: "question",
+      description: "Your Utopia question",
+      type: 3,
+      required: true,
+    },
+  ],
+},
+
     ],
   },
 ];

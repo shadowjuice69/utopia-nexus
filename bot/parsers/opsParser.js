@@ -61,9 +61,9 @@ function parseOpLine(line) {
   if (!match) return null;
 
   const attackerProvince = match[1]
-  .replace(/\s+\[[^\]]+\]/,"")
-  .replace(/\s+\S+#$/,"")
-  .trim();
+    .replace(/\s+\[[^\]]+\]/, "")
+    .replace(/\s+\S+#$/, "")
+    .trim();
 
   const op = match[2].toLowerCase().trim();
 
@@ -86,7 +86,7 @@ function parseOpLine(line) {
     targetProvince,
     targetKingdom,
     success: !resultText.includes("FAIL"),
-    resultValue: result ? Number(result[1].replace(/,/g,"")) : null,
+    resultValue: result ? Number(result[1].replace(/,/g, "")) : null,
     thievesSent: sent ? Number(sent[1]) : null,
     thievesLost: thiefLoss ? Number(thiefLoss[1]) : null,
     wizardsLost: wizardLoss ? Number(wizardLoss[1]) : null
@@ -95,9 +95,11 @@ function parseOpLine(line) {
 
 
 function parseAttackLine(line) {
-  line = cleanEmoji(line.trim());
+  line = line.trim();
 
   if (!line.includes("attacked")) return null;
+
+  line = cleanEmoji(line);
 
   const match = line.match(
     /^(.*?)\s+\[.*?\]\s+attacked\s+__(.*?)__\s+\((\d+:\d+)\)\|(.*)$/s
@@ -111,29 +113,56 @@ function parseAttackLine(line) {
 
   const fields = match[4];
 
+  const getNumber = (regex) => {
+    const result = fields.match(regex);
+    return result ? parseInt(result[1].replace(/,/g, ""), 10) : null;
+  };
 
-  let attackType = "unknown";
+  const acresCaptured = getNumber(
+    /captured:\s*\*\*([\d,]+)\*\*/
+  );
 
-  if (fields.includes("recaptured")) attackType = "Ambush";
-  else if (fields.includes("razed")) attackType = "Raze";
-  else if (fields.includes("plundered")) attackType = "Plunder";
-  else if (fields.includes("learn")) attackType = "Learn";
-  else if (fields.includes("killed")) attackType = "Massacre";
-  else if (fields.includes("captured")) attackType = "Conquest";
+  const offenseSent = getNumber(
+    /(\d+)off/
+  );
 
+  const peasants = getNumber(
+    /([\d,]+)\s+peasants/
+  );
 
-  const acres = fields.match(
-    /(?:captured|recaptured|razed):\s*\*\*(\d+)\*\*/
+  const specCredits = getNumber(
+    /([\d,]+)\s+spec creds/
+  );
+
+  const prisoners = getNumber(
+    /\(\+([\d,]+)\s+prisoners\)/
+  );
+
+  const kills = getNumber(
+    /kills:\s*\*\*([\d,]+)/
   );
 
 
+  // Default until verified conquest reports exist
+  let attackType = "traditional";
+
+  // Verified markers only
+  if (fields.toLowerCase().includes("ambush")) {
+    attackType = "ambush";
+  }
+
   return {
-    type:"attack",
+    type: "attack",
     attackType,
     attackerProvince,
     targetProvince,
     targetKingdom,
-    acresCaptured: acres ? Number(acres[1]) : null
+    acresCaptured,
+    offenseSent,
+    peasants,
+    specCredits,
+    kills,
+    prisoners
   };
 }
 
@@ -143,7 +172,7 @@ function parseOpsMessage(msgObj) {
   const atks = [];
 
   if (!msgObj || !msgObj.content) {
-    return {ops,atks};
+    return { ops, atks };
   }
 
 

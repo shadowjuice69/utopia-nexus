@@ -48,28 +48,12 @@ module.exports = {
     );
 
     for (const attack of parsed.atks) {
-      await saveAttack({
-        msgId: attack.msgId,
-        attackerProvince: attack.attackerProvince,
-        targetProvince: attack.targetProvince
-      });
+      await saveAttack(attack);
     }
 
-for (const op of parsed.ops) {
-  await saveHostileOp({
-    msgId: op.msgId,
-    attackerProvince: op.attackerProvince,
-    targetProvince: op.targetProvince,
-    targetKingdom: op.targetKingdom,
-    op: op.op,
-    category: op.category,
-    success: op.success,
-    resultValue: op.resultValue,
-    thievesSent: op.thievesSent,
-    thievesLost: op.thievesLost,
-    wizardsLost: op.wizardsLost
-  });
-}
+    for (const op of parsed.ops) {
+      await saveHostileOp(op);
+    }
 
     if (!message.content.startsWith(config.prefix)) return;
 

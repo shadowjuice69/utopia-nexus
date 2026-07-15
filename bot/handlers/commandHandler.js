@@ -15,6 +15,7 @@ const resetageHandler = require("./commands/resetageHandler");
 const restoreHandler = require("./commands/restoreHandler");
 const registerHandler = require("./commands/registerHandler");
 const adminHandler = require("./commands/adminHandler");
+const askHandler = require("./commands/askHandler");
 
 module.exports = async function commandHandler(interaction) {
 
@@ -48,6 +49,10 @@ module.exports = async function commandHandler(interaction) {
 
 if (subcommand === "wiki") {
     return wikiHandler(interaction);
+}
+
+if (subcommand === "ask") {
+    return askHandler(interaction);
 }
 
 if (subcommand === "addadmin") {
