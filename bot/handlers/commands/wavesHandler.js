@@ -19,7 +19,6 @@ const TIMEZONE_OFFSETS = {
 };
 
 function parseTimeToHour(timeStr) {
-  // Parse times like "7am", "11pm", "7:00am", "23:00"
   timeStr = timeStr.trim().toLowerCase();
   const ampm = timeStr.match(/(\d+)(?::(\d+))?\s*(am|pm)/);
   if (ampm) {
@@ -35,15 +34,22 @@ function parseTimeToHour(timeStr) {
 }
 
 function localHourToTick(localHour, tzOffset) {
-  // Convert local hour to UTC hour
   const utcHour = ((localHour - tzOffset) % 24 + 24) % 24;
-  // Convert UTC hour to tick (tick 1 = UTOPIA_DAY_START_UTC)
   const tick = ((utcHour - UTOPIA_DAY_START_UTC) % 24 + 24) % 24 + 1;
   return tick;
 }
 
-function tickToUTC(tick) {
-  return ((UTOPIA_DAY_START_UTC + tick - 1) % 24);
+function tickToLocalHour(tick, tzOffset) {
+  const utcHour = (UTOPIA_DAY_START_UTC + tick - 1) % 24;
+  const localHour = ((utcHour + tzOffset) % 24 + 24) % 24;
+  return localHour;
+}
+
+function formatHour(h) {
+  if (h === 0) return "12am";
+  if (h === 12) return "12pm";
+  if (h < 12) return `${h}am`;
+  return `${h - 12}pm`;
 }
 
 module.exports = async function wavesHandler(interaction) {
@@ -53,6 +59,16 @@ module.exports = async function wavesHandler(interaction) {
   }
 
   await interaction.deferReply({ ephemeral: false });
+
+  // Get caller's timezone from their province registration
+  const { data: callerProvince } = await supabase
+    .from("provinces")
+    .select("timezone, name")
+    .eq("discord_id", interaction.user.id)
+    .limit(1);
+
+  const callerTZ = callerProvince?.[0]?.timezone?.trim().toUpperCase() || "UTC";
+  const callerOffset = TIMEZONE_OFFSETS[callerTZ] ?? 0;
 
   const { data: provinces, error } = await supabase
     .from("provinces")
@@ -73,7 +89,6 @@ module.exports = async function wavesHandler(interaction) {
     const offset = TIMEZONE_OFFSETS[tzKey];
     if (offset === undefined) continue;
 
-    // Parse wave times like "7am-11pm" or "7am-11pm, 2pm-5pm"
     const ranges = p.wave_times.split(",");
     for (const range of ranges) {
       const parts = range.trim().split("-");
@@ -85,12 +100,9 @@ module.exports = async function wavesHandler(interaction) {
       const startTick = localHourToTick(startHour, offset);
       const endTick = localHourToTick(endHour, offset);
 
-      // Fill ticks in range
       let t = startTick;
-      const maxIter = 24;
       let iter = 0;
-      while (t !== endTick && iter < maxIter) {
-        if (!tickMap[t]) tickMap[t] = [];
+      while (t !== endTick && iter < 24) {
         tickMap[t].push({
           name: p.name || "Unknown",
           race: p.race || "?",
@@ -103,24 +115,24 @@ module.exports = async function wavesHandler(interaction) {
     }
   }
 
-  // Get current UTC hour and tick
   const nowUTC = new Date().getUTCHours();
   const currentTick = ((nowUTC - UTOPIA_DAY_START_UTC) % 24 + 24) % 24 + 1;
+  const currentLocal = formatHour(tickToLocalHour(currentTick, callerOffset));
 
   let response = `⚔️ **Kingdom Wave Schedule**\n`;
-  response += `🕐 Current Tick: **${currentTick}** (${nowUTC}:00 UTC)\n\n`;
+  response += `🕐 Current Tick: **${currentTick}** (${currentLocal} ${callerTZ})\n\n`;
 
-  // Show next 12 ticks
   for (let i = 0; i < 12; i++) {
     const tick = ((currentTick - 1 + i) % 24) + 1;
-    const utcH = tickToUTC(tick);
+    const localH = tickToLocalHour(tick, callerOffset);
+    const localTime = formatHour(localH);
     const members = tickMap[tick] || [];
     const attackers = members.filter(m => m.role.toLowerCase().includes("attack"));
     const mages = members.filter(m => m.role.toLowerCase().includes("mage") || m.role.toLowerCase().includes("hybrid"));
     const thieves = members.filter(m => m.role.toLowerCase().includes("thief"));
 
     const indicator = i === 0 ? " ← NOW" : "";
-    response += `**Tick ${tick}** (${utcH}:00 UTC)${indicator}\n`;
+    response += `**Tick ${tick}** (${localTime} ${callerTZ})${indicator}\n`;
 
     if (members.length === 0) {
       response += `  😴 No one available\n`;
