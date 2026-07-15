@@ -182,6 +182,11 @@ const commands = [
       },
 
       {
+        name: 'analyze-war',
+        description: 'AI war analysis — what happened, who is winning, recommended actions',
+        type: 1,
+      },
+      {
   name: "wiki",
   description: "Open the Utopia Nexus Wiki",
   type: 1,
