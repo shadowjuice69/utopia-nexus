@@ -11,9 +11,14 @@ async function getWarData() {
     const [attacks, hostileOps, intelMilitary, intelThrone] = await Promise.all([
       supabase.from("attacks").select("*").gte("timestamp", since).order("timestamp", { ascending: false }).limit(50),
       supabase.from("hostile_ops").select("*").gte("timestamp", since).order("timestamp", { ascending: false }).limit(100),
-      supabase.from("intel_military").select("*").order("updated_at", { ascending: false }).limit(20),
-      supabase.from("intel_throne").select("*").order("updated_at", { ascending: false }).limit(20),
+      supabase.from("intel_military").select("*").limit(20),
+      supabase.from("intel_throne").select("*").limit(20),
     ]);
+
+    if (attacks.error) logger.error(`[ATTACKS ERROR] ${attacks.error.message}`);
+    if (hostileOps.error) logger.error(`[OPS ERROR] ${hostileOps.error.message}`);
+    if (intelMilitary.error) logger.error(`[INTEL MIL ERROR] ${intelMilitary.error.message}`);
+    if (intelThrone.error) logger.error(`[INTEL THRONE ERROR] ${intelThrone.error.message}`);
 
     return {
       attacks: attacks.data || [],
@@ -33,29 +38,29 @@ async function analyzeWar() {
 
   const { attacks, hostileOps, intelMilitary, intelThrone } = data;
 
+  logger.info(`[WAR DATA] attacks=${attacks.length} ops=${hostileOps.length} mil=${intelMilitary.length} throne=${intelThrone.length}`);
+
   if (attacks.length === 0 && hostileOps.length === 0) {
     return "No war activity found in the last 72 hours.";
   }
 
   const attackSummary = attacks.map(a =>
-    `${a.attacker_province} → ${a.target_province} (${a.attack_type}, ${a.acres_captured || 0} acres, ${a.timestamp})`
+    `${a.attacker_province} → ${a.target_province} (${a.attack_type}, ${a.acres_captured || 0} acres)`
   ).join("\n");
 
   const opsSummary = hostileOps.map(o =>
-    `${o.attacker_province} → ${o.target_province}: ${o.operation} [${o.success ? "SUCCESS" : "FAIL"}] (${o.timestamp})`
+    `${o.attacker_province} → ${o.target_province}: ${o.operation} [${o.success ? "SUCCESS" : "FAIL"}]`
   ).join("\n");
 
   const militarySummary = intelMilitary.map(m =>
-    `${m.province_name}: Off=${m.offense_points || "?"} Def=${m.defense_points || "?"} NW=${m.networth || "?"}`
+    JSON.stringify(m)
   ).join("\n");
 
   const throneSummary = intelThrone.map(t =>
-    `${t.province_name}: Race=${t.race || "?"} Personality=${t.personality || "?"} Land=${t.land || "?"} NW=${t.networth || "?"}`
+    JSON.stringify(t)
   ).join("\n");
 
-  const prompt = `You are a Utopia war strategist analyzing an active war for kingdom Judo (coordinates 4:9 on WoL).
-
-Here is the war data from the last 72 hours:
+  const prompt = `You are a Utopia war strategist analyzing an active war for kingdom Judo (4:9 WoL).
 
 ATTACKS (${attacks.length} total):
 ${attackSummary || "None"}
@@ -69,31 +74,42 @@ ${militarySummary || "None available"}
 ENEMY THRONE INTEL:
 ${throneSummary || "None available"}
 
-Please analyze this war and provide:
-1. WHAT HAPPENED - Summary of key events
-2. WHO IS WINNING - Based on land gained/lost and op damage
-3. ENEMY WEAKNESSES - Provinces that are vulnerable based on intel
-4. RECOMMENDED ACTIONS - Specific targets and strategies for next 24 hours
+Analyze this war:
+1. WHAT HAPPENED
+2. WHO IS WINNING
+3. ENEMY WEAKNESSES
+4. RECOMMENDED ACTIONS
 
 Keep it concise and tactical. Use Utopia terminology.`;
 
   try {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { maxOutputTokens: 1000 }
-        })
-      }
-    );
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${process.env.GROQ_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: "llama-3.3-70b-versatile",
+        messages: [{ role: "user", content: prompt }],
+        max_tokens: 1000
+      })
+    });
 
     const result = await response.json();
-    return result.candidates[0].content.parts[0].text;
+    logger.info(`[GROQ RAW] ${JSON.stringify(result).substring(0, 200)}`);
+
+    if (result.choices?.[0]?.message?.content) {
+      return result.choices[0].message.content;
+    }
+
+    if (result.error) {
+      return `Groq API Error: ${result.error.message}`;
+    }
+
+    return `Unexpected response: ${JSON.stringify(result).substring(0, 200)}`;
   } catch (err) {
-    logger.error(`[GEMINI API ERROR] ${err.message}`);
+    logger.error(`[GROQ API ERROR] ${err.message}`);
     return null;
   }
 }
