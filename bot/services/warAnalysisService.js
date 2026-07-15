@@ -6,35 +6,13 @@ async function getWarData() {
   if (!supabase) return null;
 
   try {
-    // Get recent attacks (last 72 hours)
     const since = new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString();
 
     const [attacks, hostileOps, intelMilitary, intelThrone] = await Promise.all([
-      supabase
-        .from("attacks")
-        .select("*")
-        .gte("timestamp", since)
-        .order("timestamp", { ascending: false })
-        .limit(50),
-
-      supabase
-        .from("hostile_ops")
-        .select("*")
-        .gte("timestamp", since)
-        .order("timestamp", { ascending: false })
-        .limit(100),
-
-      supabase
-        .from("intel_military")
-        .select("*")
-        .order("updated_at", { ascending: false })
-        .limit(20),
-
-      supabase
-        .from("intel_throne")
-        .select("*")
-        .order("updated_at", { ascending: false })
-        .limit(20),
+      supabase.from("attacks").select("*").gte("timestamp", since).order("timestamp", { ascending: false }).limit(50),
+      supabase.from("hostile_ops").select("*").gte("timestamp", since).order("timestamp", { ascending: false }).limit(100),
+      supabase.from("intel_military").select("*").order("updated_at", { ascending: false }).limit(20),
+      supabase.from("intel_throne").select("*").order("updated_at", { ascending: false }).limit(20),
     ]);
 
     return {
@@ -59,7 +37,6 @@ async function analyzeWar() {
     return "No war activity found in the last 72 hours.";
   }
 
-  // Build summary for Claude
   const attackSummary = attacks.map(a =>
     `${a.attacker_province} → ${a.target_province} (${a.attack_type}, ${a.acres_captured || 0} acres, ${a.timestamp})`
   ).join("\n");
@@ -90,28 +67,35 @@ ENEMY MILITARY INTEL:
 ${militarySummary || "None available"}
 
 ENEMY THRONE INTEL:
-${t
-cat > ~/utopia-nexus/bot/handlers/commands/analyzeWarHandler.js << 'EOF'
-const { analyzeWar } = require("../../services/warAnalysisService");
+${throneSummary || "None available"}
 
-module.exports = async function analyzeWarHandler(interaction) {
-  await interaction.deferReply({ ephemeral: true });
+Please analyze this war and provide:
+1. WHAT HAPPENED - Summary of key events
+2. WHO IS WINNING - Based on land gained/lost and op damage
+3. ENEMY WEAKNESSES - Provinces that are vulnerable based on intel
+4. RECOMMENDED ACTIONS - Specific targets and strategies for next 24 hours
 
-  const analysis = await analyzeWar();
+Keep it concise and tactical. Use Utopia terminology.`;
 
-  if (!analysis) {
-    await interaction.editReply("⚠️ Could not retrieve war data. Check database connection.");
-    return;
+  try {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { maxOutputTokens: 1000 }
+        })
+      }
+    );
+
+    const result = await response.json();
+    return result.candidates[0].content.parts[0].text;
+  } catch (err) {
+    logger.error(`[GEMINI API ERROR] ${err.message}`);
+    return null;
   }
+}
 
-  // Split if over Discord 2000 char limit
-  if (analysis.length <= 1900) {
-    await interaction.editReply(`⚔️ **War Analysis**\n\n${analysis}`);
-  } else {
-    const chunks = analysis.match(/.{1,1900}/gs);
-    await interaction.editReply(`⚔️ **War Analysis**\n\n${chunks[0]}`);
-    for (let i = 1; i < chunks.length; i++) {
-      await interaction.followUp({ content: chunks[i], ephemeral: true });
-    }
-  }
-};
+module.exports = { analyzeWar };
