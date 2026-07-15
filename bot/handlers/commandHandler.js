@@ -16,6 +16,7 @@ const restoreHandler = require("./commands/restoreHandler");
 const registerHandler = require("./commands/registerHandler");
 const adminHandler = require("./commands/adminHandler");
 const askHandler = require("./commands/askHandler");
+const wavesHandler = require("./commands/wavesHandler");
 const analyzeWarHandler = require("./commands/analyzeWarHandler");
 
 module.exports = async function commandHandler(interaction) {
@@ -43,5 +44,6 @@ module.exports = async function commandHandler(interaction) {
   if (subcommand === "register") return registerHandler(interaction);
   if (subcommand === "admin") return adminHandler(interaction);
   if (subcommand === "restore") return restoreHandler(interaction);
+  if (subcommand === "waves") return wavesHandler(interaction);
   if (subcommand === "analyze-war") return analyzeWarHandler(interaction);
 };

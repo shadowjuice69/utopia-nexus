@@ -8,7 +8,12 @@
       "level": 4,
       "province": "Sumi Gaeshi",
       "coordinates": "4:9",
-      "kingdomRole": "Member"
+      "kingdomRole": "Member",
+      "_reg_race": "Avian",
+      "_reg_personality": "WarHero",
+      "_reg_play_role": "Attacker",
+      "timezone": "CST",
+      "wave_times": "7am-11pm"
     },
     {
       "id": "775475061296463892",

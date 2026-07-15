@@ -182,6 +182,11 @@ const commands = [
       },
 
       {
+        name: 'waves',
+        description: 'Show kingdom wave schedule — who is available at each tick',
+        type: 1,
+      },
+      {
         name: 'analyze-war',
         description: 'AI war analysis — what happened, who is winning, recommended actions',
         type: 1,
