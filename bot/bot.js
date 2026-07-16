@@ -6,6 +6,9 @@ const logger = require("./services/logger");
 const validator = require("./services/validator");
 const errorHandler = require("./services/errorHandler");
 const database = require("./services/database");
+const { startAlertLoop } = require("./services/alertService");
+const { startAgeWatch } = require("./services/ageWatchService");
+const intelReceiver = require("./services/intelReceiver");
 
 const client = new Client({
   intents: [
@@ -16,22 +19,16 @@ const client = new Client({
 });
 
 errorHandler.attach(client);
-
 loadEvents(client);
-
 logger.info("🚀 Utopia Nexus Bot Starting...");
-
 validator.checkEnv();
-
 database.connect();
 
-client.login(process.env.DISCORD_TOKEN);
-
-// Start intel HTTP receiver
-require("./services/intelReceiver").start();
-
-// Start alert loop
-const { startAlertLoop } = require("./services/alertService");
 client.once("ready", () => {
+  logger.info(`✅ Bot online as ${client.user.tag}`);
   startAlertLoop(client);
+  startAgeWatch(client);
 });
+
+intelReceiver.start();
+client.login(process.env.DISCORD_TOKEN);
