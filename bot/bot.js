@@ -26,3 +26,6 @@ validator.checkEnv();
 database.connect();
 
 client.login(process.env.DISCORD_TOKEN);
+
+// Start intel HTTP receiver
+require("./services/intelReceiver").start();

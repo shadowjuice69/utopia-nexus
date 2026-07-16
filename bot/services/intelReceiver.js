@@ -1,0 +1,142 @@
+const http = require("http");
+const supabaseService = require("./supabase");
+const logger = require("./logger");
+
+const INTEL_KEY = process.env.INTEL_KEY || "";
+const PORT = parseInt(process.env.PORT || "3000", 10);
+const MY_KD = process.env.MY_KD || "4:9";
+
+function readBody(req) {
+  return new Promise((resolve, reject) => {
+    let body = "";
+    req.on("data", chunk => body += chunk);
+    req.on("end", () => resolve(body));
+    req.on("error", reject);
+  });
+}
+
+function parseIntel(url, prov, text) {
+  const result = { url, prov, updated: new Date().toISOString() };
+  const kdMatch = url.match(/kd[=\/](\d+:\d+)/) || text.match(/\((\d+:\d+)\)/);
+  result.kd = kdMatch ? kdMatch[1] : MY_KD;
+
+  if (url.includes("throne")) {
+    result.type = "throne";
+    const lines = text.split("\n").map(s => s.trim()).filter(Boolean);
+    const get = (label) => {
+      for (const line of lines) {
+        const parts = line.split("\t");
+        for (let i = 0; i < parts.length - 1; i++) {
+          if (parts[i].toLowerCase().trim() === label.toLowerCase()) return parts[i+1].trim();
+        }
+      }
+      return null;
+    };
+    result.data = {
+      race: get("Race"), personality: get("Personality") || get("Class"),
+      ruler: get("Ruler"), land: get("Land") || get("Acres"),
+      networth: get("Networth") || get("Net Worth"), honor: get("Honor"),
+      offense: get("Off. Points") || get("Offense"),
+      defense: get("Def. Points") || get("Defense"),
+      be: get("Building Eff.") || get("BE"),
+      peasants: get("Peasants"),
+    };
+  } else if (url.includes("survey")) {
+    result.type = "survey";
+    const buildings = {};
+    text.split("\n").forEach(l => {
+      const m = l.match(/^(.+?)\s+([\d,]+)\s*\(([\d.]+)%\)/);
+      if (m) buildings[m[1].trim()] = { count: parseInt(m[2].replace(/,/g,""),10), pct: parseFloat(m[3]) };
+    });
+    result.data = { buildings };
+  } else if (url.includes("som") || url.includes("military")) {
+    result.type = "som";
+    let offense = null, defense = null, generals = null;
+    text.split("\n").forEach(l => {
+      let m;
+      if ((m = l.match(/Offense[^\d]*([\d,]+)/i))) offense = parseInt(m[1].replace(/,/g,""),10);
+      if ((m = l.match(/Defense[^\d]*([\d,]+)/i))) defense = parseInt(m[1].replace(/,/g,""),10);
+      if ((m = l.match(/Generals?[^\d]*(\d)/i))) generals = parseInt(m[1],10);
+    });
+    result.data = { offense, defense, generals };
+  } else {
+    result.type = "unknown";
+    result.data = { text };
+  }
+  return result;
+}
+
+async function saveIntel(parsed, prov) {
+  const sb = supabaseService.getClient();
+  if (!sb) return;
+  try {
+    if (parsed.type === "throne") {
+      await sb.from("intel_throne").upsert({
+        province: prov, kd_code: parsed.kd, ...parsed.data,
+        updated_at: new Date().toISOString()
+      }, { onConflict: "province,kd_code" });
+    } else if (parsed.type === "som") {
+      await sb.from("intel_military").upsert({
+        province: prov, kd_code: parsed.kd, ...parsed.data,
+        updated_at: new Date().toISOString()
+      }, { onConflict: "province,kd_code" });
+    } else if (parsed.type === "survey") {
+      await sb.from("intel_buildings").upsert({
+        province: prov, kd_code: parsed.kd, ...parsed.data,
+        updated_at: new Date().toISOString()
+      }, { onConflict: "province,kd_code" });
+    }
+    logger.info(`[INTEL SAVED] ${parsed.type} for ${prov}`);
+  } catch(e) {
+    logger.error(`[INTEL ERROR] ${e.message}`);
+  }
+}
+
+function start() {
+  const server = http.createServer(async (req, res) => {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "POST, GET, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+    if (req.method === "OPTIONS") { res.writeHead(200); res.end(); return; }
+
+    if (req.method === "GET" && req.url === "/") {
+      res.writeHead(200, { "Content-Type": "text/plain" });
+      res.end("Utopia Nexus — intel receiver online");
+      return;
+    }
+
+    if (req.method === "POST" && req.url === "/intel") {
+      try {
+        const raw = await readBody(req);
+        const params = new URLSearchParams(raw);
+        const key = params.get("key") || "";
+        const data_simple = params.get("data_simple") || "";
+        const url = params.get("url") || "";
+        const prov = params.get("prov") || "";
+
+        if (INTEL_KEY && key !== INTEL_KEY) {
+          res.writeHead(403); res.end("forbidden"); return;
+        }
+        if (!prov || !data_simple) {
+          res.writeHead(400); res.end("missing data"); return;
+        }
+
+        const parsed = parseIntel(url, prov, data_simple);
+        await saveIntel(parsed, prov);
+        res.writeHead(200); res.end("ok");
+      } catch(e) {
+        logger.error(`[INTEL RECEIVER] ${e.message}`);
+        res.writeHead(500); res.end("error");
+      }
+      return;
+    }
+
+    res.writeHead(404); res.end("not found");
+  });
+
+  server.listen(PORT, () => {
+    logger.info(`[INTEL RECEIVER] listening on port ${PORT}`);
+  });
+}
+
+module.exports = { start };
