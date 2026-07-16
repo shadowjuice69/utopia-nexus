@@ -18,6 +18,7 @@ const commands = [
       { name: "analyze-war", description: "AI war analysis", type: 1 },
       { name: "wiki", description: "Open the Utopia Nexus Wiki", type: 1 },
       { name: "alerts", description: "View all alerts", type: 1 },
+      { name: "status", description: "Quick kingdom health check", type: 1 },
       { name: "ask", description: "Ask Utopia Nexus AI", type: 1, options: [{ name: "question", description: "Your question", type: 3, required: true }] },
       { name: "member", description: "View a member profile", type: 1, options: [{ name: "user", description: "User to view", type: 6, required: true }] },
       { name: "addadmin", description: "Add a kingdom admin", type: 1, options: [{ name: "user", description: "User to promote", type: 6, required: true }] },
@@ -27,7 +28,14 @@ const commands = [
       { name: "removecheck", description: "Preview a member removal", type: 1, options: [{ name: "user", description: "User to remove", type: 6, required: true }, { name: "reason", description: "Reason", type: 3, required: false }] },
       { name: "role", description: "Assign a kingdom role", type: 1, options: [{ name: "user", description: "User", type: 6, required: true }, { name: "role", description: "Role", type: 3, required: true, choices: [{ name: "Monarch", value: "Monarch" }, { name: "Steward", value: "Steward" }, { name: "War Leader", value: "War Leader" }, { name: "Member", value: "Member" }] }] },
       { name: "setalert", description: "Set a tick-based alert", type: 1, options: [{ name: "label", description: "Alert name", type: 3, required: true }, { name: "ticks", description: "Comma-separated ticks e.g. 3,4,5", type: 3, required: true }, { name: "message", description: "Message to send", type: 3, required: true }, { name: "channel", description: "Channel to alert in", type: 7, required: false }, { name: "role", description: "Role to ping", type: 8, required: false }] },
-      { name: "deletealert", description: "Delete an alert", type: 1, options: [{ name: "label", description: "Alert label to delete", type: 3, required: true }] }
+      { name: "deletealert", description: "Delete an alert", type: 1, options: [{ name: "label", description: "Alert label to delete", type: 3, required: true }] },
+      { name: "target", description: "Look up enemy province intel", type: 1, options: [{ name: "province", description: "Province name to look up", type: 3, required: true }] },
+      { name: "war", description: "Declare or manage active war", type: 1, options: [
+        { name: "action", description: "Action to take", type: 3, required: true, choices: [{ name: "Declare", value: "declare" }, { name: "End", value: "end" }, { name: "Status", value: "status" }] },
+        { name: "kingdom", description: "Enemy kingdom name", type: 3, required: false },
+        { name: "coords", description: "Enemy coordinates e.g. 5:2", type: 3, required: false },
+        { name: "notes", description: "War notes", type: 3, required: false }
+      ]}
     ]
   }
 ];
