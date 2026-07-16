@@ -20,6 +20,7 @@ const wavesHandler = require("./commands/wavesHandler");
 const analyzeWarHandler = require("./commands/analyzeWarHandler");
 const setalertHandler = require("./commands/setalertHandler");
 const alertsHandler = require("./commands/alertsHandler");
+const deletealertHandler = require("./commands/deletealertHandler");
 
 module.exports = async function commandHandler(interaction) {
   if (interaction.commandName !== "utopia") return;
@@ -48,4 +49,5 @@ module.exports = async function commandHandler(interaction) {
   if (subcommand === "analyze-war") return analyzeWarHandler(interaction);
   if (subcommand === "setalert") return setalertHandler(interaction);
   if (subcommand === "alerts") return alertsHandler(interaction);
+  if (subcommand === "deletealert") return deletealertHandler(interaction);
 };
