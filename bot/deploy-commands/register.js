@@ -7,228 +7,88 @@ const commands = [
     name: "utopia",
     description: "Utopia Nexus kingdom commands",
     options: [
+      { name: "register", description: "Register your province", type: 1 },
+      { name: "province", description: "View your province profile", type: 1 },
+      { name: "profile", description: "View your profile", type: 1 },
+      { name: "citizens", description: "View kingdom citizens", type: 1 },
+      { name: "leadership", description: "View kingdom leadership", type: 1 },
+      { name: "admins", description: "View kingdom admins", type: 1 },
+      { name: "admin", description: "Verify admin access", type: 1 },
+      { name: "resetage", description: "Reset all province names and coordinates for a new age", type: 1 },
+      { name: "logs", description: "View admin audit logs", type: 1 },
+      { name: "waves", description: "Show kingdom wave schedule", type: 1 },
+      { name: "analyze-war", description: "AI war analysis", type: 1 },
+      { name: "wiki", description: "Open the Utopia Nexus Wiki", type: 1 },
       {
-        name: "register",
-        description: "Register your province",
-        type: 1,
+        name: "ask", description: "Ask Utopia Nexus AI", type: 1,
+        options: [{ name: "question", description: "Your Utopia question", type: 3, required: true }]
       },
       {
-        name: "province",
-        description: "View your province profile",
-        type: 1,
+        name: "member", description: "View a member profile", type: 1,
+        options: [{ name: "user", description: "User to view", type: 6, required: true }]
       },
       {
-        name: "profile",
-        description: "View your profile",
-        type: 1,
+        name: "addadmin", description: "Add a kingdom admin", type: 1,
+        options: [{ name: "user", description: "User to promote", type: 6, required: true }]
       },
       {
-        name: "citizens",
-        description: "View kingdom citizens",
-        type: 1,
+        name: "removeadmin", description: "Remove a kingdom admin", type: 1,
+        options: [{ name: "user", description: "User to remove", type: 6, required: true }]
       },
       {
-        name: "leadership",
-        description: "View kingdom leadership",
-        type: 1,
+        name: "restore", description: "Restore a removed member", type: 1,
+        options: [{ name: "user", description: "User to restore", type: 6, required: true }]
       },
       {
-        name: "admins",
-        description: "View kingdom admins",
-        type: 1,
-      },
-      {
-        name: "member",
-        description: "View a member profile",
-        type: 1,
+        name: "remove", description: "Remove a member", type: 1,
         options: [
-          {
-            name: "user",
-            description: "User to view",
-            type: 6,
-            required: true,
-          },
-        ],
+          { name: "user", description: "User to remove", type: 6, required: true },
+          { name: "reason", description: "Reason for removal", type: 3, required: false }
+        ]
       },
       {
-        name: "admin",
-        description: "Verify admin access",
-        type: 1,
-      },
-      {
-        name: "resetage",
-        description: "Reset all province names and coordinates for a new age",
-        type: 1,
-      },
-      {
-        name: "logs",
-        description: "View admin audit logs",
-        type: 1,
-      },
-      {
-        name: "addadmin",
-        description: "Add a kingdom admin",
-        type: 1,
+        name: "removecheck", description: "Preview a member removal", type: 1,
         options: [
-          {
-            name: "user",
-            description: "User to promote to admin",
-            type: 6,
-            required: true,
-          },
-        ],
+          { name: "user", description: "User to remove", type: 6, required: true },
+          { name: "reason", description: "Reason for removal", type: 3, required: false }
+        ]
       },
       {
-        name: "removeadmin",
-        description: "Remove a kingdom admin",
-        type: 1,
+        name: "role", description: "Assign a kingdom role", type: 1,
         options: [
+          { name: "user", description: "User to assign role to", type: 6, required: true },
           {
-            name: "user",
-            description: "User to remove from admin",
-            type: 6,
-            required: true,
-          },
-        ],
-      },
-
-      {
-        name: "restore",
-        description: "Restore a removed member",
-        type: 1,
-        options: [
-          {
-            name: "user",
-            description: "User to restore",
-            type: 6,
-            required: true,
-          },
-        ],
-      },
-      {
-        name: "remove",
-        description: "Remove a member",
-        type: 1,
-        options: [
-          {
-            name: "user",
-            description: "User to remove",
-            type: 6,
-            required: true,
-          },
-          {
-            name: "reason",
-            description: "Reason for removal",
-            type: 3,
-            required: false,
-          },
-        ],
-      },
-      {
-        name: "removecheck",
-        description: "Preview a member removal",
-        type: 1,
-        options: [
-          {
-            name: "user",
-            description: "User to remove",
-            type: 6,
-            required: true,
-          },
-          {
-            name: "reason",
-            description: "Reason for removal",
-            type: 3,
-            required: false,
-          },
-        ],
-      },
-      {
-        name: "role",
-        description: "Assign a kingdom role",
-        type: 1,
-        options: [
-          {
-            name: "user",
-            description: "User to assign role to",
-            type: 6,
-            required: true,
-          },
-          {
-            name: "role",
-            description: "Kingdom role",
-            type: 3,
-            required: true,
+            name: "role", description: "Kingdom role", type: 3, required: true,
             choices: [
-              {
-                name: "Monarch",
-                value: "Monarch",
-              },
-              {
-                name: "Steward",
-                value: "Steward",
-              },
-              {
-                name: "War Leader",
-                value: "War Leader",
-              },
-              {
-                name: "Member",
-                value: "Member",
-              },
-            ],
-          },
-        ],
-      },
-
-      {
-        name: 'waves',
-        description: 'Show kingdom wave schedule — who is available at each tick',
-        type: 1,
+              { name: "Monarch", value: "Monarch" },
+              { name: "Steward", value: "Steward" },
+              { name: "War Leader", value: "War Leader" },
+              { name: "Member", value: "Member" }
+            ]
+          }
+        ]
       },
       {
-        name: 'analyze-war',
-        description: 'AI war analysis — what happened, who is winning, recommended actions',
-        type: 1,
+        name: "setalert", description: "Set a tick-based alert", type: 1,
+        options: [
+          { name: "label", description: "Alert name (e.g. Wave 1)", type: 3, required: true },
+          { name: "ticks", description: "Comma-separated tick numbers (e.g. 3,4,5)", type: 3, required: true },
+          { name: "message", description: "Message to send when alert fires", type: 3, required: true },
+          { name: "channel", description: "Channel to send alert in", type: 7, required: false },
+          { name: "role", description: "Role to ping", type: 8, required: false }
+        ]
       },
-      {
-  name: "wiki",
-  description: "Open the Utopia Nexus Wiki",
-  type: 1,
-},
-{
-  name: "ask",
-  description: "Ask Utopia Nexus AI",
-  type: 1,
-  options: [
-    {
-      name: "question",
-      description: "Your Utopia question",
-      type: 3,
-      required: true,
-    },
-  ],
-},
-
-    ],
-  },
+      { name: "alerts", description: "View all alerts", type: 1 },
+    ]
+  }
 ];
 
-const rest = new REST({ version: "10" }).setToken(
-  process.env.DISCORD_TOKEN
-);
+const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
 
 (async () => {
   try {
     console.log("Started refreshing application commands.");
-
-    await rest.put(
-      Routes.applicationCommands(process.env.CLIENT_ID),
-      {
-        body: commands,
-      }
-    );
-
+    await rest.put(Routes.applicationCommands(process.env.CLIENT_ID), { body: commands });
     console.log("Successfully reloaded application commands.");
   } catch (error) {
     console.error(error);
