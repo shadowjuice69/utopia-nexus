@@ -1,53 +1,36 @@
 const config = require("../config/config");
 const userService = require("../services/userService");
 const xpService = require("../services/xpService");
-const { saveOpsMessage, saveAttack, saveHostileOp } = require("../services/opsService");
+const { saveOpsMessage, saveAttack, saveHostileOp, saveSpell } = require("../services/opsService");
 const { parseOpsMessage } = require("../parsers/opsParser");
 
-const UTOPIABOT_IDS = new Set(
-  (process.env.UTOPIABOT_IDS || "").split(",").map(s => s.trim()).filter(Boolean)
-);
+const UTOPIABOT_IDS = new Set((process.env.UTOPIABOT_IDS || "").split(",").map(s => s.trim()).filter(Boolean));
 
 module.exports = {
   name: "messageCreate",
-
   async execute(message) {
     const isOpsChannel = config.opsChannelIds.includes(message.channel.id);
     const isAttackChannel = config.attackChannelIds.includes(message.channel.id);
-
     if (!isOpsChannel && !isAttackChannel) return;
 
-    // Allow utopiabot messages; skip all other bots
     if (message.author.bot) {
       if (!UTOPIABOT_IDS.has(message.author.id)) return;
     } else {
-      // Human message XP
       await userService.getOrCreateUser(message.author);
       const xpResult = await xpService.addXP(message.author.id, config.xp.amountPerMessage);
-      if (xpResult && xpResult.leveledUp) {
-        await message.reply(`🎉 ${message.author.username} reached Level ${xpResult.user.level}!`);
-      }
+      if (xpResult && xpResult.leveledUp) await message.reply(`🎉 ${message.author.username} reached Level ${xpResult.user.level}!`);
     }
 
-    const parsed = parseOpsMessage({
-      id: message.id,
-      content: message.content,
-      timestamp: message.createdAt.toISOString()
-    });
+    const parsed = parseOpsMessage({ id: message.id, content: message.content, timestamp: message.createdAt.toISOString() });
 
-    console.log(`[OPS PARSED] ${parsed.ops.length} ops, ${parsed.atks.length} attacks`);
+    console.log(`[OPS PARSED] ${parsed.ops.length} ops, ${parsed.atks.length} attacks, ${parsed.spells.length} spells`);
 
-    for (const attack of parsed.atks) {
-      await saveAttack(attack);
-    }
-
-    for (const op of parsed.ops) {
-      await saveHostileOp(op);
-    }
+    for (const attack of parsed.atks) await saveAttack(attack);
+    for (const op of parsed.ops) await saveHostileOp(op);
+    for (const spell of parsed.spells) await saveSpell(spell);
 
     await saveOpsMessage({ msgId: message.id, message: message.content });
 
-    // Human command handling
     if (message.author.bot) return;
     if (!message.content.startsWith(config.prefix)) return;
 
@@ -64,5 +47,5 @@ module.exports = {
       const reply = await message.reply("There was an error executing that command.");
       setTimeout(() => { reply.delete().catch(() => {}); message.delete().catch(() => {}); }, 90000);
     }
-  },
+  }
 };
