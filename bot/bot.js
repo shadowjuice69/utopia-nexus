@@ -29,3 +29,9 @@ client.login(process.env.DISCORD_TOKEN);
 
 // Start intel HTTP receiver
 require("./services/intelReceiver").start();
+
+// Start alert loop
+const { startAlertLoop } = require("./services/alertService");
+client.once("ready", () => {
+  startAlertLoop(client);
+});
