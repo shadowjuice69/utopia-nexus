@@ -1,7 +1,5 @@
 require("dotenv").config();
-
 const { REST, Routes } = require("discord.js");
-
 const commands = [
   {
     name: "utopia",
@@ -14,77 +12,26 @@ const commands = [
       { name: "leadership", description: "View kingdom leadership", type: 1 },
       { name: "admins", description: "View kingdom admins", type: 1 },
       { name: "admin", description: "Verify admin access", type: 1 },
-      { name: "resetage", description: "Reset all province names and coordinates for a new age", type: 1 },
+      { name: "resetage", description: "Reset all province data for new age", type: 1 },
       { name: "logs", description: "View admin audit logs", type: 1 },
       { name: "waves", description: "Show kingdom wave schedule", type: 1 },
       { name: "analyze-war", description: "AI war analysis", type: 1 },
       { name: "wiki", description: "Open the Utopia Nexus Wiki", type: 1 },
-      {
-        name: "ask", description: "Ask Utopia Nexus AI", type: 1,
-        options: [{ name: "question", description: "Your Utopia question", type: 3, required: true }]
-      },
-      {
-        name: "member", description: "View a member profile", type: 1,
-        options: [{ name: "user", description: "User to view", type: 6, required: true }]
-      },
-      {
-        name: "addadmin", description: "Add a kingdom admin", type: 1,
-        options: [{ name: "user", description: "User to promote", type: 6, required: true }]
-      },
-      {
-        name: "removeadmin", description: "Remove a kingdom admin", type: 1,
-        options: [{ name: "user", description: "User to remove", type: 6, required: true }]
-      },
-      {
-        name: "restore", description: "Restore a removed member", type: 1,
-        options: [{ name: "user", description: "User to restore", type: 6, required: true }]
-      },
-      {
-        name: "remove", description: "Remove a member", type: 1,
-        options: [
-          { name: "user", description: "User to remove", type: 6, required: true },
-          { name: "reason", description: "Reason for removal", type: 3, required: false }
-        ]
-      },
-      {
-        name: "removecheck", description: "Preview a member removal", type: 1,
-        options: [
-          { name: "user", description: "User to remove", type: 6, required: true },
-          { name: "reason", description: "Reason for removal", type: 3, required: false }
-        ]
-      },
-      {
-        name: "role", description: "Assign a kingdom role", type: 1,
-        options: [
-          { name: "user", description: "User to assign role to", type: 6, required: true },
-          {
-            name: "role", description: "Kingdom role", type: 3, required: true,
-            choices: [
-              { name: "Monarch", value: "Monarch" },
-              { name: "Steward", value: "Steward" },
-              { name: "War Leader", value: "War Leader" },
-              { name: "Member", value: "Member" }
-            ]
-          }
-        ]
-      },
-      {
-        name: "setalert", description: "Set a tick-based alert", type: 1,
-        options: [
-          { name: "label", description: "Alert name (e.g. Wave 1)", type: 3, required: true },
-          { name: "ticks", description: "Comma-separated tick numbers (e.g. 3,4,5)", type: 3, required: true },
-          { name: "message", description: "Message to send when alert fires", type: 3, required: true },
-          { name: "channel", description: "Channel to send alert in", type: 7, required: false },
-          { name: "role", description: "Role to ping", type: 8, required: false }
-        ]
-      },
       { name: "alerts", description: "View all alerts", type: 1 },
+      { name: "ask", description: "Ask Utopia Nexus AI", type: 1, options: [{ name: "question", description: "Your question", type: 3, required: true }] },
+      { name: "member", description: "View a member profile", type: 1, options: [{ name: "user", description: "User to view", type: 6, required: true }] },
+      { name: "addadmin", description: "Add a kingdom admin", type: 1, options: [{ name: "user", description: "User to promote", type: 6, required: true }] },
+      { name: "removeadmin", description: "Remove a kingdom admin", type: 1, options: [{ name: "user", description: "User to remove", type: 6, required: true }] },
+      { name: "restore", description: "Restore a removed member", type: 1, options: [{ name: "user", description: "User to restore", type: 6, required: true }] },
+      { name: "remove", description: "Remove a member", type: 1, options: [{ name: "user", description: "User to remove", type: 6, required: true }, { name: "reason", description: "Reason", type: 3, required: false }] },
+      { name: "removecheck", description: "Preview a member removal", type: 1, options: [{ name: "user", description: "User to remove", type: 6, required: true }, { name: "reason", description: "Reason", type: 3, required: false }] },
+      { name: "role", description: "Assign a kingdom role", type: 1, options: [{ name: "user", description: "User", type: 6, required: true }, { name: "role", description: "Role", type: 3, required: true, choices: [{ name: "Monarch", value: "Monarch" }, { name: "Steward", value: "Steward" }, { name: "War Leader", value: "War Leader" }, { name: "Member", value: "Member" }] }] },
+      { name: "setalert", description: "Set a tick-based alert", type: 1, options: [{ name: "label", description: "Alert name", type: 3, required: true }, { name: "ticks", description: "Comma-separated ticks e.g. 3,4,5", type: 3, required: true }, { name: "message", description: "Message to send", type: 3, required: true }, { name: "channel", description: "Channel to alert in", type: 7, required: false }, { name: "role", description: "Role to ping", type: 8, required: false }] },
+      { name: "deletealert", description: "Delete an alert", type: 1, options: [{ name: "label", description: "Alert label to delete", type: 3, required: true }] }
     ]
   }
 ];
-
 const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
-
 (async () => {
   try {
     console.log("Started refreshing application commands.");
