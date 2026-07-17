@@ -29,6 +29,7 @@ module.exports = {
 
       if (message.attachments.size > 0) {
         const attachment = message.attachments.first();
+        const ageUpdateFilename = attachment.name;
 
         console.log("📄 File name:", attachment.name);
 
@@ -43,7 +44,7 @@ module.exports = {
       const savedUpdate = await saveAgeUpdate(
         updateText,
         message.author.id,
-        attachment.name
+        ageUpdateFilename
       );
 
       if (savedUpdate) {
