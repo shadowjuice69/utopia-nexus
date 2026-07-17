@@ -19,6 +19,7 @@
   },
   "homepage": "https://github.com/shadowjuice69/utopia-nexus#readme",
   "dependencies": {
-    "@supabase/supabase-js": "^2.110.2"
+    "@supabase/supabase-js": "^2.110.2",
+    "axios": "^1.18.1"
   }
 }

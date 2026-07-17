@@ -3,6 +3,7 @@ const userService = require("../services/userService");
 const xpService = require("../services/xpService");
 const { saveOpsMessage, saveAttack, saveHostileOp, saveSpell } = require("../services/opsService");
 const { parseOpsMessage } = require("../parsers/opsParser");
+const axios = require("axios");
 
 const UTOPIABOT_IDS = new Set((process.env.UTOPIABOT_IDS || "").split(",").map(s => s.trim()).filter(Boolean));
 
@@ -15,7 +16,22 @@ module.exports = {
     if (isAgeUpdateChannel) {
       console.log("📘 Age update channel message detected");
 
-      await message.reply("📘 Nexus detected an Age update. Parser system will process this soon.");
+      let updateText = message.content || "";
+
+      if (message.attachments.size > 0) {
+        const attachment = message.attachments.first();
+
+        if (attachment.name.endsWith(".txt")) {
+          const response = await axios.get(attachment.url);
+          updateText += "\n" + response.data;
+        }
+      }
+
+      console.log("📘 Age Update Text Length:", updateText.length);
+
+      await message.reply(
+        `📘 Age update received.\\nCharacters captured: ${updateText.length}`
+      );
 
       return;
     }
