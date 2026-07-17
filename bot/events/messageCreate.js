@@ -43,11 +43,11 @@ module.exports = {
 
       if (savedUpdate) {
         await message.reply(
-          `📘 Age update received.\nCharacters captured: ${updateText.length}\nSaved for review: #${savedUpdate.id}`
+          `📘 Age update saved for review #${savedUpdate.id}`
         );
       } else {
         await message.reply(
-          `📘 Age update received.\nCharacters captured: ${updateText.length}\n⚠️ Save failed`
+          `⚠️ Age update save failed`
         );
       }
 
