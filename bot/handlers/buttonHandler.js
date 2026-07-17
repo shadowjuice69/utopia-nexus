@@ -2,8 +2,15 @@ const {
   ModalBuilder,
   TextInputBuilder,
   TextInputStyle,
-  ActionRowBuilder
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle
 } = require("discord.js");
+
+const {
+  approveAgeUpdate,
+  denyAgeUpdate
+} = require("../services/ageUpdateService");
 
 module.exports = async function buttonHandler(interaction) {
 
@@ -33,5 +40,51 @@ module.exports = async function buttonHandler(interaction) {
     );
 
     return interaction.showModal(modal);
+  }
+
+
+  if (interaction.customId.startsWith("age_apply_")) {
+
+    const id = interaction.customId.replace("age_apply_", "");
+
+    const result = await approveAgeUpdate(
+      id,
+      interaction.user.id
+    );
+
+    if (!result) {
+      return interaction.reply({
+        content: "⚠️ Failed to approve age update.",
+        ephemeral: true
+      });
+    }
+
+    return interaction.update({
+      content: `✅ Age Update #${id} Applied\nApproved by ${interaction.user}`,
+      components: []
+    });
+  }
+
+
+  if (interaction.customId.startsWith("age_revoke_")) {
+
+    const id = interaction.customId.replace("age_revoke_", "");
+
+    const result = await denyAgeUpdate(
+      id,
+      interaction.user.id
+    );
+
+    if (!result) {
+      return interaction.reply({
+        content: "⚠️ Failed to revoke age update.",
+        ephemeral: true
+      });
+    }
+
+    return interaction.update({
+      content: `❌ Age Update #${id} Revoked\nRejected by ${interaction.user}`,
+      components: []
+    });
   }
 };

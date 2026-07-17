@@ -5,6 +5,11 @@ const { saveOpsMessage, saveAttack, saveHostileOp, saveSpell } = require("../ser
 const { parseOpsMessage } = require("../parsers/opsParser");
 const axios = require("axios");
 const { saveAgeUpdate } = require("../services/ageUpdateService");
+const {
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle
+} = require("discord.js");
 
 const UTOPIABOT_IDS = new Set((process.env.UTOPIABOT_IDS || "").split(",").map(s => s.trim()).filter(Boolean));
 
@@ -42,9 +47,22 @@ module.exports = {
       );
 
       if (savedUpdate) {
-        await message.reply(
-          `📘 Age update saved for review #${savedUpdate.id}`
-        );
+        const buttons = new ActionRowBuilder()
+          .addComponents(
+            new ButtonBuilder()
+              .setCustomId(`age_apply_${savedUpdate.id}`)
+              .setLabel("✅ Apply")
+              .setStyle(ButtonStyle.Success),
+            new ButtonBuilder()
+              .setCustomId(`age_revoke_${savedUpdate.id}`)
+              .setLabel("❌ Revoke")
+              .setStyle(ButtonStyle.Danger)
+          );
+
+        await message.reply({
+          content: `📘 Age Update Pending Review #${savedUpdate.id}`,
+          components: [buttons]
+        });
       } else {
         await message.reply(
           `⚠️ Age update save failed`
