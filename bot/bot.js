@@ -36,4 +36,7 @@ client.once("ready", () => {
 });
 
 intelReceiver.start();
-client.login(process.env.DISCORD_TOKEN);
+client.login(process.env.DISCORD_TOKEN)
+  .catch(err => {
+    logger.error(`[LOGIN ERROR] ${err.message}`);
+  });
