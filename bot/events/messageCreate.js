@@ -26,10 +26,11 @@ module.exports = {
       console.log("📎 Attachments:", message.attachments.size);
 
       let updateText = message.content || "";
+      let ageUpdateFilename = null;
 
       if (message.attachments.size > 0) {
         const attachment = message.attachments.first();
-        const ageUpdateFilename = attachment.name;
+        ageUpdateFilename = attachment.name;
 
         console.log("📄 File name:", attachment.name);
 
