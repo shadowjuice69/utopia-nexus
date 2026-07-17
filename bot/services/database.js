@@ -1,18 +1,13 @@
-const { Low } = require("lowdb");
-const { JSONFile } = require("lowdb/node");
+const low = require("lowdb");
+const FileSync = require("lowdb/adapters/FileSync");
 const logger = require("./logger");
 
-const adapter = new JSONFile("utopia.json");
-const db = new Low(adapter, { users: [], admins: [] });
+const adapter = new FileSync("utopia.json");
+const db = low(adapter);
 
 module.exports = {
   async connect() {
-    await db.read();
-
-    db.data ||= { users: [], admins: [] };
-
-    await db.write();
-
+    db.defaults({ users: [], admins: [] }).write();
     logger.info("Database initialized");
   },
 
