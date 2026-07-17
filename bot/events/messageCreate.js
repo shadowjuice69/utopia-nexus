@@ -4,12 +4,15 @@ const xpService = require("../services/xpService");
 const { saveOpsMessage, saveAttack, saveHostileOp, saveSpell } = require("../services/opsService");
 const { parseOpsMessage } = require("../parsers/opsParser");
 const axios = require("axios");
+const { saveAgeUpdate } = require("../services/ageUpdateService");
 
 const UTOPIABOT_IDS = new Set((process.env.UTOPIABOT_IDS || "").split(",").map(s => s.trim()).filter(Boolean));
 
 module.exports = {
   name: "messageCreate",
   async execute(message) {
+
+    if (message.author.bot) return;
 
     const isAgeUpdateChannel = message.channel.id === process.env.AGE_UPDATE_CHANNEL_ID;
 
@@ -32,9 +35,20 @@ module.exports = {
 
       console.log("📏 Age Update Text Length:", updateText.length);
 
-      await message.reply(
-        `📘 Age update received.\nCharacters captured: ${updateText.length}`
+      const savedUpdate = await saveAgeUpdate(
+        updateText,
+        message.author.id
       );
+
+      if (savedUpdate) {
+        await message.reply(
+          `📘 Age update received.\nCharacters captured: ${updateText.length}\nSaved for review: #${savedUpdate.id}`
+        );
+      } else {
+        await message.reply(
+          `📘 Age update received.\nCharacters captured: ${updateText.length}\n⚠️ Save failed`
+        );
+      }
 
       return;
     }
