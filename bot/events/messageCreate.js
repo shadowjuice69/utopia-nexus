@@ -4,7 +4,6 @@ const xpService = require("../services/xpService");
 const { saveOpsMessage, saveAttack, saveHostileOp, saveSpell } = require("../services/opsService");
 const { parseOpsMessage } = require("../parsers/opsParser");
 const axios = require("axios");
-const { saveAgeUpdate } = require("../services/ageUpdateService");
 
 const UTOPIABOT_IDS = new Set((process.env.UTOPIABOT_IDS || "").split(",").map(s => s.trim()).filter(Boolean));
 
