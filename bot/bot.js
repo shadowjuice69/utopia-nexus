@@ -1,5 +1,10 @@
 require("dotenv").config();
 
+// Fix for Node 18 Supabase Realtime WebSocket crash
+if (!globalThis.WebSocket) {
+  globalThis.WebSocket = class {};
+}
+
 const { Client, GatewayIntentBits } = require("discord.js");
 const loadEvents = require("./eventLoader");
 const logger = require("./services/logger");
