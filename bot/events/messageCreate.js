@@ -15,11 +15,14 @@ module.exports = {
 
     if (isAgeUpdateChannel) {
       console.log("📘 Age update channel message detected");
+      console.log("📎 Attachments:", message.attachments.size);
 
       let updateText = message.content || "";
 
       if (message.attachments.size > 0) {
         const attachment = message.attachments.first();
+
+        console.log("📄 File name:", attachment.name);
 
         if (attachment.name.endsWith(".txt")) {
           const response = await axios.get(attachment.url);
@@ -27,10 +30,10 @@ module.exports = {
         }
       }
 
-      console.log("📘 Age Update Text Length:", updateText.length);
+      console.log("📏 Age Update Text Length:", updateText.length);
 
       await message.reply(
-        `📘 Age update received.\\nCharacters captured: ${updateText.length}`
+        `📘 Age update received.\nCharacters captured: ${updateText.length}`
       );
 
       return;
@@ -45,9 +48,16 @@ module.exports = {
       if (!UTOPIABOT_IDS.has(message.author.id)) return;
     } else {
       await userService.getOrCreateUser(message.author);
-      const xpResult = await xpService.addXP(message.author.id, config.xp.amountPerMessage);
+
+      const xpResult = await xpService.addXP(
+        message.author.id,
+        config.xp.amountPerMessage
+      );
+
       if (xpResult && xpResult.leveledUp) {
-        await message.reply(`🎉 ${message.author.username} reached Level ${xpResult.user.level}!`);
+        await message.reply(
+          `🎉 ${message.author.username} reached Level ${xpResult.user.level}!`
+        );
       }
     }
 
@@ -57,11 +67,21 @@ module.exports = {
       timestamp: message.createdAt.toISOString()
     });
 
-    console.log(`[OPS PARSED] ${parsed.ops.length} ops, ${parsed.atks.length} attacks, ${parsed.spells.length} spells`);
+    console.log(
+      `[OPS PARSED] ${parsed.ops.length} ops, ${parsed.atks.length} attacks, ${parsed.spells.length} spells`
+    );
 
-    for (const attack of parsed.atks) await saveAttack(attack);
-    for (const op of parsed.ops) await saveHostileOp(op);
-    for (const spell of parsed.spells) await saveSpell(spell);
+    for (const attack of parsed.atks) {
+      await saveAttack(attack);
+    }
+
+    for (const op of parsed.ops) {
+      await saveHostileOp(op);
+    }
+
+    for (const spell of parsed.spells) {
+      await saveSpell(spell);
+    }
 
     await saveOpsMessage({
       msgId: message.id,
@@ -71,19 +91,30 @@ module.exports = {
     if (message.author.bot) return;
     if (!message.content.startsWith(config.prefix)) return;
 
-    const args = message.content.slice(config.prefix.length).trim().split(/ +/);
+    const args = message.content
+      .slice(config.prefix.length)
+      .trim()
+      .split(/ +/);
+
     const commandName = args.shift().toLowerCase();
     const command = message.client.commands.get(commandName);
+
     if (!command) return;
 
     try {
       await command.execute(message, args);
+
       setTimeout(() => {
         message.delete().catch(() => {});
       }, 90000);
+
     } catch (error) {
       console.error(error);
-      const reply = await message.reply("There was an error executing that command.");
+
+      const reply = await message.reply(
+        "There was an error executing that command."
+      );
+
       setTimeout(() => {
         reply.delete().catch(() => {});
         message.delete().catch(() => {});
