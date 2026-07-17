@@ -29,7 +29,7 @@ logger.info("🚀 Utopia Nexus Bot Starting...");
 validator.checkEnv();
 database.connect();
 
-client.once("ready", () => {
+client.once("clientReady", () => {
   logger.info(`✅ Bot online as ${client.user.tag}`);
   startAlertLoop(client);
   startAgeWatch(client);
