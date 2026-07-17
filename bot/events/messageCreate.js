@@ -9,8 +9,20 @@ const UTOPIABOT_IDS = new Set((process.env.UTOPIABOT_IDS || "").split(",").map(s
 module.exports = {
   name: "messageCreate",
   async execute(message) {
+
+    const isAgeUpdateChannel = message.channel.id === process.env.AGE_UPDATE_CHANNEL_ID;
+
+    if (isAgeUpdateChannel) {
+      console.log("📘 Age update channel message detected");
+
+      await message.reply("📘 Nexus detected an Age update. Parser system will process this soon.");
+
+      return;
+    }
+
     const isOpsChannel = config.opsChannelIds.includes(message.channel.id);
     const isAttackChannel = config.attackChannelIds.includes(message.channel.id);
+
     if (!isOpsChannel && !isAttackChannel) return;
 
     if (message.author.bot) {
@@ -18,10 +30,16 @@ module.exports = {
     } else {
       await userService.getOrCreateUser(message.author);
       const xpResult = await xpService.addXP(message.author.id, config.xp.amountPerMessage);
-      if (xpResult && xpResult.leveledUp) await message.reply(`🎉 ${message.author.username} reached Level ${xpResult.user.level}!`);
+      if (xpResult && xpResult.leveledUp) {
+        await message.reply(`🎉 ${message.author.username} reached Level ${xpResult.user.level}!`);
+      }
     }
 
-    const parsed = parseOpsMessage({ id: message.id, content: message.content, timestamp: message.createdAt.toISOString() });
+    const parsed = parseOpsMessage({
+      id: message.id,
+      content: message.content,
+      timestamp: message.createdAt.toISOString()
+    });
 
     console.log(`[OPS PARSED] ${parsed.ops.length} ops, ${parsed.atks.length} attacks, ${parsed.spells.length} spells`);
 
@@ -29,7 +47,10 @@ module.exports = {
     for (const op of parsed.ops) await saveHostileOp(op);
     for (const spell of parsed.spells) await saveSpell(spell);
 
-    await saveOpsMessage({ msgId: message.id, message: message.content });
+    await saveOpsMessage({
+      msgId: message.id,
+      message: message.content
+    });
 
     if (message.author.bot) return;
     if (!message.content.startsWith(config.prefix)) return;
@@ -41,11 +62,16 @@ module.exports = {
 
     try {
       await command.execute(message, args);
-      setTimeout(() => { message.delete().catch(() => {}); }, 90000);
+      setTimeout(() => {
+        message.delete().catch(() => {});
+      }, 90000);
     } catch (error) {
       console.error(error);
       const reply = await message.reply("There was an error executing that command.");
-      setTimeout(() => { reply.delete().catch(() => {}); message.delete().catch(() => {}); }, 90000);
+      setTimeout(() => {
+        reply.delete().catch(() => {});
+        message.delete().catch(() => {});
+      }, 90000);
     }
   }
 };
