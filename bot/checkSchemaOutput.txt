@@ -1,0 +1,1455 @@
+◇ injected env (12) from .env // tip: ⌘ custom filepath { path: '/custom/path/.env' }
+{
+  "user_settings": {
+    "required": [
+      "id"
+    ],
+    "properties": {
+      "id": {
+        "default": "gen_random_uuid()",
+        "description": "Note:\nThis is a Primary Key.<pk/>",
+        "format": "uuid",
+        "type": "string"
+      },
+      "user_id": {
+        "format": "uuid",
+        "type": "string"
+      },
+      "my_kd_id": {
+        "format": "text",
+        "type": "string"
+      },
+      "my_nw": {
+        "default": 0,
+        "format": "integer",
+        "type": "integer"
+      },
+      "news_my_kd": {
+        "format": "text",
+        "type": "string"
+      },
+      "war_start": {
+        "format": "text",
+        "type": "string"
+      },
+      "war_end": {
+        "format": "text",
+        "type": "string"
+      },
+      "age_current": {
+        "format": "jsonb"
+      },
+      "age_next": {
+        "format": "jsonb"
+      },
+      "updated_at": {
+        "default": "now()",
+        "format": "timestamp with time zone",
+        "type": "string"
+      }
+    },
+    "type": "object"
+  },
+  "wars": {
+    "required": [
+      "id",
+      "guild_id",
+      "enemy_kingdom",
+      "enemy_coords"
+    ],
+    "properties": {
+      "id": {
+        "default": "gen_random_uuid()",
+        "description": "Note:\nThis is a Primary Key.<pk/>",
+        "format": "uuid",
+        "type": "string"
+      },
+      "guild_id": {
+        "format": "text",
+        "type": "string"
+      },
+      "enemy_kingdom": {
+        "format": "text",
+        "type": "string"
+      },
+      "enemy_coords": {
+        "format": "text",
+        "type": "string"
+      },
+      "declared_by": {
+        "format": "text",
+        "type": "string"
+      },
+      "declared_at": {
+        "default": "now()",
+        "format": "timestamp without time zone",
+        "type": "string"
+      },
+      "active": {
+        "default": true,
+        "format": "boolean",
+        "type": "boolean"
+      },
+      "notes": {
+        "format": "text",
+        "type": "string"
+      }
+    },
+    "type": "object"
+  },
+  "hostile_ops": {
+    "properties": {
+      "id": {
+        "format": "bigint",
+        "type": "integer"
+      },
+      "message_id": {
+        "format": "text",
+        "type": "string"
+      },
+      "timestamp": {
+        "default": "now()",
+        "format": "timestamp with time zone",
+        "type": "string"
+      },
+      "attacker_province": {
+        "format": "text",
+        "type": "string"
+      },
+      "target_province": {
+        "format": "text",
+        "type": "string"
+      },
+      "target_kingdom": {
+        "format": "text",
+        "type": "string"
+      },
+      "operation": {
+        "format": "text",
+        "type": "string"
+      },
+      "category": {
+        "format": "text",
+        "type": "string"
+      },
+      "success": {
+        "format": "boolean",
+        "type": "boolean"
+      },
+      "result_value": {
+        "format": "bigint",
+        "type": "integer"
+      },
+      "thieves_sent": {
+        "format": "integer",
+        "type": "integer"
+      },
+      "thieves_lost": {
+        "format": "integer",
+        "type": "integer"
+      },
+      "wizards_lost": {
+        "format": "integer",
+        "type": "integer"
+      }
+    },
+    "type": "object"
+  },
+  "kingdoms": {
+    "required": [
+      "id",
+      "kd_id"
+    ],
+    "properties": {
+      "id": {
+        "default": "gen_random_uuid()",
+        "description": "Note:\nThis is a Primary Key.<pk/>",
+        "format": "uuid",
+        "type": "string"
+      },
+      "user_id": {
+        "format": "uuid",
+        "type": "string"
+      },
+      "kd_id": {
+        "format": "text",
+        "type": "string"
+      },
+      "kd_name": {
+        "format": "text",
+        "type": "string"
+      },
+      "kd_type": {
+        "default": "enemy",
+        "format": "text",
+        "type": "string"
+      },
+      "is_active": {
+        "default": false,
+        "format": "boolean",
+        "type": "boolean"
+      },
+      "created_at": {
+        "default": "now()",
+        "format": "timestamp with time zone",
+        "type": "string"
+      },
+      "updated_at": {
+        "default": "now()",
+        "format": "timestamp with time zone",
+        "type": "string"
+      }
+    },
+    "type": "object"
+  },
+  "bot_ops_messages": {
+    "required": [
+      "id"
+    ],
+    "properties": {
+      "id": {
+        "default": "gen_random_uuid()",
+        "description": "Note:\nThis is a Primary Key.<pk/>",
+        "format": "uuid",
+        "type": "string"
+      },
+      "msg_id": {
+        "format": "text",
+        "type": "string"
+      },
+      "timestamp": {
+        "format": "timestamp with time zone",
+        "type": "string"
+      },
+      "content": {
+        "format": "text",
+        "type": "string"
+      },
+      "kd_code": {
+        "format": "text",
+        "type": "string"
+      },
+      "created_at": {
+        "default": "now()",
+        "format": "timestamp with time zone",
+        "type": "string"
+      }
+    },
+    "type": "object"
+  },
+  "wiki_entries": {
+    "required": [
+      "id",
+      "created_at"
+    ],
+    "properties": {
+      "id": {
+        "description": "Note:\nThis is a Primary Key.<pk/>",
+        "format": "bigint",
+        "type": "integer"
+      },
+      "created_at": {
+        "default": "now()",
+        "format": "timestamp with time zone",
+        "type": "string"
+      },
+      "title": {
+        "format": "text",
+        "type": "string"
+      },
+      "category": {
+        "format": "text",
+        "type": "string"
+      },
+      "content": {
+        "format": "text",
+        "type": "string"
+      },
+      "keywords": {
+        "format": "text",
+        "type": "string"
+      },
+      "source": {
+        "format": "text",
+        "type": "string"
+      },
+      "search_vector": {
+        "format": "tsvector",
+        "type": "string"
+      }
+    },
+    "type": "object"
+  },
+  "pending_changes": {
+    "required": [
+      "id",
+      "category",
+      "target_table",
+      "target_name"
+    ],
+    "properties": {
+      "id": {
+        "description": "Note:\nThis is a Primary Key.<pk/>",
+        "format": "bigint",
+        "type": "integer"
+      },
+      "update_id": {
+        "description": "Note:\nThis is a Foreign Key to `age_updates.id`.<fk table='age_updates' column='id'/>",
+        "format": "bigint",
+        "type": "integer"
+      },
+      "category": {
+        "format": "text",
+        "type": "string"
+      },
+      "target_table": {
+        "format": "text",
+        "type": "string"
+      },
+      "target_name": {
+        "format": "text",
+        "type": "string"
+      },
+      "field_name": {
+        "format": "text",
+        "type": "string"
+      },
+      "old_value": {
+        "format": "text",
+        "type": "string"
+      },
+      "new_value": {
+        "format": "text",
+        "type": "string"
+      },
+      "status": {
+        "default": "pending",
+        "format": "text",
+        "type": "string"
+      },
+      "created_at": {
+        "default": "now()",
+        "format": "timestamp with time zone",
+        "type": "string"
+      }
+    },
+    "type": "object"
+  },
+  "personality_rules": {
+    "required": [
+      "id",
+      "personality_name"
+    ],
+    "properties": {
+      "id": {
+        "description": "Note:\nThis is a Primary Key.<pk/>",
+        "format": "bigint",
+        "type": "integer"
+      },
+      "age_number": {
+        "format": "integer",
+        "type": "integer"
+      },
+      "personality_name": {
+        "format": "text",
+        "type": "string"
+      },
+      "rule_name": {
+        "format": "text",
+        "type": "string"
+      },
+      "value": {
+        "format": "text",
+        "type": "string"
+      },
+      "description": {
+        "format": "text",
+        "type": "string"
+      },
+      "active": {
+        "default": true,
+        "format": "boolean",
+        "type": "boolean"
+      },
+      "updated_at": {
+        "default": "now()",
+        "format": "timestamp with time zone",
+        "type": "string"
+      }
+    },
+    "type": "object"
+  },
+  "intel_buildings": {
+    "required": [
+      "id"
+    ],
+    "properties": {
+      "id": {
+        "default": "gen_random_uuid()",
+        "description": "Note:\nThis is a Primary Key.<pk/>",
+        "format": "uuid",
+        "type": "string"
+      },
+      "province": {
+        "format": "text",
+        "type": "string"
+      },
+      "kd_code": {
+        "format": "text",
+        "type": "string"
+      },
+      "buildings": {
+        "format": "jsonb"
+      },
+      "updated_at": {
+        "default": "now()",
+        "format": "timestamp with time zone",
+        "type": "string"
+      }
+    },
+    "type": "object"
+  },
+  "intel_military": {
+    "required": [
+      "id"
+    ],
+    "properties": {
+      "id": {
+        "default": "gen_random_uuid()",
+        "description": "Note:\nThis is a Primary Key.<pk/>",
+        "format": "uuid",
+        "type": "string"
+      },
+      "province": {
+        "format": "text",
+        "type": "string"
+      },
+      "kd_code": {
+        "format": "text",
+        "type": "string"
+      },
+      "offense": {
+        "format": "integer",
+        "type": "integer"
+      },
+      "defense": {
+        "format": "integer",
+        "type": "integer"
+      },
+      "generals": {
+        "format": "integer",
+        "type": "integer"
+      },
+      "troops": {
+        "format": "jsonb"
+      },
+      "updated_at": {
+        "default": "now()",
+        "format": "timestamp with time zone",
+        "type": "string"
+      }
+    },
+    "type": "object"
+  },
+  "ops_assignments": {
+    "required": [
+      "id",
+      "target_name",
+      "op_name"
+    ],
+    "properties": {
+      "id": {
+        "default": "gen_random_uuid()",
+        "description": "Note:\nThis is a Primary Key.<pk/>",
+        "format": "uuid",
+        "type": "string"
+      },
+      "user_id": {
+        "format": "uuid",
+        "type": "string"
+      },
+      "target_name": {
+        "format": "text",
+        "type": "string"
+      },
+      "op_name": {
+        "format": "text",
+        "type": "string"
+      },
+      "op_type": {
+        "format": "text",
+        "type": "string"
+      },
+      "assigned_to": {
+        "format": "text",
+        "type": "string"
+      },
+      "created_at": {
+        "default": "now()",
+        "format": "timestamp with time zone",
+        "type": "string"
+      },
+      "kd_code": {
+        "format": "text",
+        "type": "string"
+      }
+    },
+    "type": "object"
+  },
+  "kingdom_members": {
+    "required": [
+      "id",
+      "kd_code"
+    ],
+    "properties": {
+      "id": {
+        "default": "gen_random_uuid()",
+        "description": "Note:\nThis is a Primary Key.<pk/>",
+        "format": "uuid",
+        "type": "string"
+      },
+      "user_id": {
+        "format": "uuid",
+        "type": "string"
+      },
+      "kd_code": {
+        "format": "text",
+        "type": "string"
+      },
+      "joined_at": {
+        "default": "now()",
+        "format": "timestamp with time zone",
+        "type": "string"
+      }
+    },
+    "type": "object"
+  },
+  "age_updates": {
+    "required": [
+      "id",
+      "raw_text"
+    ],
+    "properties": {
+      "id": {
+        "description": "Note:\nThis is a Primary Key.<pk/>",
+        "format": "bigint",
+        "type": "integer"
+      },
+      "age_number": {
+        "format": "integer",
+        "type": "integer"
+      },
+      "source": {
+        "default": "manual",
+        "format": "text",
+        "type": "string"
+      },
+      "raw_text": {
+        "format": "text",
+        "type": "string"
+      },
+      "status": {
+        "default": "pending",
+        "format": "text",
+        "type": "string"
+      },
+      "submitted_by": {
+        "format": "text",
+        "type": "string"
+      },
+      "created_at": {
+        "default": "now()",
+        "format": "timestamp with time zone",
+        "type": "string"
+      }
+    },
+    "type": "object"
+  },
+  "wave_assignments": {
+    "required": [
+      "id"
+    ],
+    "properties": {
+      "id": {
+        "default": "gen_random_uuid()",
+        "description": "Note:\nThis is a Primary Key.<pk/>",
+        "format": "uuid",
+        "type": "string"
+      },
+      "user_id": {
+        "format": "uuid",
+        "type": "string"
+      },
+      "attacker": {
+        "format": "text",
+        "type": "string"
+      },
+      "attacker_combo": {
+        "format": "text",
+        "type": "string"
+      },
+      "target": {
+        "format": "text",
+        "type": "string"
+      },
+      "target_nw": {
+        "format": "text",
+        "type": "string"
+      },
+      "target_def": {
+        "format": "text",
+        "type": "string"
+      },
+      "target_combo": {
+        "format": "text",
+        "type": "string"
+      },
+      "source_kd": {
+        "format": "text",
+        "type": "string"
+      },
+      "attack_type": {
+        "default": "Traditional March",
+        "format": "text",
+        "type": "string"
+      },
+      "off_sent": {
+        "default": "",
+        "format": "text",
+        "type": "string"
+      },
+      "chain": {
+        "default": 1,
+        "format": "integer",
+        "type": "integer"
+      },
+      "attack_result": {
+        "format": "jsonb"
+      },
+      "sort_order": {
+        "default": 0,
+        "format": "integer",
+        "type": "integer"
+      },
+      "created_at": {
+        "default": "now()",
+        "format": "timestamp with time zone",
+        "type": "string"
+      },
+      "kd_code": {
+        "format": "text",
+        "type": "string"
+      }
+    },
+    "type": "object"
+  },
+  "provinces": {
+    "required": [
+      "id",
+      "name"
+    ],
+    "properties": {
+      "id": {
+        "default": "gen_random_uuid()",
+        "description": "Note:\nThis is a Primary Key.<pk/>",
+        "format": "uuid",
+        "type": "string"
+      },
+      "user_id": {
+        "format": "text",
+        "type": "string"
+      },
+      "kingdom_id": {
+        "description": "Note:\nThis is a Foreign Key to `kingdoms.id`.<fk table='kingdoms' column='id'/>",
+        "format": "uuid",
+        "type": "string"
+      },
+      "name": {
+        "format": "text",
+        "type": "string"
+      },
+      "slot": {
+        "format": "text",
+        "type": "string"
+      },
+      "combo": {
+        "format": "text",
+        "type": "string"
+      },
+      "race": {
+        "format": "text",
+        "type": "string"
+      },
+      "honor": {
+        "format": "text",
+        "type": "string"
+      },
+      "acres": {
+        "format": "text",
+        "type": "string"
+      },
+      "nw": {
+        "format": "text",
+        "type": "string"
+      },
+      "pop_pct": {
+        "format": "text",
+        "type": "string"
+      },
+      "off": {
+        "format": "text",
+        "type": "string"
+      },
+      "def": {
+        "format": "text",
+        "type": "string"
+      },
+      "def_home": {
+        "format": "text",
+        "type": "string"
+      },
+      "peons": {
+        "format": "text",
+        "type": "string"
+      },
+      "r_tpa": {
+        "format": "text",
+        "type": "string"
+      },
+      "o_tpa": {
+        "format": "text",
+        "type": "string"
+      },
+      "d_tpa": {
+        "format": "text",
+        "type": "string"
+      },
+      "r_wpa": {
+        "format": "text",
+        "type": "string"
+      },
+      "o_wpa": {
+        "format": "text",
+        "type": "string"
+      },
+      "d_wpa": {
+        "format": "text",
+        "type": "string"
+      },
+      "stlth": {
+        "format": "text",
+        "type": "string"
+      },
+      "mana": {
+        "format": "text",
+        "type": "string"
+      },
+      "map": {
+        "format": "text",
+        "type": "string"
+      },
+      "be": {
+        "format": "text",
+        "type": "string"
+      },
+      "wages": {
+        "format": "text",
+        "type": "string"
+      },
+      "good_spells": {
+        "format": "text",
+        "type": "string"
+      },
+      "bad_spells": {
+        "format": "text",
+        "type": "string"
+      },
+      "intel_age": {
+        "default": "0",
+        "format": "text",
+        "type": "string"
+      },
+      "ops_status": {
+        "format": "text",
+        "type": "string"
+      },
+      "notes": {
+        "format": "text",
+        "type": "string"
+      },
+      "created_at": {
+        "default": "now()",
+        "format": "timestamp with time zone",
+        "type": "string"
+      },
+      "updated_at": {
+        "default": "now()",
+        "format": "timestamp with time zone",
+        "type": "string"
+      },
+      "kd_code": {
+        "format": "text",
+        "type": "string"
+      },
+      "personality": {
+        "format": "text",
+        "type": "string"
+      },
+      "play_role": {
+        "format": "text",
+        "type": "string"
+      },
+      "timezone": {
+        "format": "text",
+        "type": "string"
+      },
+      "wave_times": {
+        "format": "text",
+        "type": "string"
+      },
+      "coordinates": {
+        "format": "text",
+        "type": "string"
+      },
+      "discord_id": {
+        "format": "text",
+        "type": "string"
+      }
+    },
+    "type": "object"
+  },
+  "bot_settings": {
+    "required": [
+      "key"
+    ],
+    "properties": {
+      "key": {
+        "description": "Note:\nThis is a Primary Key.<pk/>",
+        "format": "text",
+        "type": "string"
+      },
+      "value": {
+        "format": "text",
+        "type": "string"
+      },
+      "updated_at": {
+        "default": "now()",
+        "format": "timestamp without time zone",
+        "type": "string"
+      }
+    },
+    "type": "object"
+  },
+  "spell_rules": {
+    "required": [
+      "id",
+      "spell_name"
+    ],
+    "properties": {
+      "id": {
+        "description": "Note:\nThis is a Primary Key.<pk/>",
+        "format": "bigint",
+        "type": "integer"
+      },
+      "age_number": {
+        "format": "integer",
+        "type": "integer"
+      },
+      "spell_name": {
+        "format": "text",
+        "type": "string"
+      },
+      "rule_name": {
+        "format": "text",
+        "type": "string"
+      },
+      "value": {
+        "format": "text",
+        "type": "string"
+      },
+      "description": {
+        "format": "text",
+        "type": "string"
+      },
+      "active": {
+        "default": true,
+        "format": "boolean",
+        "type": "boolean"
+      },
+      "updated_at": {
+        "default": "now()",
+        "format": "timestamp with time zone",
+        "type": "string"
+      }
+    },
+    "type": "object"
+  },
+  "game_rules": {
+    "required": [
+      "id",
+      "rule_name"
+    ],
+    "properties": {
+      "id": {
+        "description": "Note:\nThis is a Primary Key.<pk/>",
+        "format": "bigint",
+        "type": "integer"
+      },
+      "age_number": {
+        "format": "integer",
+        "type": "integer"
+      },
+      "category": {
+        "format": "text",
+        "type": "string"
+      },
+      "rule_name": {
+        "format": "text",
+        "type": "string"
+      },
+      "value": {
+        "format": "text",
+        "type": "string"
+      },
+      "description": {
+        "format": "text",
+        "type": "string"
+      },
+      "active": {
+        "default": true,
+        "format": "boolean",
+        "type": "boolean"
+      },
+      "updated_at": {
+        "default": "now()",
+        "format": "timestamp with time zone",
+        "type": "string"
+      }
+    },
+    "type": "object"
+  },
+  "intel_throne": {
+    "required": [
+      "id"
+    ],
+    "properties": {
+      "id": {
+        "default": "gen_random_uuid()",
+        "description": "Note:\nThis is a Primary Key.<pk/>",
+        "format": "uuid",
+        "type": "string"
+      },
+      "province": {
+        "format": "text",
+        "type": "string"
+      },
+      "kd_code": {
+        "format": "text",
+        "type": "string"
+      },
+      "race": {
+        "format": "text",
+        "type": "string"
+      },
+      "personality": {
+        "format": "text",
+        "type": "string"
+      },
+      "ruler": {
+        "format": "text",
+        "type": "string"
+      },
+      "land": {
+        "format": "text",
+        "type": "string"
+      },
+      "networth": {
+        "format": "text",
+        "type": "string"
+      },
+      "honor": {
+        "format": "text",
+        "type": "string"
+      },
+      "offense": {
+        "format": "text",
+        "type": "string"
+      },
+      "defense": {
+        "format": "text",
+        "type": "string"
+      },
+      "be": {
+        "format": "text",
+        "type": "string"
+      },
+      "mana": {
+        "format": "text",
+        "type": "string"
+      },
+      "stealth": {
+        "format": "text",
+        "type": "string"
+      },
+      "peasants": {
+        "format": "text",
+        "type": "string"
+      },
+      "troops": {
+        "format": "jsonb"
+      },
+      "spells": {
+        "format": "jsonb"
+      },
+      "updated_at": {
+        "default": "now()",
+        "format": "timestamp with time zone",
+        "type": "string"
+      }
+    },
+    "type": "object"
+  },
+  "building_rules": {
+    "required": [
+      "id",
+      "building_name"
+    ],
+    "properties": {
+      "id": {
+        "description": "Note:\nThis is a Primary Key.<pk/>",
+        "format": "bigint",
+        "type": "integer"
+      },
+      "age_number": {
+        "format": "integer",
+        "type": "integer"
+      },
+      "building_name": {
+        "format": "text",
+        "type": "string"
+      },
+      "rule_name": {
+        "format": "text",
+        "type": "string"
+      },
+      "value": {
+        "format": "text",
+        "type": "string"
+      },
+      "description": {
+        "format": "text",
+        "type": "string"
+      },
+      "active": {
+        "default": true,
+        "format": "boolean",
+        "type": "boolean"
+      },
+      "updated_at": {
+        "default": "now()",
+        "format": "timestamp with time zone",
+        "type": "string"
+      }
+    },
+    "type": "object"
+  },
+  "attacks": {
+    "required": [
+      "id"
+    ],
+    "properties": {
+      "id": {
+        "default": "gen_random_uuid()",
+        "description": "Note:\nThis is a Primary Key.<pk/>",
+        "format": "uuid",
+        "type": "string"
+      },
+      "msg_id": {
+        "format": "text",
+        "type": "string"
+      },
+      "timestamp": {
+        "format": "timestamp with time zone",
+        "type": "string"
+      },
+      "attacker_province": {
+        "format": "text",
+        "type": "string"
+      },
+      "target_province": {
+        "format": "text",
+        "type": "string"
+      },
+      "target_kingdom": {
+        "format": "text",
+        "type": "string"
+      },
+      "acres_captured": {
+        "format": "integer",
+        "type": "integer"
+      },
+      "troops_lost": {
+        "format": "integer",
+        "type": "integer"
+      },
+      "troop_type": {
+        "format": "text",
+        "type": "string"
+      },
+      "kills": {
+        "format": "integer",
+        "type": "integer"
+      },
+      "prisoners": {
+        "format": "integer",
+        "type": "integer"
+      },
+      "spec_creds": {
+        "format": "integer",
+        "type": "integer"
+      },
+      "peasants": {
+        "format": "integer",
+        "type": "integer"
+      },
+      "off_sent": {
+        "format": "integer",
+        "type": "integer"
+      },
+      "kd_code": {
+        "format": "text",
+        "type": "string"
+      },
+      "created_at": {
+        "default": "now()",
+        "format": "timestamp with time zone",
+        "type": "string"
+      },
+      "books_captured": {
+        "format": "integer",
+        "type": "integer"
+      },
+      "attack_type": {
+        "format": "text",
+        "type": "string"
+      },
+      "message_id": {
+        "format": "text",
+        "type": "string"
+      },
+      "offense_sent": {
+        "format": "integer",
+        "type": "integer"
+      }
+    },
+    "type": "object"
+  },
+  "news_events": {
+    "required": [
+      "id"
+    ],
+    "properties": {
+      "id": {
+        "default": "gen_random_uuid()",
+        "description": "Note:\nThis is a Primary Key.<pk/>",
+        "format": "uuid",
+        "type": "string"
+      },
+      "user_id": {
+        "format": "uuid",
+        "type": "string"
+      },
+      "date": {
+        "format": "text",
+        "type": "string"
+      },
+      "attacker_name": {
+        "format": "text",
+        "type": "string"
+      },
+      "attacker_kd": {
+        "format": "text",
+        "type": "string"
+      },
+      "defender_name": {
+        "format": "text",
+        "type": "string"
+      },
+      "defender_kd": {
+        "format": "text",
+        "type": "string"
+      },
+      "acres": {
+        "default": 0,
+        "format": "integer",
+        "type": "integer"
+      },
+      "killed": {
+        "default": 0,
+        "format": "integer",
+        "type": "integer"
+      },
+      "in_war": {
+        "default": false,
+        "format": "boolean",
+        "type": "boolean"
+      },
+      "event_type": {
+        "default": "land",
+        "format": "text",
+        "type": "string"
+      },
+      "created_at": {
+        "default": "now()",
+        "format": "timestamp with time zone",
+        "type": "string"
+      },
+      "kd_code": {
+        "format": "text",
+        "type": "string"
+      }
+    },
+    "type": "object"
+  },
+  "race_rules": {
+    "required": [
+      "id",
+      "race_name"
+    ],
+    "properties": {
+      "id": {
+        "description": "Note:\nThis is a Primary Key.<pk/>",
+        "format": "bigint",
+        "type": "integer"
+      },
+      "age_number": {
+        "format": "integer",
+        "type": "integer"
+      },
+      "race_name": {
+        "format": "text",
+        "type": "string"
+      },
+      "rule_name": {
+        "format": "text",
+        "type": "string"
+      },
+      "value": {
+        "format": "text",
+        "type": "string"
+      },
+      "description": {
+        "format": "text",
+        "type": "string"
+      },
+      "active": {
+        "default": true,
+        "format": "boolean",
+        "type": "boolean"
+      },
+      "updated_at": {
+        "default": "now()",
+        "format": "timestamp with time zone",
+        "type": "string"
+      }
+    },
+    "type": "object"
+  },
+  "relation_rules": {
+    "required": [
+      "id",
+      "rule_name",
+      "value"
+    ],
+    "properties": {
+      "id": {
+        "description": "Note:\nThis is a Primary Key.<pk/>",
+        "format": "bigint",
+        "type": "integer"
+      },
+      "age_number": {
+        "format": "integer",
+        "type": "integer"
+      },
+      "rule_name": {
+        "format": "text",
+        "type": "string"
+      },
+      "value": {
+        "format": "text",
+        "type": "string"
+      },
+      "description": {
+        "format": "text",
+        "type": "string"
+      },
+      "active": {
+        "default": true,
+        "format": "boolean",
+        "type": "boolean"
+      },
+      "updated_at": {
+        "default": "now()",
+        "format": "timestamp with time zone",
+        "type": "string"
+      }
+    },
+    "type": "object"
+  },
+  "spell_events": {
+    "required": [
+      "id"
+    ],
+    "properties": {
+      "id": {
+        "description": "Note:\nThis is a Primary Key.<pk/>",
+        "format": "bigint",
+        "type": "integer"
+      },
+      "message_id": {
+        "format": "text",
+        "type": "string"
+      },
+      "timestamp": {
+        "default": "now()",
+        "format": "timestamp with time zone",
+        "type": "string"
+      },
+      "caster_province": {
+        "format": "text",
+        "type": "string"
+      },
+      "target_province": {
+        "format": "text",
+        "type": "string"
+      },
+      "caster_kingdom": {
+        "format": "text",
+        "type": "string"
+      },
+      "target_kingdom": {
+        "format": "text",
+        "type": "string"
+      },
+      "spell_name": {
+        "format": "text",
+        "type": "string"
+      },
+      "category": {
+        "format": "text",
+        "type": "string"
+      },
+      "success": {
+        "format": "boolean",
+        "type": "boolean"
+      },
+      "result_value": {
+        "format": "integer",
+        "type": "integer"
+      }
+    },
+    "type": "object"
+  },
+  "alerts": {
+    "required": [
+      "id",
+      "guild_id",
+      "channel_id",
+      "label",
+      "ticks",
+      "message"
+    ],
+    "properties": {
+      "id": {
+        "default": "gen_random_uuid()",
+        "description": "Note:\nThis is a Primary Key.<pk/>",
+        "format": "uuid",
+        "type": "string"
+      },
+      "guild_id": {
+        "format": "text",
+        "type": "string"
+      },
+      "channel_id": {
+        "format": "text",
+        "type": "string"
+      },
+      "label": {
+        "format": "text",
+        "type": "string"
+      },
+      "ticks": {
+        "format": "integer[]",
+        "items": {
+          "type": "integer"
+        },
+        "type": "array"
+      },
+      "message": {
+        "format": "text",
+        "type": "string"
+      },
+      "ping_role": {
+        "format": "text",
+        "type": "string"
+      },
+      "created_by": {
+        "format": "text",
+        "type": "string"
+      },
+      "active": {
+        "default": true,
+        "format": "boolean",
+        "type": "boolean"
+      },
+      "created_at": {
+        "default": "now()",
+        "format": "timestamp without time zone",
+        "type": "string"
+      }
+    },
+    "type": "object"
+  },
+  "rule_history": {
+    "required": [
+      "id"
+    ],
+    "properties": {
+      "id": {
+        "description": "Note:\nThis is a Primary Key.<pk/>",
+        "format": "bigint",
+        "type": "integer"
+      },
+      "age_number": {
+        "format": "integer",
+        "type": "integer"
+      },
+      "category": {
+        "format": "text",
+        "type": "string"
+      },
+      "target_name": {
+        "format": "text",
+        "type": "string"
+      },
+      "old_value": {
+        "format": "text",
+        "type": "string"
+      },
+      "new_value": {
+        "format": "text",
+        "type": "string"
+      },
+      "approved_by": {
+        "format": "text",
+        "type": "string"
+      },
+      "approved_at": {
+        "default": "now()",
+        "format": "timestamp with time zone",
+        "type": "string"
+      }
+    },
+    "type": "object"
+  }
+}
