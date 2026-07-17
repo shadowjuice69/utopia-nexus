@@ -134,7 +134,7 @@ function start() {
     res.writeHead(404); res.end("not found");
   });
 
-  server.listen(PORT, () => {
+  server.listen(PORT, "0.0.0.0", () => {
     logger.info(`[INTEL RECEIVER] listening on port ${PORT}`);
   });
 }
