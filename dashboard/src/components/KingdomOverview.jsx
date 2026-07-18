@@ -27,9 +27,97 @@ function roleColor(role) {
   return "#475569";
 }
 
+function MemberModal({ member, onClose }) {
+  if (!member) return null;
+  const fields = [
+    { label: "NW", key: "nw", color: "#38bdf8" },
+    { label: "Acres", key: "acres", color: "#4ade80" },
+    { label: "Offense", key: "off", color: "#f87171" },
+    { label: "Defense", key: "def", color: "#fb923c" },
+    { label: "BE%", key: "be", color: "#facc15" },
+    { label: "Wages%", key: "wages", color: "#38bdf8" },
+    { label: "Stealth", key: "stlth", color: "#a78bfa" },
+    { label: "Mana%", key: "mana", color: "#a78bfa" },
+    { label: "oTPA", key: "o_tpa", color: "#38bdf8" },
+    { label: "dTPA", key: "d_tpa", color: "#fb923c" },
+    { label: "oWPA", key: "o_wpa", color: "#38bdf8" },
+    { label: "dWPA", key: "d_wpa", color: "#fb923c" },
+  ];
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-card" onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <div>
+            <h2 className="modal-title">{member.name}</h2>
+            <p className="modal-sub">{member.combo || member.race || "Unknown"} • {member.slot ? `Slot ${member.slot}` : ""}</p>
+          </div>
+          <div style={{ textAlign: "right" }}>
+            <span style={{ color: roleColor(member.play_role), fontSize: 14, fontWeight: 600 }}>
+              {roleEmoji(member.play_role)} {member.play_role || "No role"}
+            </span>
+            {member.timezone && <p style={{ color: "#475569", fontSize: 12, marginTop: 4 }}>{member.timezone}</p>}
+          </div>
+          <button className="modal-close" onClick={onClose}>✕</button>
+        </div>
+
+        <div className="modal-stats">
+          {fields.map(f => member[f.key] ? (
+            <div key={f.key} className="modal-stat">
+              <span className="modal-stat-label">{f.label}</span>
+              <strong className="modal-stat-value" style={{ color: f.color }}>{member[f.key]}</strong>
+            </div>
+          ) : null)}
+        </div>
+
+        {member.good_spells && (
+          <div className="modal-row">
+            <span className="modal-row-label">✨ Spells:</span>
+            <span className="modal-row-value">{member.good_spells}</span>
+          </div>
+        )}
+        {member.bad_spells && (
+          <div className="modal-row" style={{ borderLeftColor: "#f87171" }}>
+            <span className="modal-row-label">💀 Enemy Spells:</span>
+            <span className="modal-row-value" style={{ color: "#f87171" }}>{member.bad_spells}</span>
+          </div>
+        )}
+        {member.map && (
+          <div className="modal-row">
+            <span className="modal-row-label">🗺️ MAP:</span>
+            <span className="modal-row-value">{member.map}</span>
+          </div>
+        )}
+        {member.wave_times && (
+          <div className="modal-row">
+            <span className="modal-row-label">🌊 Wave Times:</span>
+            <span className="modal-row-value">{member.wave_times} ({member.timezone})</span>
+          </div>
+        )}
+        {member.notes && (
+          <div className="modal-row">
+            <span className="modal-row-label">📝 Notes:</span>
+            <span className="modal-row-value">{member.notes}</span>
+          </div>
+        )}
+        {member.coordinates && (
+          <div className="modal-row">
+            <span className="modal-row-label">📍 Kingdom:</span>
+            <span className="modal-row-value">{member.coordinates}</span>
+          </div>
+        )}
+        <div className="modal-footer">
+          Last updated: {member.updated_at ? new Date(member.updated_at).toUTCString().slice(0, 25) : "Unknown"}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function KingdomOverview() {
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [selected, setSelected] = useState(null);
 
   useEffect(() => {
     fetchData();
@@ -70,9 +158,9 @@ export default function KingdomOverview() {
 
   return (
     <div className="kingdom-overview">
+      <MemberModal member={selected} onClose={() => setSelected(null)} />
 
-      {/* Kingdom Stats */}
-      <div className="stats-row" style={{ gridTemplateColumns: "repeat(4, 1fr)" }}>
+      <div className="stats-row">
         <div className="stat-card">
           <span className="stat-label">Total NW</span>
           <strong className="stat-value" style={{ color: "#38bdf8", fontSize: 24 }}>{totalNW ? totalNW.toLocaleString() : "?"}</strong>
@@ -91,7 +179,7 @@ export default function KingdomOverview() {
         </div>
       </div>
 
-      <div className="stats-row" style={{ gridTemplateColumns: "repeat(4, 1fr)" }}>
+      <div className="stats-row">
         <div className="stat-card">
           <span className="stat-label">Members</span>
           <strong className="stat-value" style={{ color: "#38bdf8" }}>{registered.length}</strong>
@@ -115,7 +203,6 @@ export default function KingdomOverview() {
         </div>
       </div>
 
-      {/* NW Chart */}
       {nwChartData.length > 0 && (
         <div className="panel chart-panel">
           <h2>📊 Province NW Comparison</h2>
@@ -124,17 +211,13 @@ export default function KingdomOverview() {
               <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
               <XAxis dataKey="name" tick={{ fill: "#64748b", fontSize: 11 }} />
               <YAxis tick={{ fill: "#64748b", fontSize: 10 }} tickFormatter={v => `${(v/1000).toFixed(0)}k`} />
-              <Tooltip
-                contentStyle={{ background: "#0f172a", border: "1px solid #38bdf8", borderRadius: 8 }}
-                formatter={v => v.toLocaleString()}
-              />
+              <Tooltip contentStyle={{ background: "#0f172a", border: "1px solid #38bdf8", borderRadius: 8 }} formatter={v => v.toLocaleString()} />
               <Bar dataKey="nw" fill="#38bdf8" radius={[4, 4, 0, 0]} name="NW" />
             </BarChart>
           </ResponsiveContainer>
         </div>
       )}
 
-      {/* Role Breakdown */}
       <div className="panel">
         <h2>⚔️ Role Breakdown</h2>
         <div className="role-breakdown">
@@ -144,19 +227,15 @@ export default function KingdomOverview() {
               <span className="role-name" style={{ color: roleColor(role) }}>{role}</span>
               <span className="role-count">{count}</span>
               <div className="role-bar-bg">
-                <div className="role-bar-fill" style={{
-                  width: `${(count / registered.length) * 100}%`,
-                  background: roleColor(role)
-                }} />
+                <div className="role-bar-fill" style={{ width: `${(count / registered.length) * 100}%`, background: roleColor(role) }} />
               </div>
             </div>
           ))}
         </div>
       </div>
 
-      {/* Member Roster */}
       <div className="panel">
-        <h2>👥 Member Roster ({members.length})</h2>
+        <h2>👥 Member Roster ({members.length}) <span style={{ color: "#475569", fontSize: 12, fontWeight: 400 }}>— click to expand</span></h2>
         <div className="roster-table-wrap">
           <table className="roster-table">
             <thead>
@@ -173,7 +252,7 @@ export default function KingdomOverview() {
             </thead>
             <tbody>
               {members.map(m => (
-                <tr key={m.id}>
+                <tr key={m.id} className="roster-row" onClick={() => setSelected(m)}>
                   <td style={{ color: m.discord_id ? "#e2e8f0" : "#475569" }}>
                     {m.discord_id ? "✅ " : ""}{m.name}
                   </td>
@@ -190,7 +269,6 @@ export default function KingdomOverview() {
           </table>
         </div>
       </div>
-
     </div>
   );
 }
