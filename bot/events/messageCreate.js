@@ -17,7 +17,6 @@ module.exports = {
   name: "messageCreate",
   async execute(message) {
 
-    if (message.author.bot) return;
 
     const isAgeUpdateChannel = message.channel.id === process.env.AGE_UPDATE_CHANNEL_ID;
 
@@ -123,37 +122,5 @@ module.exports = {
       message: message.content
     });
 
-    if (message.author.bot) return;
-    if (!message.content.startsWith(config.prefix)) return;
-
-    const args = message.content
-      .slice(config.prefix.length)
-      .trim()
-      .split(/ +/);
-
-    const commandName = args.shift().toLowerCase();
-    const command = message.client.commands.get(commandName);
-
-    if (!command) return;
-
-    try {
-      await command.execute(message, args);
-
-      setTimeout(() => {
-        message.delete().catch(() => {});
-      }, 90000);
-
-    } catch (error) {
-      console.error(error);
-
-      const reply = await message.reply(
-        "There was an error executing that command."
-      );
-
-      setTimeout(() => {
-        reply.delete().catch(() => {});
-        message.delete().catch(() => {});
-      }, 90000);
-    }
   }
 };
