@@ -39,6 +39,7 @@ const UTOPIA_COMMANDS = {
   register: registerHandler
 };
 
+const threatHandler = require("./commands/threatHandler");
 const ADMIN_COMMANDS = {
   panel: adminHandler,
   admins: adminsHandler,
@@ -54,6 +55,7 @@ const ADMIN_COMMANDS = {
   setalert: setalertHandler,
   alerts: alertsHandler,
   deletealert: deletealertHandler,
+  threat: threatHandler,
   war: warHandler
 };
 
