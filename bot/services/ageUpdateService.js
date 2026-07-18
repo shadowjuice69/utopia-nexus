@@ -11,7 +11,7 @@ async function saveAgeUpdate(updateText, userId, filename) {
     const ageNumber = match ? parseInt(match[1], 10) : null;
 
     if (!ageNumber) {
-      logger.warn(`[AGE UPDATE] Rejected - no age number in filename: ${filename}`);
+      logger.info(`[AGE UPDATE] Rejected - no age number in filename: ${filename}`);
       return { error: "no_age_number" };
     }
 
@@ -25,7 +25,7 @@ async function saveAgeUpdate(updateText, userId, filename) {
       .limit(1);
 
     if (existing && existing.length > 0) {
-      logger.warn(`[AGE UPDATE] Duplicate rejected - Age ${ageNumber} already ${existing[0].status}`);
+      logger.info(`[AGE UPDATE] Duplicate rejected - Age ${ageNumber} already ${existing[0].status}`);
       return { error: "duplicate", existingId: existing[0].id, status: existing[0].status };
     }
 
