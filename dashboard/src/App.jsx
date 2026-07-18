@@ -5,6 +5,7 @@ import WarRoom from "./components/WarRoom";
 import IntelPanel from "./components/IntelPanel";
 import WaveTracker from "./components/WaveTracker";
 import AlertPanel from "./components/AlertPanel";
+import Login from "./components/Login";
 
 const TABS = [
   { id: "war", label: "⚔️ War Room" },
@@ -15,6 +16,11 @@ const TABS = [
 
 function App() {
   const [tab, setTab] = useState("war");
+  const [authed, setAuthed] = useState(
+    localStorage.getItem("nexus_auth") === "true"
+  );
+
+  if (!authed) return <Login onLogin={() => setAuthed(true)} />;
 
   return (
     <div className="nexus">
