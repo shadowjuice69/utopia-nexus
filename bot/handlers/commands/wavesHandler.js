@@ -1,6 +1,6 @@
 const supabaseService = require("../../services/supabase");
 
-const UTOPIA_DAY_START_UTC = 13; // 1pm UTC = tick 1
+const UTOPIA_DAY_START_UTC = 19; // 7pm UTC = tick 1 (1pm CST)
 
 const TIMEZONE_OFFSETS = {
   "UTC": 0, "GMT": 0,
