@@ -43,6 +43,7 @@ const commands = [
       { name: "logs", description: "View admin audit logs", type: 1 },
       { name: "resetage", description: "Reset all province data for new age", type: 1 },
       { name: "analyze-war", description: "AI war analysis", type: 1 },
+      { name: "threat", description: "Show kingdom threat meter", type: 1 },
       {
         name: "addadmin",
         description: "Add a kingdom admin",
