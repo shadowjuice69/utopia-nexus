@@ -6,6 +6,7 @@ import IntelPanel from "./components/IntelPanel";
 import WaveTracker from "./components/WaveTracker";
 import AlertPanel from "./components/AlertPanel";
 import KingdomOverview from "./components/KingdomOverview";
+import AttackCalc from "./components/AttackCalc";
 import Login from "./components/Login";
 
 const TABS = [
@@ -14,13 +15,12 @@ const TABS = [
   { id: "intel", label: "🔍 Intel" },
   { id: "waves", label: "🌊 Waves" },
   { id: "alerts", label: "🔔 Alerts" },
+  { id: "calc", label: "🧮 Calculator" },
 ];
 
 function App() {
   const [tab, setTab] = useState("kingdom");
-  const [authed, setAuthed] = useState(
-    localStorage.getItem("nexus_auth") === "true"
-  );
+  const [authed, setAuthed] = useState(localStorage.getItem("nexus_auth") === "true");
 
   if (!authed) return <Login onLogin={() => setAuthed(true)} />;
 
@@ -44,6 +44,7 @@ function App() {
         {tab === "intel" && <IntelPanel />}
         {tab === "waves" && <WaveTracker />}
         {tab === "alerts" && <AlertPanel />}
+        {tab === "calc" && <AttackCalc />}
       </main>
     </div>
   );
