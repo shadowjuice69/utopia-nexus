@@ -16,6 +16,56 @@ const FIELDS = [
   { key: "d_wpa", label: "dWPA" },
 ];
 
+const HIGH_GAIN_RACES = ["elf", "faery", "halfling", "dryad"];
+const LOW_GAIN_RACES = ["undead", "orc"];
+
+function parseNW(nw) {
+  if (!nw) return 0;
+  return parseFloat(nw.toString().replace(/,/g, "")) || 0;
+}
+
+function scoreTarget(province, myNW) {
+  let score = 0;
+  const nw = parseNW(province.nw);
+  const acres = parseNW(province.acres);
+  const def = parseNW(province.def);
+  const off = parseNW(province.off);
+  const race = (province.race || province.combo || "").toLowerCase();
+
+  const nwRatio = myNW > 0 ? nw / myNW : 0;
+  if (nwRatio >= 0.9 && nwRatio <= 1.05) score += 30;
+  else if (nwRatio >= 0.75 && nwRatio <= 1.1) score += 15;
+
+  if (acres > 2500) score += 25;
+  else if (acres > 2000) score += 18;
+  else if (acres > 1500) score += 10;
+
+  if (HIGH_GAIN_RACES.some(r => race.includes(r))) score += 20;
+  if (LOW_GAIN_RACES.some(r => race.includes(r))) score -= 10;
+
+  if (def > 0 && off > 0) {
+    if (def < off * 0.3) score += 20;
+    else if (def < off * 0.5) score += 10;
+    else if (def > off) score -= 15;
+  }
+
+  if (province.updated_at) {
+    const ageDays = (Date.now() - new Date(province.updated_at)) / (1000 * 60 * 60 * 24);
+    if (ageDays > 7) score -= 20;
+    else if (ageDays > 3) score -= 10;
+  }
+
+  return score;
+}
+
+function gradeScore(score) {
+  if (score >= 70) return { grade: "S", color: "#4ade80" };
+  if (score >= 50) return { grade: "A", color: "#38bdf8" };
+  if (score >= 30) return { grade: "B", color: "#facc15" };
+  if (score >= 10) return { grade: "C", color: "#fb923c" };
+  return { grade: "D", color: "#f87171" };
+}
+
 function IntelBar({ value, max, color = "#38bdf8" }) {
   if (!value || !max) return <div className="intel-bar-bg"><div className="intel-bar-fill" style={{ width: "0%", background: color }} /></div>;
   const pct = Math.min((parseFloat(value) / max) * 100, 100);
@@ -26,7 +76,7 @@ function IntelBar({ value, max, color = "#38bdf8" }) {
   );
 }
 
-function ThreatColor(nw, myNw) {
+function nwColor(nw, myNw) {
   if (!nw || !myNw) return "#94a3b8";
   const ratio = parseFloat(nw) / parseFloat(myNw);
   if (ratio > 1.1) return "#f87171";
@@ -39,7 +89,7 @@ export default function IntelPanel() {
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [sortBy, setSortBy] = useState("nw");
+  const [sortBy, setSortBy] = useState("score");
   const [myNw, setMyNw] = useState(null);
 
   useEffect(() => {
@@ -57,30 +107,37 @@ export default function IntelPanel() {
     if (data) {
       setProvinces(data);
       const me = data.find(p => p.name === "Sumi Gaeshi");
-      if (me?.nw) setMyNw(parseFloat(me.nw.replace(/,/g, "")));
+      if (me?.nw) setMyNw(parseNW(me.nw));
     }
     setLoading(false);
   }
 
-  const filtered = provinces
-    .filter(p => p.name?.toLowerCase().includes(search.toLowerCase()) ||
+  const scored = provinces.map(p => ({
+    ...p,
+    _score: scoreTarget(p, myNw),
+    _nwNum: parseNW(p.nw)
+  }));
+
+  const filtered = scored
+    .filter(p =>
+      p.name?.toLowerCase().includes(search.toLowerCase()) ||
       p.race?.toLowerCase().includes(search.toLowerCase()) ||
-      p.combo?.toLowerCase().includes(search.toLowerCase()))
+      p.combo?.toLowerCase().includes(search.toLowerCase())
+    )
     .sort((a, b) => {
-      const av = parseFloat((a[sortBy] || "0").toString().replace(/,/g, "")) || 0;
-      const bv = parseFloat((b[sortBy] || "0").toString().replace(/,/g, "")) || 0;
-      return bv - av;
+      if (sortBy === "score") return b._score - a._score;
+      if (sortBy === "nw") return b._nwNum - a._nwNum;
+      if (sortBy === "acres") return parseNW(b.acres) - parseNW(a.acres);
+      if (sortBy === "def") return parseNW(b.def) - parseNW(a.def);
+      return 0;
     });
 
-  const maxNw = Math.max(...provinces.map(p => parseFloat((p.nw || "0").toString().replace(/,/g, "")) || 0));
-  const maxOff = Math.max(...provinces.map(p => parseFloat(p.off || 0) || 0));
+  const maxNw = Math.max(...provinces.map(p => parseNW(p.nw)));
 
   if (loading) return <div className="loading">⏳ Loading Intel...</div>;
 
   return (
     <div className="intel-panel">
-
-      {/* Search + Sort */}
       <div className="intel-controls">
         <input
           className="intel-search"
@@ -89,21 +146,19 @@ export default function IntelPanel() {
           onChange={e => setSearch(e.target.value)}
         />
         <select className="intel-sort" value={sortBy} onChange={e => setSortBy(e.target.value)}>
+          <option value="score">Sort: Target Score</option>
           <option value="nw">Sort: NW</option>
           <option value="acres">Sort: Acres</option>
-          <option value="off">Sort: Offense</option>
           <option value="def">Sort: Defense</option>
-          <option value="be">Sort: BE</option>
         </select>
       </div>
 
-      {/* Province List */}
       <div className="panel">
         <h2>🏰 Province Intel ({filtered.length})</h2>
         <div className="province-list">
           {filtered.map(p => {
-            const nwNum = parseFloat((p.nw || "0").toString().replace(/,/g, "")) || 0;
-            const color = ThreatColor(nwNum, myNw);
+            const color = nwColor(p._nwNum, myNw);
+            const { grade, color: gradeColor } = gradeScore(p._score);
             return (
               <div
                 key={p.id}
@@ -112,13 +167,14 @@ export default function IntelPanel() {
               >
                 <div className="province-main">
                   <span className="province-name" style={{ color }}>{p.name}</span>
-                  <span className="province-combo">{p.combo || `${p.race || "?"}`}</span>
+                  <span className="province-combo">{p.combo || p.race || "?"}</span>
                   <span className="province-nw">{p.nw ? `${p.nw} NW` : "No intel"}</span>
-                  <span className="province-acres">{p.acres ? `${p.acres} acres` : ""}</span>
+                  <span className="target-grade" style={{ color: gradeColor, border: `1px solid ${gradeColor}` }}>
+                    {grade}
+                  </span>
                 </div>
-                <IntelBar value={nwNum} max={maxNw} color={color} />
+                <IntelBar value={p._nwNum} max={maxNw} color={color} />
 
-                {/* Expanded Detail */}
                 {selected?.id === p.id && (
                   <div className="province-detail">
                     <div className="detail-grid">
@@ -129,30 +185,16 @@ export default function IntelPanel() {
                         </div>
                       ) : null)}
                     </div>
-                    {p.good_spells && (
-                      <div className="spell-row">
-                        <span className="spell-label">✨ Spells:</span>
-                        <span className="spell-value">{p.good_spells}</span>
-                      </div>
-                    )}
-                    {p.bad_spells && (
-                      <div className="spell-row bad">
-                        <span className="spell-label">💀 Enemy Spells:</span>
-                        <span className="spell-value">{p.bad_spells}</span>
-                      </div>
-                    )}
-                    {p.map && (
-                      <div className="spell-row">
-                        <span className="spell-label">🗺️ MAP:</span>
-                        <span className="spell-value">{p.map}</span>
-                      </div>
-                    )}
-                    {p.notes && (
-                      <div className="spell-row">
-                        <span className="spell-label">📝 Notes:</span>
-                        <span className="spell-value">{p.notes}</span>
-                      </div>
-                    )}
+                    <div className="detail-item" style={{ marginBottom: 12, textAlign: "center" }}>
+                      <span className="detail-label">Target Score</span>
+                      <strong className="detail-value" style={{ color: gradeColor, fontSize: 28 }}>
+                        {grade} ({p._score})
+                      </strong>
+                    </div>
+                    {p.good_spells && <div className="spell-row"><span className="spell-label">✨ Spells:</span><span className="spell-value">{p.good_spells}</span></div>}
+                    {p.bad_spells && <div className="spell-row bad"><span className="spell-label">💀 Enemy Spells:</span><span className="spell-value">{p.bad_spells}</span></div>}
+                    {p.map && <div className="spell-row"><span className="spell-label">🗺️ MAP:</span><span className="spell-value">{p.map}</span></div>}
+                    {p.notes && <div className="spell-row"><span className="spell-label">📝 Notes:</span><span className="spell-value">{p.notes}</span></div>}
                     <div className="detail-meta">
                       Last updated: {p.updated_at ? new Date(p.updated_at).toUTCString().slice(0, 25) : "Unknown"}
                     </div>
@@ -164,7 +206,6 @@ export default function IntelPanel() {
         </div>
       </div>
 
-      {/* Summary Stats */}
       <div className="stats-row">
         <div className="stat-card">
           <span className="stat-label">Provinces Tracked</span>
@@ -177,11 +218,9 @@ export default function IntelPanel() {
           </strong>
         </div>
         <div className="stat-card">
-          <span className="stat-label">Avg NW</span>
-          <strong className="stat-value" style={{ color: "#facc15" }}>
-            {provinces.length ? Math.round(
-              provinces.reduce((s, p) => s + (parseFloat((p.nw || "0").toString().replace(/,/g, "")) || 0), 0) / provinces.length
-            ).toLocaleString() : 0}
+          <span className="stat-label">S/A Targets</span>
+          <strong className="stat-value" style={{ color: "#4ade80" }}>
+            {scored.filter(p => p._score >= 50).length}
           </strong>
         </div>
         <div className="stat-card">
@@ -191,7 +230,6 @@ export default function IntelPanel() {
           </strong>
         </div>
       </div>
-
     </div>
   );
 }
