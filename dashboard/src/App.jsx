@@ -5,9 +5,11 @@ import WarRoom from "./components/WarRoom";
 import IntelPanel from "./components/IntelPanel";
 import WaveTracker from "./components/WaveTracker";
 import AlertPanel from "./components/AlertPanel";
+import KingdomOverview from "./components/KingdomOverview";
 import Login from "./components/Login";
 
 const TABS = [
+  { id: "kingdom", label: "🏰 Kingdom" },
   { id: "war", label: "⚔️ War Room" },
   { id: "intel", label: "🔍 Intel" },
   { id: "waves", label: "🌊 Waves" },
@@ -15,7 +17,7 @@ const TABS = [
 ];
 
 function App() {
-  const [tab, setTab] = useState("war");
+  const [tab, setTab] = useState("kingdom");
   const [authed, setAuthed] = useState(
     localStorage.getItem("nexus_auth") === "true"
   );
@@ -37,6 +39,7 @@ function App() {
         ))}
       </nav>
       <main className="dashboard-grid">
+        {tab === "kingdom" && <KingdomOverview />}
         {tab === "war" && <WarRoom />}
         {tab === "intel" && <IntelPanel />}
         {tab === "waves" && <WaveTracker />}

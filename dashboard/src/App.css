@@ -455,3 +455,20 @@ body {
   border-radius: 8px;
   text-align: center;
 }
+
+/* Kingdom Overview */
+.kingdom-overview { display: flex; flex-direction: column; gap: 16px; }
+
+.role-breakdown { display: flex; flex-direction: column; gap: 12px; }
+.role-item { display: grid; grid-template-columns: 30px 120px 40px 1fr; gap: 12px; align-items: center; }
+.role-emoji { font-size: 18px; }
+.role-name { font-size: 13px; font-weight: 600; }
+.role-count { color: #e2e8f0; font-weight: 700; text-align: right; }
+.role-bar-bg { height: 8px; background: rgba(255,255,255,0.05); border-radius: 4px; overflow: hidden; }
+.role-bar-fill { height: 100%; border-radius: 4px; opacity: 0.7; }
+
+.roster-table-wrap { overflow-x: auto; }
+.roster-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.roster-table th { color: #475569; text-align: left; padding: 8px 12px; border-bottom: 1px solid rgba(56,189,248,0.1); font-size: 11px; text-transform: uppercase; letter-spacing: 1px; }
+.roster-table td { padding: 10px 12px; border-bottom: 1px solid rgba(15,23,42,0.8); color: #94a3b8; }
+.roster-table tr:hover td { background: rgba(56,189,248,0.03); }
