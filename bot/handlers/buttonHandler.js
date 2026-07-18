@@ -7,17 +7,12 @@ const {
   ButtonStyle
 } = require("discord.js");
 
-const {
-  approveAgeUpdate,
-  denyAgeUpdate
-} = require("../services/ageUpdateService");
+const { approveAgeUpdate, denyAgeUpdate } = require("../services/ageUpdateService");
 
 module.exports = async function buttonHandler(interaction) {
-
   console.log(`Button pressed: ${interaction.customId}`);
 
   if (interaction.customId === "continue_registration") {
-
     const modal = new ModalBuilder()
       .setCustomId("utopia_register_2")
       .setTitle("Register — Step 2 of 2");
@@ -42,38 +37,65 @@ module.exports = async function buttonHandler(interaction) {
     return interaction.showModal(modal);
   }
 
-
   if (interaction.customId.startsWith("age_apply_")) {
-
     const id = interaction.customId.replace("age_apply_", "");
 
-    const result = await approveAgeUpdate(
-      id,
-      interaction.user.id
-    );
+    // Defer so we have time to parse + insert
+    await interaction.deferUpdate();
+
+    const result = await approveAgeUpdate(id, interaction.user.id);
 
     if (!result) {
-      return interaction.reply({
-        content: "⚠️ Failed to approve age update.",
-        ephemeral: true
+      return interaction.editReply({
+        content: "⚠️ Failed to apply age update.",
+        components: []
       });
     }
 
-    return interaction.update({
-      content: `✅ Age Update #${id} Applied\nApproved by ${interaction.user}`,
+    // Update the review message - single edit, no spam
+    await interaction.editReply({
+      content: [
+        `✅ **Age ${result.age_number} Applied** by ${interaction.user}`,
+        ``,
+        result.stats.summary,
+        ``,
+        `📊 **Rows written:** ${result.stats.raceRows} race rules • ${result.stats.personalityRows} personality rules • ${result.stats.gameRows} game rules`
+      ].join('\n'),
       components: []
     });
+
+    // Send ONE announcement to the alert channel
+    const supabaseService = require("../services/supabase");
+    const supabase = supabaseService.getClient();
+    if (supabase) {
+      const { data: setting } = await supabase
+        .from("bot_settings")
+        .select("value")
+        .eq("key", "alert_channel")
+        .limit(1);
+
+      const channelId = setting?.[0]?.value;
+      if (channelId) {
+        const channel = await interaction.client.channels.fetch(channelId).catch(() => null);
+        if (channel) {
+          await channel.send([
+            `📘 **Age ${result.age_number} Rules Now Active**`,
+            ``,
+            result.stats.summary,
+            ``,
+            `Applied by ${interaction.user} • All wiki data updated.`
+          ].join('\n'));
+        }
+      }
+    }
+
+    return;
   }
 
-
   if (interaction.customId.startsWith("age_revoke_")) {
-
     const id = interaction.customId.replace("age_revoke_", "");
 
-    const result = await denyAgeUpdate(
-      id,
-      interaction.user.id
-    );
+    const result = await denyAgeUpdate(id, interaction.user.id);
 
     if (!result) {
       return interaction.reply({
@@ -83,7 +105,7 @@ module.exports = async function buttonHandler(interaction) {
     }
 
     return interaction.update({
-      content: `❌ Age Update #${id} Revoked\nRejected by ${interaction.user}`,
+      content: `❌ Age Update #${id} Revoked by ${interaction.user}`,
       components: []
     });
   }

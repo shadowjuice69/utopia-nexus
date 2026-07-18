@@ -5,11 +5,7 @@ const { saveOpsMessage, saveAttack, saveHostileOp, saveSpell } = require("../ser
 const { parseOpsMessage } = require("../parsers/opsParser");
 const axios = require("axios");
 const { saveAgeUpdate } = require("../services/ageUpdateService");
-const {
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle
-} = require("discord.js");
+const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 
 const UTOPIABOT_IDS = new Set((process.env.UTOPIABOT_IDS || "").split(",").map(s => s.trim()).filter(Boolean));
 
@@ -23,7 +19,6 @@ module.exports = {
 
     if (isAgeUpdateChannel) {
       console.log("📘 Age update channel message detected");
-      console.log("📎 Attachments:", message.attachments.size);
 
       let updateText = message.content || "";
       let ageUpdateFilename = null;
@@ -31,45 +26,48 @@ module.exports = {
       if (message.attachments.size > 0) {
         const attachment = message.attachments.first();
         ageUpdateFilename = attachment.name;
-
         console.log("📄 File name:", attachment.name);
-
         if (attachment.name.endsWith(".txt")) {
           const response = await axios.get(attachment.url);
           updateText += "\n" + response.data;
         }
       }
 
-      console.log("📏 Age Update Text Length:", updateText.length);
+      const savedUpdate = await saveAgeUpdate(updateText, message.author.id, ageUpdateFilename);
 
-      const savedUpdate = await saveAgeUpdate(
-        updateText,
-        message.author.id,
-        ageUpdateFilename
+      if (!savedUpdate) {
+        return message.reply("⚠️ Age update save failed.");
+      }
+
+      if (savedUpdate.error === "no_age_number") {
+        return message.reply("⚠️ Could not detect age number from filename. Name your file like `Age_116_changes.txt`.");
+      }
+
+      if (savedUpdate.error === "duplicate") {
+        return message.reply(`⚠️ Age ${savedUpdate.existingId ? `update already exists` : "update"} is already **${savedUpdate.status}**. No duplicate created.`);
+      }
+
+      const buttons = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId(`age_apply_${savedUpdate.id}`)
+          .setLabel("✅ Apply")
+          .setStyle(ButtonStyle.Success),
+        new ButtonBuilder()
+          .setCustomId(`age_revoke_${savedUpdate.id}`)
+          .setLabel("❌ Revoke")
+          .setStyle(ButtonStyle.Danger)
       );
 
-      if (savedUpdate) {
-        const buttons = new ActionRowBuilder()
-          .addComponents(
-            new ButtonBuilder()
-              .setCustomId(`age_apply_${savedUpdate.id}`)
-              .setLabel("✅ Apply")
-              .setStyle(ButtonStyle.Success),
-            new ButtonBuilder()
-              .setCustomId(`age_revoke_${savedUpdate.id}`)
-              .setLabel("❌ Revoke")
-              .setStyle(ButtonStyle.Danger)
-          );
-
-        await message.reply({
-          content: `📘 Age Update Pending Review #${savedUpdate.id}`,
-          components: [buttons]
-        });
-      } else {
-        await message.reply(
-          `⚠️ Age update save failed`
-        );
-      }
+      await message.reply({
+        content: [
+          `📘 **Age ${savedUpdate.age_number} Update — Pending Review**`,
+          ``,
+          savedUpdate.parsedSummary || "Parsing summary unavailable.",
+          ``,
+          `Click **Apply** to write all rules to the database.`
+        ].join('\n'),
+        components: [buttons]
+      });
 
       return;
     }
@@ -83,16 +81,9 @@ module.exports = {
       if (!UTOPIABOT_IDS.has(message.author.id)) return;
     } else {
       await userService.getOrCreateUser(message.author);
-
-      const xpResult = await xpService.addXP(
-        message.author.id,
-        config.xp.amountPerMessage
-      );
-
+      const xpResult = await xpService.addXP(message.author.id, config.xp.amountPerMessage);
       if (xpResult && xpResult.leveledUp) {
-        await message.reply(
-          `🎉 ${message.author.username} reached Level ${xpResult.user.level}!`
-        );
+        await message.reply(`🎉 ${message.author.username} reached Level ${xpResult.user.level}!`);
       }
     }
 
@@ -102,58 +93,29 @@ module.exports = {
       timestamp: message.createdAt.toISOString()
     });
 
-    console.log(
-      `[OPS PARSED] ${parsed.ops.length} ops, ${parsed.atks.length} attacks, ${parsed.spells.length} spells`
-    );
+    console.log(`[OPS PARSED] ${parsed.ops.length} ops, ${parsed.atks.length} attacks, ${parsed.spells.length} spells`);
 
-    for (const attack of parsed.atks) {
-      await saveAttack(attack);
-    }
+    for (const attack of parsed.atks) await saveAttack(attack);
+    for (const op of parsed.ops) await saveHostileOp(op);
+    for (const spell of parsed.spells) await saveSpell(spell);
 
-    for (const op of parsed.ops) {
-      await saveHostileOp(op);
-    }
-
-    for (const spell of parsed.spells) {
-      await saveSpell(spell);
-    }
-
-    await saveOpsMessage({
-      msgId: message.id,
-      message: message.content
-    });
+    await saveOpsMessage({ msgId: message.id, message: message.content });
 
     if (message.author.bot) return;
     if (!message.content.startsWith(config.prefix)) return;
 
-    const args = message.content
-      .slice(config.prefix.length)
-      .trim()
-      .split(/ +/);
-
+    const args = message.content.slice(config.prefix.length).trim().split(/ +/);
     const commandName = args.shift().toLowerCase();
     const command = message.client.commands.get(commandName);
-
     if (!command) return;
 
     try {
       await command.execute(message, args);
-
-      setTimeout(() => {
-        message.delete().catch(() => {});
-      }, 90000);
-
+      setTimeout(() => { message.delete().catch(() => {}); }, 90000);
     } catch (error) {
       console.error(error);
-
-      const reply = await message.reply(
-        "There was an error executing that command."
-      );
-
-      setTimeout(() => {
-        reply.delete().catch(() => {});
-        message.delete().catch(() => {});
-      }, 90000);
+      const reply = await message.reply("There was an error executing that command.");
+      setTimeout(() => { reply.delete().catch(() => {}); message.delete().catch(() => {}); }, 90000);
     }
   }
 };
