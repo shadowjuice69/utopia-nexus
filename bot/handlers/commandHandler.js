@@ -13,6 +13,7 @@ const removecheckHandler = require("./commands/removecheckHandler");
 const logsHandler = require("./commands/logsHandler");
 const resetageHandler = require("./commands/resetageHandler");
 const restoreHandler = require("./commands/restoreHandler");
+const intelHandler = require('./commands/intelHandler');
 const registerHandler = require("./commands/registerHandler");
 const adminHandler = require("./commands/adminHandler");
 const askHandler = require("./commands/askHandler");
@@ -36,6 +37,7 @@ const UTOPIA_COMMANDS = {
   status: statusHandler,
   target: targetHandler,
   member: memberHandler,
+  intel: intelHandler,
   register: registerHandler
 };
 

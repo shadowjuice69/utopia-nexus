@@ -1,6 +1,7 @@
 const database = require("../services/database");
 const supabaseService = require("../services/supabase");
 const { MessageFlags, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
+const { parseThrone, parseMilitary, summarizeIntel } = require("../parsers/throneParser");
 
 module.exports = async function modalHandler(interaction) {
 
@@ -8,9 +9,7 @@ module.exports = async function modalHandler(interaction) {
   const supabase = supabaseService.getClient();
 
   if (interaction.customId === "utopia_register_1") {
-
     const user = db.data.users.find(u => u.id === interaction.user.id);
-
     if (!user) {
       return interaction.reply({
         content: "❌ You need a profile first. Use /utopia register.",
@@ -23,7 +22,6 @@ module.exports = async function modalHandler(interaction) {
     user._reg_race = interaction.fields.getTextInputValue("race");
     user._reg_personality = interaction.fields.getTextInputValue("personality");
     user._reg_play_role = interaction.fields.getTextInputValue("play_role");
-
     await db.write();
 
     const button = new ButtonBuilder()
@@ -39,9 +37,7 @@ module.exports = async function modalHandler(interaction) {
   }
 
   if (interaction.customId === "utopia_register_2") {
-
     const user = db.data.users.find(u => u.id === interaction.user.id);
-
     if (!user) {
       return interaction.reply({
         content: "❌ Registration session expired. Please start again.",
@@ -51,7 +47,6 @@ module.exports = async function modalHandler(interaction) {
 
     const timezone = interaction.fields.getTextInputValue("timezone");
     const waveTimes = interaction.fields.getTextInputValue("wave_times");
-
     user.timezone = timezone;
     user.wave_times = waveTimes;
     await db.write();
@@ -87,5 +82,85 @@ module.exports = async function modalHandler(interaction) {
         `⏰ Best Wave Times: ${waveTimes}`,
       flags: MessageFlags.Ephemeral,
     });
+  }
+
+  // Intel paste handler
+  if (interaction.customId === "intel_paste") {
+    await interaction.deferReply({ ephemeral: true });
+
+    const text = interaction.fields.getTextInputValue("intel_text");
+    const parsed = parseThrone(text);
+
+    if (!parsed.name && !parsed.nw && !parsed.acres) {
+      return interaction.editReply("❌ Could not parse intel from that text. Make sure you're pasting a throne or military page.");
+    }
+
+    // Try to find existing province or create new one
+    if (supabase && parsed.name) {
+      const { data: existing } = await supabase
+        .from("provinces")
+        .select("id, name")
+        .ilike("name", parsed.name)
+        .limit(1);
+
+      const updateData = {
+        name: parsed.name,
+        updated_at: new Date().toISOString(),
+        intel_age: "0",
+      };
+
+      // Only update fields that were parsed
+      if (parsed.combo) updateData.combo = parsed.combo;
+      if (parsed.race) updateData.race = parsed.race;
+      if (parsed.nw) updateData.nw = parsed.nw;
+      if (parsed.acres) updateData.acres = parsed.acres;
+      if (parsed.off) updateData.off = parsed.off;
+      if (parsed.def) updateData.def = parsed.def;
+      if (parsed.be) updateData.be = parsed.be;
+      if (parsed.wages) updateData.wages = parsed.wages;
+      if (parsed.stlth) updateData.stlth = parsed.stlth;
+      if (parsed.mana) updateData.mana = parsed.mana;
+      if (parsed.peons) updateData.peons = parsed.peons;
+      if (parsed.honor) updateData.honor = parsed.honor;
+      if (parsed.o_tpa) updateData.o_tpa = parsed.o_tpa;
+      if (parsed.d_tpa) updateData.d_tpa = parsed.d_tpa;
+      if (parsed.o_wpa) updateData.o_wpa = parsed.o_wpa;
+      if (parsed.d_wpa) updateData.d_wpa = parsed.d_wpa;
+      if (parsed.pop_pct) updateData.pop_pct = parsed.pop_pct;
+      if (parsed.good_spells) updateData.good_spells = parsed.good_spells;
+      if (parsed.map) updateData.map = parsed.map;
+      if (parsed.coordinates) updateData.coordinates = parsed.coordinates;
+      if (parsed.kingdom) updateData.kingdom_name = parsed.kingdom;
+
+      let error;
+      if (existing && existing.length > 0) {
+        const result = await supabase
+          .from("provinces")
+          .update(updateData)
+          .eq("id", existing[0].id);
+        error = result.error;
+      } else {
+        updateData.user_id = interaction.user.id;
+        const result = await supabase
+          .from("provinces")
+          .insert(updateData);
+        error = result.error;
+      }
+
+      if (error) {
+        console.error("[INTEL SAVE ERROR]", error.message);
+        return interaction.editReply(`❌ Failed to save intel: ${error.message}`);
+      }
+    }
+
+    const summary = summarizeIntel(parsed);
+    const fields = Object.entries(parsed)
+      .filter(([k, v]) => v && !["name", "combo", "kingdom"].includes(k))
+      .map(([k, v]) => `• **${k}:** ${v}`)
+      .join('\n');
+
+    return interaction.editReply(
+      `✅ **Intel saved for ${parsed.name || "Unknown"}**\n\n${summary}\n\n${fields}`.slice(0, 1900)
+    );
   }
 };
