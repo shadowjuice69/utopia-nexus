@@ -7,32 +7,22 @@ module.exports = {
   },
 
   isAdmin(userId) {
+    if (userId === roles.owner) return true;
     const db = database.getDb();
-
-    return (
-      userId === roles.owner ||
-      db.data.admins.includes(userId)
-    );
+    const admins = db.get("admins").value() || [];
+    return admins.includes(userId);
   },
 
   async addAdmin(userId) {
-  const db = database.getDb();
-
-  db.data.admins = db.data.admins || [];
-
-  if (!db.data.admins.includes(userId)) {
-    db.data.admins.push(userId);
-    await db.write();
-  }
-},
+    const db = database.getDb();
+    const admins = db.get("admins").value() || [];
+    if (!admins.includes(userId)) {
+      db.get("admins").push(userId).write();
+    }
+  },
 
   async removeAdmin(userId) {
     const db = database.getDb();
-
-    db.data.admins = db.data.admins.filter(
-      id => id !== userId
-    );
-
-    await db.write();
+    db.set("admins", (db.get("admins").value() || []).filter(id => id !== userId)).write();
   },
 };
