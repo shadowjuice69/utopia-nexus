@@ -1,108 +1,169 @@
-// Parses Utopia throne/military/science page pastes into structured intel
-
 function cleanNum(str) {
   if (!str) return null;
-  return str.replace(/,/g, "").trim();
+  return str.toString().replace(/,/g, "").trim();
 }
 
 function parseThrone(text) {
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
   const result = {};
+  const isGenesis = text.includes('spa)') || text.includes('ospa') || text.includes('dspa');
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     const lower = line.toLowerCase();
 
-    // Province name — usually first non-empty line or contains "the province of"
-    if (!result.name) {
-      const provMatch = line.match(/^(.+?)\s*(?:\(([^)]+)\))?\s*$/);
-      if (provMatch && !lower.includes(':') && line.length < 60) {
-        result.name = provMatch[1].trim();
-        if (provMatch[2]) result.combo = provMatch[2].trim();
-      }
+    // Province name and coordinates
+    const provMatch = line.match(/The Province of (.+?)\s*\((\d+:\d+)\)/i);
+    if (provMatch) {
+      result.name = provMatch[1].trim();
+      result.coordinates = provMatch[2];
+      continue;
     }
 
-    // Race/Personality combo
-    const comboMatch = line.match(/Race:\s*(.+)/i) || line.match(/^([A-Z][a-z]+)\s*\/\s*([A-Z][a-z]+)/);
-    if (comboMatch && !result.race) {
-      result.race = comboMatch[1]?.trim();
+    // WoL province format (no "The Province of")
+    const wolProvMatch = line.match(/^(.+?)\s*\((\d+:\d+)\)$/);
+    if (wolProvMatch && !result.name) {
+      result.name = wolProvMatch[1].trim();
+      result.coordinates = wolProvMatch[2];
+      continue;
     }
 
-    // Kingdom
-    const kdMatch = line.match(/Kingdom.*?:\s*(.+?)\s*\((\d+:\d+)\)/i);
-    if (kdMatch) {
-      result.kingdom = kdMatch[1].trim();
-      result.coordinates = kdMatch[2];
+    // Race
+    const raceMatch = line.match(/Race[\s\t]+(\w[\w\s]*?)(?:\t|$)/i);
+    if (raceMatch) { result.race = raceMatch[1].trim(); continue; }
+
+    // Ruler/Personality
+    const rulerMatch = line.match(/Ruler[\s\t]+(.+?)(?:\t|$)/i);
+    if (rulerMatch) {
+      const ruler = rulerMatch[1].trim();
+      // Extract title and name
+      const titleMatch = ruler.match(/(Baron|Viscount|Count|Duke|Prince|Knight|Lord|Marquis|Peasant)\s+(.+)/i);
+      if (titleMatch) result.ruler = ruler;
+      continue;
     }
+
+    // Land/Acres
+    const landMatch = line.match(/Land[\s\t]+([\d,]+)/i);
+    if (landMatch) { result.acres = cleanNum(landMatch[1]); continue; }
+
+    // Peasants
+    const peasantMatch = line.match(/Peasants[\s\t]+([\d,]+)/i);
+    if (peasantMatch) { result.peons = cleanNum(peasantMatch[1]); continue; }
+
+    // Building Efficiency
+    const beMatch = line.match(/Building\s*Eff\.?[\s\t]+([\d.]+)%/i);
+    if (beMatch) { result.be = beMatch[1]; continue; }
+
+    // Money/Gold
+    const moneyMatch = line.match(/Money[\s\t]+([\d,]+)/i);
+    if (moneyMatch) { result.gold = cleanNum(moneyMatch[1]); continue; }
+
+    // Food
+    const foodMatch = line.match(/Food[\s\t]+([\d,]+)/i);
+    if (foodMatch) { result.food = cleanNum(foodMatch[1]); continue; }
+
+    // Runes
+    const runesMatch = line.match(/Runes[\s\t]+([\d,]+)/i);
+    if (runesMatch) { result.runes = cleanNum(runesMatch[1]); continue; }
 
     // Networth
-    const nwMatch = line.match(/(?:Net\s*[Ww]orth|NW)[\s:]*([0-9,]+)/i);
-    if (nwMatch) result.nw = cleanNum(nwMatch[1]);
-
-    // Acres
-    const acresMatch = line.match(/(?:Acres?|Land)[\s:]*([0-9,]+)/i);
-    if (acresMatch) result.acres = cleanNum(acresMatch[1]);
-
-    // Offense/Defense
-    const offMatch = line.match(/(?:Offense|Off(?:ensive)?\s*(?:Force)?)[\s:]*([0-9,]+)/i);
-    if (offMatch) result.off = cleanNum(offMatch[1]);
-
-    const defMatch = line.match(/(?:Defense|Def(?:ensive)?\s*(?:Force)?)[\s:]*([0-9,]+)/i);
-    if (defMatch) result.def = cleanNum(defMatch[1]);
-
-    // BE
-    const beMatch = line.match(/(?:Building\s*Eff(?:iciency)?|BE)[\s:]*([0-9.]+)\s*%?/i);
-    if (beMatch) result.be = cleanNum(beMatch[1]);
+    const nwMatch = line.match(/Networth[\s\t]+([\d,]+)/i);
+    if (nwMatch) { result.nw = cleanNum(nwMatch[1]); continue; }
 
     // Wages
-    const wagesMatch = line.match(/Wages?[\s:]*([0-9.]+)\s*%?/i);
-    if (wagesMatch) result.wages = cleanNum(wagesMatch[1]);
+    const wagesMatch = line.match(/Wages?[\s\t]+([\d.]+)%?/i);
+    if (wagesMatch) { result.wages = wagesMatch[1]; continue; }
 
     // Stealth
-    const stealthMatch = line.match(/Stealth[\s:]*([0-9.]+)\s*%?/i);
-    if (stealthMatch) result.stlth = cleanNum(stealthMatch[1]);
+    const stealthMatch = line.match(/Stealth[\s\t]+([\d.]+)%?/i);
+    if (stealthMatch) { result.stlth = stealthMatch[1]; continue; }
 
     // Mana
-    const manaMatch = line.match(/Mana[\s:]*([0-9.]+)\s*%?/i);
-    if (manaMatch) result.mana = cleanNum(manaMatch[1]);
-
-    // Peasants/Peons
-    const peasantMatch = line.match(/(?:Peasants?|Peons?)[\s:]*([0-9,]+)/i);
-    if (peasantMatch) result.peons = cleanNum(peasantMatch[1]);
+    const manaMatch = line.match(/Mana[\s\t]+([\d.]+)%?/i);
+    if (manaMatch) { result.mana = manaMatch[1]; continue; }
 
     // Honor
-    const honorMatch = line.match(/Honor[\s:]*([0-9,]+)/i);
-    if (honorMatch) result.honor = cleanNum(honorMatch[1]);
+    const honorMatch = line.match(/Honor[\s\t]+([\d,]+)/i);
+    if (honorMatch) { result.honor = cleanNum(honorMatch[1]); continue; }
 
-    // TPA
-    const otpaMatch = line.match(/(?:Offensive?\s*TPA|oTPA)[\s:]*([0-9.]+)/i);
-    if (otpaMatch) result.o_tpa = otpaMatch[1].trim();
+    // Genesis — Off/Def Points
+    const offPtsMatch = line.match(/Off\.?\s*Points[\s\t]+([\d,]+)/i);
+    if (offPtsMatch) { result.off = cleanNum(offPtsMatch[1]); continue; }
 
-    const dtpaMatch = line.match(/(?:Defensive?\s*TPA|dTPA)[\s:]*([0-9.]+)/i);
-    if (dtpaMatch) result.d_tpa = dtpaMatch[1].trim();
+    const defPtsMatch = line.match(/Def\.?\s*Points[\s\t]+([\d,]+)/i);
+    if (defPtsMatch) { result.def = cleanNum(defPtsMatch[1]); continue; }
 
-    // WPA
-    const owpaMatch = line.match(/(?:Offensive?\s*WPA|oWPA)[\s:]*([0-9.]+)/i);
-    if (owpaMatch) result.o_wpa = owpaMatch[1].trim();
+    // WoL Offense/Defense
+    const offMatch = line.match(/(?:Offense|Off(?:ensive)?\s*Force)[\s\t]+([\d,]+)/i);
+    if (offMatch) { result.off = cleanNum(offMatch[1]); continue; }
 
-    const dwpaMatch = line.match(/(?:Defensive?\s*WPA|dWPA)[\s:]*([0-9.]+)/i);
-    if (dwpaMatch) result.d_wpa = dwpaMatch[1].trim();
+    const defMatch = line.match(/(?:Defense|Def(?:ensive)?\s*Force)[\s\t]+([\d,]+)/i);
+    if (defMatch) { result.def = cleanNum(defMatch[1]); continue; }
 
-    // Population %
-    const popMatch = line.match(/(?:Pop(?:ulation)?\s*(?:Satisfaction)?|Happiness)[\s:]*([0-9.]+)\s*%?/i);
-    if (popMatch) result.pop_pct = cleanNum(popMatch[1]);
+    // TPA — Genesis format: "1,224 (1.0 tpa)"
+    const tpaGenMatch = line.match(/Thieves[\s\t]+([\d,]+)\s*\(([\d.]+)\s*tpa\)/i);
+    if (tpaGenMatch) {
+      result.thieves = cleanNum(tpaGenMatch[1]);
+      result.o_tpa = tpaGenMatch[2];
+      result.d_tpa = tpaGenMatch[2];
+      continue;
+    }
+
+    // WPA — Genesis format: "314 (0.3 wpa)"
+    const wpaGenMatch = line.match(/Wizards[\s\t]+([\d,]+)\s*\(([\d.]+)\s*wpa\)/i);
+    if (wpaGenMatch) {
+      result.wizards = cleanNum(wpaGenMatch[1]);
+      result.o_wpa = wpaGenMatch[2];
+      result.d_wpa = wpaGenMatch[2];
+      continue;
+    }
+
+    // Thieves plain
+    const thievesMatch = line.match(/Thieves[\s\t]+([\d,]+)/i);
+    if (thievesMatch && !result.thieves) { result.thieves = cleanNum(thievesMatch[1]); continue; }
+
+    // Wizards plain
+    const wizardsMatch = line.match(/Wizards[\s\t]+([\d,]+)/i);
+    if (wizardsMatch && !result.wizards) { result.wizards = cleanNum(wizardsMatch[1]); continue; }
+
+    // War Horses
+    const horseMatch = line.match(/War\s*Horses[\s\t]+([\d,]+)/i);
+    if (horseMatch) { result.war_horses = cleanNum(horseMatch[1]); continue; }
+
+    // Prisoners
+    const prisonerMatch = line.match(/Prisoners[\s\t]+([\d,]+)/i);
+    if (prisonerMatch) { result.prisoners = cleanNum(prisonerMatch[1]); continue; }
+
+    // Genesis units by name
+    const unitPatterns = [
+      { regex: /Soldiers[\s\t]+([\d,]+)/i, key: "soldiers" },
+      { regex: /Quickblades[\s\t]+([\d,]+)/i, key: "off_specs" },
+      { regex: /Pikemen[\s\t]+([\d,]+)/i, key: "def_specs" },
+      { regex: /Golems[\s\t]+([\d,]+)/i, key: "elites" },
+      { regex: /Off(?:ensive)?\s*Spec[\s\t]+([\d,]+)/i, key: "off_specs" },
+      { regex: /Def(?:ensive)?\s*Spec[\s\t]+([\d,]+)/i, key: "def_specs" },
+      { regex: /Elite[\s\t]+([\d,]+)/i, key: "elites" },
+      { regex: /Mercenar[\w]+[\s\t]+([\d,]+)/i, key: "mercs" },
+    ];
+    for (const { regex, key } of unitPatterns) {
+      const m = line.match(regex);
+      if (m) { result[key] = cleanNum(m[1]); break; }
+    }
 
     // Spells active
-    if (lower.includes('spell') && lower.includes('active') || lower.includes('enchantment')) {
-      const spellLine = lines.slice(i, i + 5).join(' ');
-      const spellMatch = spellLine.match(/(?:spells?|enchantments?)[\s:]*(.+?)(?:\n|$)/i);
+    if (lower.includes("love and peace") || lower.includes("duration:")) {
+      const spellMatch = line.match(/Duration:\s*(.+)/i);
       if (spellMatch) result.good_spells = spellMatch[1].trim();
+      continue;
     }
 
     // MAP
-    const mapMatch = line.match(/(?:Military\s*Access\s*(?:Pact)?|MAP)[\s:]*(.+)/i);
-    if (mapMatch && !result.map) result.map = mapMatch[1].trim();
+    const mapMatch = line.match(/(?:Military\s*Access\s*Pact|MAP)[\s\t]*:?\s*(.+)/i);
+    if (mapMatch) { result.map = mapMatch[1].trim(); continue; }
   }
+
+  // Mark as Genesis or WoL
+  result.game_type = isGenesis ? "genesis" : "wol";
 
   return result;
 }
@@ -112,37 +173,23 @@ function parseMilitary(text) {
   const result = { units: {} };
 
   for (const line of lines) {
-    // Soldiers
-    const soldierMatch = line.match(/Soldiers?[\s:]*([0-9,]+)/i);
-    if (soldierMatch) result.units.soldiers = cleanNum(soldierMatch[1]);
-
-    // Off specs
-    const offSpecMatch = line.match(/(?:Off(?:ensive)?\s*Spec(?:ialist)?s?)[\s:]*([0-9,]+)/i);
-    if (offSpecMatch) result.units.off_specs = cleanNum(offSpecMatch[1]);
-
-    // Def specs
-    const defSpecMatch = line.match(/(?:Def(?:ensive)?\s*Spec(?:ialist)?s?)[\s:]*([0-9,]+)/i);
-    if (defSpecMatch) result.units.def_specs = cleanNum(defSpecMatch[1]);
-
-    // Elites
-    const eliteMatch = line.match(/(?:Elite(?:\s*Units?)?|Elites)[\s:]*([0-9,]+)/i);
-    if (eliteMatch) result.units.elites = cleanNum(eliteMatch[1]);
-
-    // War Horses
-    const horseMatch = line.match(/(?:War\s*Horses?|Horses?)[\s:]*([0-9,]+)/i);
-    if (horseMatch) result.units.war_horses = cleanNum(horseMatch[1]);
-
-    // Mercs
-    const mercMatch = line.match(/(?:Mercenaries|Mercs?)[\s:]*([0-9,]+)/i);
-    if (mercMatch) result.units.mercs = cleanNum(mercMatch[1]);
-
-    // Prisoners
-    const prisonerMatch = line.match(/Prisoners?[\s:]*([0-9,]+)/i);
-    if (prisonerMatch) result.units.prisoners = cleanNum(prisonerMatch[1]);
-
-    // Generals
-    const genMatch = line.match(/Generals?[\s:]*([0-9,]+)/i);
-    if (genMatch) result.generals = cleanNum(genMatch[1]);
+    const patterns = [
+      { regex: /Soldiers?[\s\t]+([\d,]+)/i, key: "soldiers" },
+      { regex: /Off(?:ensive)?\s*Spec[\s\t]+([\d,]+)/i, key: "off_specs" },
+      { regex: /Def(?:ensive)?\s*Spec[\s\t]+([\d,]+)/i, key: "def_specs" },
+      { regex: /Elite[\s\t]+([\d,]+)/i, key: "elites" },
+      { regex: /Quickblades[\s\t]+([\d,]+)/i, key: "off_specs" },
+      { regex: /Pikemen[\s\t]+([\d,]+)/i, key: "def_specs" },
+      { regex: /Golems[\s\t]+([\d,]+)/i, key: "elites" },
+      { regex: /War\s*Horses?[\s\t]+([\d,]+)/i, key: "war_horses" },
+      { regex: /Mercenar[\w]+[\s\t]+([\d,]+)/i, key: "mercs" },
+      { regex: /Prisoners?[\s\t]+([\d,]+)/i, key: "prisoners" },
+      { regex: /Generals?[\s\t]+([\d,]+)/i, key: "generals" },
+    ];
+    for (const { regex, key } of patterns) {
+      const m = line.match(regex);
+      if (m) { result.units[key] = cleanNum(m[1]); break; }
+    }
   }
 
   return result;
@@ -151,7 +198,8 @@ function parseMilitary(text) {
 function summarizeIntel(parsed) {
   const parts = [];
   if (parsed.name) parts.push(`**${parsed.name}**`);
-  if (parsed.combo || parsed.race) parts.push(parsed.combo || parsed.race);
+  if (parsed.race) parts.push(parsed.race);
+  if (parsed.game_type) parts.push(`[${parsed.game_type.toUpperCase()}]`);
   if (parsed.nw) parts.push(`NW: ${parseInt(parsed.nw).toLocaleString()}`);
   if (parsed.acres) parts.push(`Acres: ${parseInt(parsed.acres).toLocaleString()}`);
   if (parsed.off) parts.push(`Off: ${parseInt(parsed.off).toLocaleString()}`);
