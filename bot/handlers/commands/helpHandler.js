@@ -68,7 +68,7 @@ module.exports = async function helpHandler(interaction) {
       },
       {
         name: "🌐 Dashboard",
-        value: "https://dashboard-gold-six-11.vercel.app\nPassword: ask your General",
+        value: "https://dashboard-gold-six-11.vercel.app\nPassword: NikkoAce",
         inline: false
       }
     )
