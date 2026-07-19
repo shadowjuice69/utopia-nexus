@@ -19,8 +19,68 @@ function parseThrone(text) {
       continue;
     }
 
-    // Split by tab OR 2+ spaces to handle both formats
-    const parts = line.split(/\t+|  +/).map(p => p.trim()).filter(Boolean);
+    // Handle Utopia table format with tabs
+    const parts = [line];
+
+    const cols = line.split("\\t").map(p => p.trim()).filter(Boolean);
+
+    if (cols.length >= 2) {
+      const key = cols[0];
+
+      if (key === "Race") {
+        result.race = cols[1];
+        result.soldiers = cleanNum(cols[3]);
+        continue;
+      }
+
+      if (key === "Ruler") {
+        result.ruler = cols[1];
+        result.off_specs = cleanNum(cols[3]);
+        continue;
+      }
+
+      if (key === "Land") {
+        result.acres = cleanNum(cols[1]);
+        result.def_specs = cleanNum(cols[3]);
+        continue;
+      }
+
+      if (key === "Peasants") {
+        result.peons = cleanNum(cols[1]);
+        result.elites = cleanNum(cols[3]);
+        continue;
+      }
+
+      if (key === "Building Eff.") {
+        result.be = cols[1].replace("%","");
+        result.thieves = cleanNum(cols[3]);
+        continue;
+      }
+
+      if (key === "Money") {
+        result.gold = cleanNum(cols[1]);
+        result.wizards = cleanNum(cols[3]);
+        continue;
+      }
+
+      if (key === "Food") {
+        result.food = cleanNum(cols[1]);
+        result.war_horses = cleanNum(cols[3]);
+        continue;
+      }
+
+      if (key === "Runes") {
+        result.runes = cleanNum(cols[1]);
+        result.prisoners = cleanNum(cols[3]);
+        continue;
+      }
+
+      if (key === "Networth") {
+        result.nw = cleanNum(cols[1]);
+        result.def = cleanNum(cols[3]);
+        continue;
+      }
+    }
 
     for (const part of parts) {
       // Province name
