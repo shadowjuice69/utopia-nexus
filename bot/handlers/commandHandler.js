@@ -14,7 +14,6 @@ const logsHandler = require("./commands/logsHandler");
 const resetageHandler = require("./commands/resetageHandler");
 const restoreHandler = require("./commands/restoreHandler");
 const registerHandler = require("./commands/registerHandler");
-const helpHandler = require("./commands/helpHandler");
 const intelHandler = require('./commands/intelHandler');
 const adminHandler = require("./commands/adminHandler");
 const askHandler = require("./commands/askHandler");
@@ -26,8 +25,9 @@ const deletealertHandler = require("./commands/deletealertHandler");
 const statusHandler = require("./commands/statusHandler");
 const targetHandler = require("./commands/targetHandler");
 const warHandler = require("./commands/warHandler");
-const broadcastHandler = require("./commands/broadcastHandler");
 const threatHandler = require("./commands/threatHandler");
+const broadcastHandler = require("./commands/broadcastHandler");
+const helpHandler = require("./commands/helpHandler");
 const permissionService = require("../services/permissionService");
 
 const UTOPIA_COMMANDS = {
@@ -66,6 +66,9 @@ const ADMIN_COMMANDS = {
   war: warHandler
 };
 
+// Combined map — owner can run admin commands from either group
+const ALL_COMMANDS = { ...UTOPIA_COMMANDS, ...ADMIN_COMMANDS };
+
 module.exports = async function commandHandler(interaction) {
   const cmd = interaction.commandName;
   if (cmd !== "utopia" && cmd !== "admin") return;
@@ -73,17 +76,16 @@ module.exports = async function commandHandler(interaction) {
   const subcommand = interaction.options.getSubcommand();
   console.log(`[${cmd}] ${subcommand}`);
 
-  // Block non-admins from /admin commands
-  if (cmd === "admin" && !permissionService.isAdmin(interaction.user.id)) {
+  // Check if it's an admin command being run from /utopia
+  const isAdminCmd = ADMIN_COMMANDS[subcommand] !== undefined;
+  if (isAdminCmd && !permissionService.isAdmin(interaction.user.id)) {
     return interaction.reply({
       content: "❌ You don't have permission to use admin commands.",
       ephemeral: true
     });
   }
 
-  const map = cmd === "utopia" ? UTOPIA_COMMANDS : ADMIN_COMMANDS;
-  const handler = map[subcommand];
-
+  const handler = ALL_COMMANDS[subcommand];
   if (handler) return handler(interaction);
 
   return interaction.reply({ content: `❌ Unknown command: ${subcommand}`, ephemeral: true });
