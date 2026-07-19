@@ -42,7 +42,8 @@ const UTOPIA_COMMANDS = {
   target: targetHandler,
   member: memberHandler,
   register: registerHandler,
-  intel: intelHandler
+  intel: intelHandler,
+  help: helpHandler
 };
 
 const ADMIN_COMMANDS = {
