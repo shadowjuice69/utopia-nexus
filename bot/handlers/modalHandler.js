@@ -89,6 +89,7 @@ module.exports = async function modalHandler(interaction) {
     await interaction.deferReply({ ephemeral: true });
 
     const text = interaction.fields.getTextInputValue("intel_text");
+    console.log("[INTEL RAW]", JSON.stringify(text.slice(0, 500)));
     const parsed = parseThrone(text);
 
     if (!parsed.name && !parsed.nw && !parsed.acres) {
