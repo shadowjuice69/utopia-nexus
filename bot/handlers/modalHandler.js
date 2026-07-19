@@ -163,4 +163,43 @@ module.exports = async function modalHandler(interaction) {
       `✅ **Intel saved for ${parsed.name || "Unknown"}**\n\n${summary}\n\n${fields}`.slice(0, 1900)
     );
   }
+
+  // Broadcast modal handler
+  if (interaction.customId === "broadcast_modal") {
+    await interaction.deferReply({ ephemeral: true });
+
+    const title = interaction.fields.getTextInputValue("broadcast_title") || "📢 Kingdom Broadcast";
+    const message = interaction.fields.getTextInputValue("broadcast_message");
+
+    const { data: provinces } = await supabase
+      .from("provinces")
+      .select("discord_id, name")
+      .not("discord_id", "is", null);
+
+    if (!provinces || provinces.length === 0) {
+      return interaction.editReply("❌ No registered members found.");
+    }
+
+    let sent = 0;
+    let failed = 0;
+
+    for (const p of provinces) {
+      try {
+        const user = await interaction.client.users.fetch(p.discord_id);
+        await user.send([
+          `🏰 **${title}**`,
+          `From: ${interaction.user.username} (Judo 4:9)`,
+          ``,
+          message
+        ].join("\n"));
+        sent++;
+      } catch (e) {
+        failed++;
+      }
+    }
+
+    return interaction.editReply(
+      `✅ Broadcast sent to **${sent}** members${failed > 0 ? ` (${failed} failed — DMs may be closed)` : ""}.`
+    );
+  }
 };

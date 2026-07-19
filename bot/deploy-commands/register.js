@@ -46,6 +46,7 @@ const commands = [
       { name: "resetage", description: "Reset all province data for new age", type: 1 },
       { name: "analyze-war", description: "AI war analysis", type: 1 },
       { name: "threat", description: "Show kingdom threat meter", type: 1 },
+      { name: "broadcast", description: "Send DM to all registered members", type: 1 },
       {
         name: "addadmin",
         description: "Add a kingdom admin",
