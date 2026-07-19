@@ -140,7 +140,7 @@ module.exports = async function modalHandler(interaction) {
           .eq("id", existing[0].id);
         error = result.error;
       } else {
-        updateData.user_id = interaction.user.id;
+        // Intel paste - no user_id to avoid conflicts with registered provinces
         const result = await supabase
           .from("provinces")
           .insert(updateData);
