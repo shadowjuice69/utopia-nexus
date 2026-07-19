@@ -606,3 +606,46 @@ body {
 @media (max-width: 768px) {
   .calc-grid { grid-template-columns: 1fr; }
 }
+
+/* Mobile improvements */
+@media (max-width: 900px) {
+  .tab-bar {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+  .tab-btn {
+    padding: 8px 6px;
+    font-size: 12px;
+    text-align: center;
+  }
+}
+
+@media (max-width: 600px) {
+  .tab-bar {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .stats-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  /* Hide less important roster columns on phone */
+  .roster-table th:nth-child(5),
+  .roster-table td:nth-child(5),
+  .roster-table th:nth-child(6),
+  .roster-table td:nth-child(6),
+  .roster-table th:nth-child(7),
+  .roster-table td:nth-child(7) {
+    display: none;
+  }
+  /* Smaller modal on phone */
+  .modal-card { padding: 20px 16px; }
+  .modal-stats { grid-template-columns: repeat(2, 1fr); }
+  /* Calc stacks vertically already, just tighten */
+  .calc-input { width: 80px; }
+  /* Op item on mobile */
+  .op-item { grid-template-columns: 1fr 1fr; }
+  .op-time { display: none; }
+  /* Tick grid smaller */
+  .tick-grid { grid-template-columns: repeat(6, 1fr); }
+  .timeline { grid-template-columns: repeat(6, 1fr); }
+}
