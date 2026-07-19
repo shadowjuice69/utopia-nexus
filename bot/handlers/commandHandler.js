@@ -13,8 +13,8 @@ const removecheckHandler = require("./commands/removecheckHandler");
 const logsHandler = require("./commands/logsHandler");
 const resetageHandler = require("./commands/resetageHandler");
 const restoreHandler = require("./commands/restoreHandler");
-const intelHandler = require('./commands/intelHandler');
 const registerHandler = require("./commands/registerHandler");
+const intelHandler = require('./commands/intelHandler');
 const adminHandler = require("./commands/adminHandler");
 const askHandler = require("./commands/askHandler");
 const wavesHandler = require("./commands/wavesHandler");
@@ -25,6 +25,8 @@ const deletealertHandler = require("./commands/deletealertHandler");
 const statusHandler = require("./commands/statusHandler");
 const targetHandler = require("./commands/targetHandler");
 const warHandler = require("./commands/warHandler");
+const threatHandler = require("./commands/threatHandler");
+const permissionService = require("../services/permissionService");
 
 const UTOPIA_COMMANDS = {
   profile: profileHandler,
@@ -37,11 +39,10 @@ const UTOPIA_COMMANDS = {
   status: statusHandler,
   target: targetHandler,
   member: memberHandler,
-  intel: intelHandler,
-  register: registerHandler
+  register: registerHandler,
+  intel: intelHandler
 };
 
-const threatHandler = require("./commands/threatHandler");
 const ADMIN_COMMANDS = {
   panel: adminHandler,
   admins: adminsHandler,
@@ -64,10 +65,22 @@ const ADMIN_COMMANDS = {
 module.exports = async function commandHandler(interaction) {
   const cmd = interaction.commandName;
   if (cmd !== "utopia" && cmd !== "admin") return;
+
   const subcommand = interaction.options.getSubcommand();
   console.log(`[${cmd}] ${subcommand}`);
+
+  // Block non-admins from /admin commands
+  if (cmd === "admin" && !permissionService.isAdmin(interaction.user.id)) {
+    return interaction.reply({
+      content: "❌ You don't have permission to use admin commands.",
+      ephemeral: true
+    });
+  }
+
   const map = cmd === "utopia" ? UTOPIA_COMMANDS : ADMIN_COMMANDS;
   const handler = map[subcommand];
+
   if (handler) return handler(interaction);
+
   return interaction.reply({ content: `❌ Unknown command: ${subcommand}`, ephemeral: true });
 };

@@ -38,6 +38,7 @@ const commands = [
   {
     name: "admin",
     description: "Utopia Nexus admin commands",
+    default_member_permissions: "0",
     options: [
       { name: "panel", description: "Verify admin access", type: 1 },
       { name: "admins", description: "View kingdom admins", type: 1 },
