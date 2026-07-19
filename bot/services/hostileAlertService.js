@@ -89,56 +89,6 @@ async function checkEnemyWave(client, supabase) {
 }
 
 // ─── CHAIN DETECTOR ──────────────────────────────────────────────
-async function checkChains(client, supabase) {
-  const since = new Date(Date.now() - 30 * 60 * 1000).toISOString();
-  const ourProvinces = await getOurProvinces(supabase);
-
-  const { data: attacks } = await supabase
-    .from("attacks")
-    .select("*")
-    .gte("timestamp", since)
-    .order("timestamp", { ascending: true });
-
-  if (!attacks?.length) return [];
-
-  const incoming = (attacks || []).filter(a => ourProvinces.has(a.target_province?.toLowerCase()));
-
-  // Group by target province
-  const byTarget = {};
-  for (const a of incoming) {
-    const t = a.target_province || "Unknown";
-    if (!byTarget[t]) byTarget[t] = [];
-    byTarget[t].push(a);
-  }
-
-  const chains = [];
-  for (const [province, hits] of Object.entries(byTarget)) {
-    if (hits.length < 3) continue;
-
-    const key = `chain_${province}_${new Date().getUTCHours()}`;
-    if (alreadyAlerted.has(key)) continue;
-    alreadyAlerted.add(key);
-
-    const first = new Date(hits[0].timestamp);
-    const last = new Date(hits[hits.length - 1].timestamp);
-    const minutes = Math.round((last - first) / 60000);
-    const totalAcresLost = hits.reduce((s, h) => s + (parseInt(h.acres_captured) || 0), 0);
-
-    chains.push({
-      type: "chain",
-      province,
-      hits: hits.length,
-      minutes,
-      acresLost: totalAcresLost,
-      estimatedLandLossPct: totalAcresLost > 0 ? Math.round((totalAcresLost / 2000) * 100) : null
-    });
-  }
-
-  return chains;
-}
-
-// ─── RELATIONS MONITOR ───────────────────────────────────────────
-
 async function checkRelations(client, supabase) {
   const since = new Date(Date.now() - 60 * 60 * 1000).toISOString();
   const ourProvinces = await getOurProvinces(supabase);
@@ -190,6 +140,130 @@ async function checkRelations(client, supabase) {
   }
 
   return warnings;
+}
+
+async function checkChains(client, supabase) {
+  const since = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+  const ourProvinces = await getOurProvinces(supabase);
+
+  const { data: attacks } = await supabase
+    .from("attacks").select("*").gte("timestamp", since).order("timestamp", { ascending: true });
+
+  if (!attacks?.length) return [];
+
+  const incoming = (attacks || []).filter(a => ourProvinces.has(a.target_province?.toLowerCase()));
+
+  const byTarget = {};
+  for (const a of incoming) {
+    const t = a.target_province || "Unknown";
+    if (!byTarget[t]) byTarget[t] = [];
+    byTarget[t].push(a);
+  }
+
+  const { data: allProvinces } = await supabase.from("provinces").select("name, nw, acres");
+  const provinceNWMap = {};
+  for (const p of (allProvinces || [])) {
+    if (p.name) provinceNWMap[p.name.toLowerCase()] = {
+      nw: parseFloat((p.nw || "0").toString().replace(/,/g, "")) || 0
+    };
+  }
+
+  const { data: ourNWData } = await supabase.from("provinces")
+    .select("nw").not("nw", "is", null).not("discord_id", "is", null);
+  const ourNWValues = (ourNWData || []).map(p => parseFloat((p.nw || "0").toString().replace(/,/g, "")) || 0).filter(n => n > 0);
+  const avgKdNW = ourNWValues.length ? ourNWValues.reduce((a, b) => a + b, 0) / ourNWValues.length : 0;
+
+  const chains = [];
+
+  for (const [province, hits] of Object.entries(byTarget)) {
+    if (hits.length < 3) continue;
+
+    const first = new Date(hits[0].timestamp);
+    const last = new Date(hits[hits.length - 1].timestamp);
+    const minutes = Math.round((last - first) / 60000);
+    const totalAcresLost = hits.reduce((s, h) => s + (parseInt(h.acres_captured) || 0), 0);
+
+    const targetIntel = provinceNWMap[province.toLowerCase()];
+    const targetNW = targetIntel?.nw || 0;
+    const rpnw = avgKdNW > 0 && targetNW > 0 ? targetNW / avgKdNW : null;
+    const popRatioEstimate = hits.length >= 5 ? 1.15 : hits.length >= 3 ? 1.05 : 1.0;
+
+    let status = "CHAINING";
+    let rotateNow = false;
+
+    if (popRatioEstimate >= 1.15 && rpnw !== null && rpnw < 0.567) {
+      status = "EXHAUSTED";
+      rotateNow = true;
+    }
+
+    const rotateKey = `chain_rotate_${province}`;
+    const chainKey = `chain_${province}_${new Date().getUTCHours()}`;
+
+    if (rotateNow && !alreadyAlerted.has(rotateKey)) {
+      alreadyAlerted.add(rotateKey);
+      chains.push({ type: "chain", status: "ROTATE", province, hits: hits.length, minutes, acresLost: totalAcresLost, rpnw, targetNW });
+    } else if (!rotateNow && !alreadyAlerted.has(chainKey)) {
+      alreadyAlerted.add(chainKey);
+      chains.push({ type: "chain", status, province, hits: hits.length, minutes, acresLost: totalAcresLost, rpnw, targetNW });
+    }
+  }
+
+  return chains;
+}
+
+async function sendAlerts(client, supabase, wave, chains, relations) {
+  const channelId = await getAlertChannel(supabase);
+  if (!channelId) return;
+  const channel = await client.channels.fetch(channelId).catch(() => null);
+  if (!channel) return;
+
+  // Wave alert
+  if (wave) {
+    const bar = "█".repeat(Math.round(wave.confidence / 10)) + "░".repeat(10 - Math.round(wave.confidence / 10));
+    await channel.send([
+      `🚨 **POSSIBLE ENEMY WAVE DETECTED**`,
+      `**Kingdom:** ${wave.kingdom}`,
+      `**Last 20 minutes:** ⚔️ ${wave.attacks} attacks • 🗡️ ${wave.ops} ops • 👥 ${wave.uniqueAttackers} attackers`,
+      wave.primaryTarget ? `**Primary target:** ${wave.primaryTarget} (${wave.primaryTargetHits} hits)` : "",
+      `**Wave confidence:** ${wave.confidence}% [${bar}]`,
+      `⚠️ Prepare defense and monitor remaining attackers.`
+    ].filter(Boolean).join('\n'));
+  }
+
+  // Chain alerts
+  for (const chain of chains) {
+    if (chain.status === "ROTATE") {
+      await channel.send([
+        `🔴 **CRITICAL: ROTATE NOW**`,
+        `**Province:** ${chain.province}`,
+        `**Hits:** ${chain.hits} in ${chain.minutes} minutes`,
+        chain.acresLost > 0 ? `**Acres lost:** ~${chain.acresLost}` : "",
+        chain.rpnw !== null ? `**RPNW:** ${chain.rpnw.toFixed(3)} (below 0.567 — gains = 0)` : "",
+        `✅ Pop Ratio ≥ 1.15 + RPNW < 0.567 — target exhausted. Move to next target.`
+      ].filter(Boolean).join('\n'));
+    } else {
+      await channel.send([
+        `🟡 **CHAINING DETECTED**`,
+        `**Province:** ${chain.province}`,
+        `**Hits:** ${chain.hits} in ${chain.minutes} minutes`,
+        chain.acresLost > 0 ? `**Acres lost:** ~${chain.acresLost}` : "",
+        chain.rpnw !== null ? `**RPNW:** ${chain.rpnw.toFixed(3)}` : "**RPNW:** No intel",
+        `⚔️ Pop Ratio ≥ 1.15 — target is being drained. Keep hitting until RPNW < 0.567.`
+      ].filter(Boolean).join('\n'));
+    }
+  }
+
+  // Relations warnings
+  for (const rel of relations) {
+    const level = `${rel.color} ${rel.status}`;
+    await channel.send([
+      `⚠️ **RELATIONS WARNING**`,
+      `**Kingdom:** ${rel.kingdom}`,
+      `**Hostility level:** ${level} — ${rel.meter} points`,
+      `⚔️ ${rel.attacks} attacks • 🗡️ ${rel.ops} ops in last hour`,
+      `At current activity: **${rel.nextLevel}** in ~${rel.actionsToNext} more attack${rel.actionsToNext > 1 ? "s" : ""}.`
+    ].join('\n'));
+  }
 }
 
 async function checkIncomingAttacks(client, supabase) {
