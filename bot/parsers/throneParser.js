@@ -143,6 +143,7 @@ function parseThrone(text) {
   }
 
   result.game_type = isGenesis ? "genesis" : "wol";
+  console.log("[PARSED INTEL]", JSON.stringify(result, null, 2));
   return result;
 }
 
