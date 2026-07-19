@@ -1,5 +1,6 @@
 const supabaseService = require("./supabase");
 const logger = require("./logger");
+const { getMeterFromActions, getMeterStatus, getActionsToNextLevel } = require("./relationsCalculator");
 
 const alreadyAlerted = new Set();
 
@@ -137,115 +138,60 @@ async function checkChains(client, supabase) {
 }
 
 // ─── RELATIONS MONITOR ───────────────────────────────────────────
+
 async function checkRelations(client, supabase) {
   const since = new Date(Date.now() - 60 * 60 * 1000).toISOString();
   const ourProvinces = await getOurProvinces(supabase);
 
-  const [{ data: attacks }, { data: ops }] = await Promise.all([
+  const [{ data: attacks }, { data: ops }, { data: spellData }] = await Promise.all([
     supabase.from("attacks").select("*").gte("timestamp", since),
-    supabase.from("hostile_ops").select("*").gte("timestamp", since)
+    supabase.from("hostile_ops").select("*").gte("timestamp", since),
+    supabase.from("spell_events").select("*").gte("timestamp", since)
   ]);
 
   const incoming = (attacks || []).filter(a => ourProvinces.has(a.target_province?.toLowerCase()));
   const incomingOps = (ops || []).filter(o => ourProvinces.has(o.target_province?.toLowerCase()));
+  const incomingSpells = (spellData || []).filter(s => ourProvinces.has(s.target_province?.toLowerCase()));
 
-  // Group by kingdom
-  const kdActivity = {};
-  for (const a of incoming) {
-    const kd = a.target_kingdom || "Unknown";
-    if (!kdActivity[kd]) kdActivity[kd] = { attacks: 0, ops: 0 };
-    kdActivity[kd].attacks++;
-  }
-  for (const o of incomingOps) {
-    const kd = o.target_kingdom || "Unknown";
-    if (!kdActivity[kd]) kdActivity[kd] = { attacks: 0, ops: 0 };
-    kdActivity[kd].ops++;
-  }
+  const kingdoms = new Set([
+    ...incoming.map(a => a.target_kingdom),
+    ...incomingOps.map(o => o.target_kingdom)
+  ].filter(Boolean));
 
   const warnings = [];
-  for (const [kd, activity] of Object.entries(kdActivity)) {
-    // Hostile meter estimate based on actions
-    const meter = Math.min(100, (activity.attacks * 8) + (activity.ops * 3));
-    if (meter < 60) continue;
 
-    const key = `relations_${kd}_${new Date().getUTCHours()}`;
+  for (const kd of kingdoms) {
+    const kdAtks = incoming.filter(a => a.target_kingdom === kd);
+    const kdOps = incomingOps.filter(o => o.target_kingdom === kd);
+    const kdSpells = incomingSpells.filter(s => s.target_kingdom === kd);
+
+    const meter = getMeterFromActions(kdAtks, kdOps, kdSpells);
+    const status = getMeterStatus(meter);
+    const nextLevel = getActionsToNextLevel(meter);
+
+    if (status.level < 1) continue;
+
+    const key = `relations_${kd}_${Math.floor(Date.now() / (60 * 60 * 1000))}`;
     if (alreadyAlerted.has(key)) continue;
     alreadyAlerted.add(key);
-
-    const actionsToHostile = meter >= 90 ? 1 : meter >= 75 ? 2 : 3;
 
     warnings.push({
       type: "relations",
       kingdom: kd,
       meter,
-      attacks: activity.attacks,
-      ops: activity.ops,
-      actionsToHostile
+      status: status.status,
+      color: status.color,
+      level: status.level,
+      attacks: kdAtks.length,
+      ops: kdOps.length,
+      actionsToNext: nextLevel.actions,
+      nextLevel: nextLevel.next
     });
   }
 
   return warnings;
 }
 
-// ─── SEND ALERTS ─────────────────────────────────────────────────
-async function sendAlerts(client, supabase, wave, chains, relations) {
-  const channelId = await getAlertChannel(supabase);
-  if (!channelId) return;
-  const channel = await client.channels.fetch(channelId).catch(() => null);
-  if (!channel) return;
-
-  // Wave alert
-  if (wave) {
-    const confidenceBar = "█".repeat(Math.round(wave.confidence / 10)) + "░".repeat(10 - Math.round(wave.confidence / 10));
-    await channel.send([
-      `🚨 **POSSIBLE ENEMY WAVE DETECTED**`,
-      ``,
-      `**Kingdom:** ${wave.kingdom}`,
-      `**Last 20 minutes:**`,
-      `⚔️ ${wave.attacks} attacks • 🗡️ ${wave.ops} hostile ops`,
-      `👥 ${wave.uniqueAttackers} unique attackers`,
-      wave.primaryTarget ? `\n**Primary target:** ${wave.primaryTarget} (${wave.primaryTargetHits} hits)` : "",
-      wave.opsBeforeAtks > 0 ? `🗡️ ${wave.opsBeforeAtks} ops preceded attacks` : "",
-      ``,
-      `**Wave confidence:** ${wave.confidence}% [${confidenceBar}]`,
-      ``,
-      `⚠️ Prepare defense and monitor remaining attackers.`
-    ].filter(Boolean).join('\n'));
-    logger.info(`[WAVE ALERT] ${wave.kingdom} — ${wave.confidence}% confidence`);
-  }
-
-  // Chain alerts
-  for (const chain of chains) {
-    await channel.send([
-      `🔴 **CHAIN ALERT**`,
-      ``,
-      `**Province:** ${chain.province}`,
-      `**Hits:** ${chain.hits} in ${chain.minutes} minutes`,
-      chain.acresLost > 0 ? `**Acres lost:** ~${chain.acresLost}` : "",
-      chain.estimatedLandLossPct ? `**Estimated land loss:** ~${chain.estimatedLandLossPct}%` : "",
-      ``,
-      `🔴 Heavy focus detected — province may be getting chained.`
-    ].filter(Boolean).join('\n'));
-    logger.info(`[CHAIN ALERT] ${chain.province} — ${chain.hits} hits in ${chain.minutes}m`);
-  }
-
-  // Relations warnings
-  for (const rel of relations) {
-    const level = rel.meter >= 90 ? "🔴 CRITICAL" : rel.meter >= 75 ? "🟠 HIGH" : "🟡 ELEVATED";
-    await channel.send([
-      `⚠️ **RELATIONS WARNING**`,
-      ``,
-      `**Kingdom:** ${rel.kingdom}`,
-      `**Hostility level:** ${level} (${rel.meter}%)`,
-      `⚔️ ${rel.attacks} attacks • 🗡️ ${rel.ops} ops in last hour`,
-      ``,
-      `At current activity: hostile likely within **${rel.actionsToHostile}** more action${rel.actionsToHostile > 1 ? "s" : ""}.`
-    ].join('\n'));
-    logger.info(`[RELATIONS] ${rel.kingdom} — meter ${rel.meter}%`);
-  }
-}
-
-// ─── EXISTING FUNCTIONS ───────────────────────────────────────────
 async function checkIncomingAttacks(client, supabase) {
   const since = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
   const ourProvinces = await getOurProvinces(supabase);
