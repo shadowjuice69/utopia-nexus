@@ -22,7 +22,7 @@ function parseThrone(text) {
     // Handle Utopia table format with tabs
     const parts = [line];
 
-    const cols = line.split("\\t").map(p => p.trim()).filter(Boolean);
+    const cols = line.split("\t").map(p => p.trim()).filter(Boolean);
 
     if (cols.length >= 2) {
       const key = cols[0];
