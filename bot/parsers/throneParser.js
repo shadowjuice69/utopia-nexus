@@ -3,72 +3,82 @@ function cleanNum(str) {
   return str.toString().replace(/,/g, "").replace(/\s*gold coins?/i, "").trim();
 }
 
-function parsePart(part, result) {
-  part = part.trim();
-
-  const patterns = [
-    [/The Province of (.+?)\s*\((\d+:\d+)\)/i, m => { result.name = m[1].trim(); result.coordinates = m[2]; }],
-    [/Race[\s\t]+(\w[\w\s]*?)$/i, m => result.race = m[1].trim()],
-    [/Ruler[\s\t]+(.+)$/i, m => result.ruler = m[1].trim()],
-    [/Land[\s\t]+([\d,]+)/i, m => result.acres = cleanNum(m[1])],
-    [/Peasants[\s\t]+([\d,]+)/i, m => result.peons = cleanNum(m[1])],
-    [/Building\s*Eff\.?[\s\t]+([\d.]+)%/i, m => result.be = m[1]],
-    [/Money[\s\t]+([\d,]+)/i, m => result.gold = cleanNum(m[1])],
-    [/Food[\s\t]+([\d,]+)/i, m => result.food = cleanNum(m[1])],
-    [/Runes[\s\t]+([\d,]+)/i, m => result.runes = cleanNum(m[1])],
-    [/Networth[\s\t]+([\d,]+)/i, m => result.nw = cleanNum(m[1])],
-    [/Wages?[\s\t]+([\d.]+)%?/i, m => result.wages = m[1]],
-    [/Stealth[\s\t]+([\d.]+)%?/i, m => result.stlth = m[1]],
-    [/Mana[\s\t]+([\d.]+)%?/i, m => result.mana = m[1]],
-    [/Honor[\s\t]+([\d,]+)/i, m => result.honor = cleanNum(m[1])],
-    [/Off(?:ensive)?\.?\s*(?:Force|Points)?[\s\t]+([\d,]+)/i, m => result.off = cleanNum(m[1])],
-    [/Def(?:ensive)?\.?\s*(?:Force|Points)?[\s\t]+([\d,]+)/i, m => result.def = cleanNum(m[1])],
-    [/Thieves[\s\t]+([\d,]+)\s*\(([\d.]+)\s*tpa\)/i, m => { result.thieves = cleanNum(m[1]); result.o_tpa = m[2]; result.d_tpa = m[2]; }],
-    [/Wizards[\s\t]+([\d,]+)\s*\(([\d.]+)\s*wpa\)/i, m => { result.wizards = cleanNum(m[1]); result.o_wpa = m[2]; result.d_wpa = m[2]; }],
-    [/Thieves[\s\t]+([\d,]+)/i, m => { if (!result.thieves) result.thieves = cleanNum(m[1]); }],
-    [/Wizards[\s\t]+([\d,]+)/i, m => { if (!result.wizards) result.wizards = cleanNum(m[1]); }],
-    [/War\s*Horses?[\s\t]+([\d,]+)/i, m => result.war_horses = cleanNum(m[1])],
-    [/Prisoners?[\s\t]+([\d,]+)/i, m => result.prisoners = cleanNum(m[1])],
-    [/Soldiers?[\s\t]+([\d,]+)/i, m => result.soldiers = cleanNum(m[1])],
-    [/Quickblades[\s\t]+([\d,]+)/i, m => result.off_specs = cleanNum(m[1])],
-    [/Pikemen[\s\t]+([\d,]+)/i, m => result.def_specs = cleanNum(m[1])],
-    [/Golems[\s\t]+([\d,]+)/i, m => result.elites = cleanNum(m[1])],
-    [/Off(?:ensive)?\s*Spec[\s\t]+([\d,]+)/i, m => result.off_specs = cleanNum(m[1])],
-    [/Def(?:ensive)?\s*Spec[\s\t]+([\d,]+)/i, m => result.def_specs = cleanNum(m[1])],
-    [/Elites?[\s\t]+([\d,]+)/i, m => result.elites = cleanNum(m[1])],
-    [/Mercenar[\w]+[\s\t]+([\d,]+)/i, m => result.mercs = cleanNum(m[1])],
-    [/Generals?[\s\t]+([\d,]+)/i, m => result.generals = cleanNum(m[1])],
-    [/MAP[\s\t]*:?\s*(.+)/i, m => result.map = m[1].trim()],
-    [/Military\s*Access\s*Pact[\s\t]*:?\s*(.+)/i, m => result.map = m[1].trim()],
-  ];
-
-  for (const [regex, handler] of patterns) {
-    const m = part.match(regex);
-    if (m) { handler(m); break; }
-  }
-}
-
 function parseThrone(text) {
   const result = {};
-  const isGenesis = text.includes('spa)') || text.includes('ospa') || text.includes('dspa') || text.includes('YR0');
+  const isGenesis = text.includes('YR0') || text.includes('ospa') || text.includes('dspa') || text.includes('epa)');
 
-  // Split by newlines, then split each line by tabs
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
 
   for (const line of lines) {
-    // Handle spells
-    if (line.match(/Duration:\s*/i)) {
-      const spellMatch = line.match(/Duration:\s*(.+)/i);
-      if (spellMatch) {
-        result.good_spells = (result.good_spells ? result.good_spells + ' ' : '') + spellMatch[1].trim();
-      }
+    // Skip noise lines
+    if (line.startsWith('http') || line.includes('next tick') || line.includes('Recent News') || line.includes('See all')) continue;
+
+    // Duration/spells line
+    if (line.startsWith('Duration:') || line.match(/^(Love and Peace|Inspire Army|Town Watch|Greater Protection|Minor Protection|Bloodlust|Fanaticism|Patriotism|Mist|Wrath|Salvation|Anonymity)/i)) {
+      result.good_spells = (result.good_spells ? result.good_spells + ' · ' : '') + line.replace(/^Duration:\s*/i, '').trim();
       continue;
     }
 
-    // Split tab-separated fields on same line
-    const parts = line.split('\t').map(p => p.trim()).filter(Boolean);
+    // Split by tab OR 2+ spaces to handle both formats
+    const parts = line.split(/\t+|  +/).map(p => p.trim()).filter(Boolean);
+
     for (const part of parts) {
-      parsePart(part, result);
+      // Province name
+      const provMatch = part.match(/^The Province of (.+?)\s*\((\d+:\d+)\)$/i);
+      if (provMatch) { result.name = provMatch[1].trim(); result.coordinates = provMatch[2]; continue; }
+
+      // Key: Value patterns
+      if (part.match(/^Race\s+\w/i)) { result.race = part.replace(/^Race\s+/i, '').trim(); continue; }
+      if (part.match(/^Ruler\s+/i)) { result.ruler = part.replace(/^Ruler\s+/i, '').trim(); continue; }
+      if (part.match(/^Land\s+[\d,]+/i)) { const m = part.match(/[\d,]+/); if (m) result.acres = cleanNum(m[0]); continue; }
+      if (part.match(/^Peasants\s+[\d,]+/i)) { const m = part.match(/[\d,]+/); if (m) result.peons = cleanNum(m[0]); continue; }
+      if (part.match(/^Building Eff/i)) { const m = part.match(/([\d.]+)%/); if (m) result.be = m[1]; continue; }
+      if (part.match(/^Money\s+[\d,]+/i)) { const m = part.match(/[\d,]+/); if (m) result.gold = cleanNum(m[0]); continue; }
+      if (part.match(/^Food\s+[\d,]+/i)) { const m = part.match(/[\d,]+/); if (m) result.food = cleanNum(m[0]); continue; }
+      if (part.match(/^Runes\s+[\d,]+/i)) { const m = part.match(/[\d,]+/); if (m) result.runes = cleanNum(m[0]); continue; }
+      if (part.match(/^Networth\s+/i)) { const m = part.match(/([\d,]+)/); if (m) result.nw = cleanNum(m[1]); continue; }
+      if (part.match(/^Wages?\s+[\d.]+/i)) { const m = part.match(/([\d.]+)/); if (m) result.wages = m[1]; continue; }
+      if (part.match(/^Stealth\s+[\d.]+/i)) { const m = part.match(/([\d.]+)/); if (m) result.stlth = m[1]; continue; }
+      if (part.match(/^Mana\s+[\d.]+/i)) { const m = part.match(/([\d.]+)/); if (m) result.mana = m[1]; continue; }
+      if (part.match(/^Honor\s+[\d,]+/i)) { const m = part.match(/[\d,]+/); if (m) result.honor = cleanNum(m[0]); continue; }
+      if (part.match(/^Trade Balance/i)) continue;
+
+      // Off/Def Points (Genesis)
+      if (part.match(/^Off\.?\s*Points?\s+[\d,]+/i)) { const m = part.match(/([\d,]+)/); if (m) result.off = cleanNum(m[1]); continue; }
+      if (part.match(/^Def\.?\s*Points?\s+[\d,]+/i)) { const m = part.match(/([\d,]+)/); if (m) result.def = cleanNum(m[1]); continue; }
+
+      // WoL Offense/Defense
+      if (part.match(/^Offense\s+[\d,]+/i)) { const m = part.match(/([\d,]+)/); if (m) result.off = cleanNum(m[1]); continue; }
+      if (part.match(/^Defense\s+[\d,]+/i)) { const m = part.match(/([\d,]+)/); if (m) result.def = cleanNum(m[1]); continue; }
+
+      // Units with spa values
+      if (part.match(/^Soldiers\s+/i)) { const m = part.match(/([\d,]+)/); if (m) result.soldiers = cleanNum(m[1]); continue; }
+      if (part.match(/^Quickblades\s+/i)) { const m = part.match(/([\d,]+)/); if (m) result.off_specs = cleanNum(m[1]); continue; }
+      if (part.match(/^Pikemen\s+/i)) { const m = part.match(/([\d,]+)/); if (m) result.def_specs = cleanNum(m[1]); continue; }
+      if (part.match(/^Golems\s+/i)) { const m = part.match(/([\d,]+)/); if (m) result.elites = cleanNum(m[1]); continue; }
+      if (part.match(/^Off(?:ensive)?\s*Spec/i)) { const m = part.match(/([\d,]+)/); if (m) result.off_specs = cleanNum(m[1]); continue; }
+      if (part.match(/^Def(?:ensive)?\s*Spec/i)) { const m = part.match(/([\d,]+)/); if (m) result.def_specs = cleanNum(m[1]); continue; }
+      if (part.match(/^Elite/i)) { const m = part.match(/([\d,]+)/); if (m) result.elites = cleanNum(m[1]); continue; }
+      if (part.match(/^War\s*Horses?\s+/i)) { const m = part.match(/([\d,]+)/); if (m) result.war_horses = cleanNum(m[1]); continue; }
+      if (part.match(/^Prisoners?\s+/i)) { const m = part.match(/([\d,]+)/); if (m) result.prisoners = cleanNum(m[1]); continue; }
+      if (part.match(/^Mercenar/i)) { const m = part.match(/([\d,]+)/); if (m) result.mercs = cleanNum(m[1]); continue; }
+      if (part.match(/^Generals?\s+/i)) { const m = part.match(/([\d,]+)/); if (m) result.generals = cleanNum(m[1]); continue; }
+
+      // Thieves with TPA
+      const tpaMatch = part.match(/^Thieves\s+([\d,]+)\s*\(([\d.]+)\s*tpa\)/i);
+      if (tpaMatch) { result.thieves = cleanNum(tpaMatch[1]); result.o_tpa = tpaMatch[2]; result.d_tpa = tpaMatch[2]; continue; }
+      if (part.match(/^Thieves\s+[\d,]+/i)) { const m = part.match(/([\d,]+)/); if (m && !result.thieves) result.thieves = cleanNum(m[1]); continue; }
+
+      // Wizards with WPA
+      const wpaMatch = part.match(/^Wizards\s+([\d,]+)\s*\(([\d.]+)\s*wpa\)/i);
+      if (wpaMatch) { result.wizards = cleanNum(wpaMatch[1]); result.o_wpa = wpaMatch[2]; result.d_wpa = wpaMatch[2]; continue; }
+      if (part.match(/^Wizards\s+[\d,]+/i)) { const m = part.match(/([\d,]+)/); if (m && !result.wizards) result.wizards = cleanNum(m[1]); continue; }
+
+      // MAP
+      if (part.match(/^MAP\s*:/i) || part.match(/^Military Access Pact/i)) {
+        result.map = part.replace(/^(?:MAP|Military Access Pact)\s*:?\s*/i, '').trim();
+        continue;
+      }
     }
   }
 
@@ -77,15 +87,7 @@ function parseThrone(text) {
 }
 
 function parseMilitary(text) {
-  const result = {};
-  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-  for (const line of lines) {
-    const parts = line.split('\t').map(p => p.trim()).filter(Boolean);
-    for (const part of parts) {
-      parsePart(part, result);
-    }
-  }
-  return result;
+  return parseThrone(text);
 }
 
 function summarizeIntel(parsed) {
