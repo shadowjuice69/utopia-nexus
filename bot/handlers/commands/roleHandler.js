@@ -1,68 +1,31 @@
 const database = require("../../services/database");
 const permissionService = require("../../services/permissionService");
+const auditService = require("../../services/auditService");
 const { MessageFlags } = require("discord.js");
 
 module.exports = async function roleHandler(interaction) {
-  if (!permissionService.isAdmin(interaction.user.id)) {
-    return interaction.reply({
-      content: "❌ Admin access required.",
-      flags: MessageFlags.Ephemeral,
-    });
-  }
-
-  const user = interaction.options.getUser("user");
+  const target = interaction.options.getUser("user");
   const role = interaction.options.getString("role");
 
-  if (!user) {
-    return interaction.reply({
-      content: "❌ Select a user to assign a role.",
-      flags: MessageFlags.Ephemeral,
-    });
-  }
-
-  if (!role) {
-    return interaction.reply({
-      content: "❌ Select a kingdom role.",
-      flags: MessageFlags.Ephemeral,
-    });
-  }
-
-  const allowedRoles = [
-    "Monarch",
-    "Steward",
-    "War Leader",
-    "Member",
-  ];
-
-  if (!allowedRoles.includes(role)) {
-    return interaction.reply({
-      content:
-        "❌ Invalid role.\nAvailable: Monarch, Steward, War Leader, Member",
-      flags: MessageFlags.Ephemeral,
-    });
-  }
-
   const db = database.getDb();
+  const users = db.get("users").value() || [];
+  const idx = users.findIndex(u => u.id === target.id);
 
-  const member = db.data.users.find(
-    (u) => u.id === user.id
-  );
-
-  if (!member) {
-    return interaction.reply({
-      content: "❌ User profile not found.",
-      flags: MessageFlags.Ephemeral,
-    });
+  if (idx === -1) {
+    return interaction.reply({ content: `❌ ${target.username} is not registered.`, flags: MessageFlags.Ephemeral });
   }
 
-  member.kingdomRole = role;
+  users[idx].kingdomRole = role;
+  db.set("users", users).write();
 
-  await db.write();
+  await auditService.log({
+    action: "ROLE_ASSIGNED",
+    actor: interaction.user.username,
+    target: `${target.username} → ${role}`
+  });
 
   return interaction.reply({
-    content:
-      `✅ ${user.username} is now:\n` +
-      `👑 Kingdom Role: ${role}`,
-    flags: MessageFlags.Ephemeral,
+    content: `✅ ${target.username} is now **${role}**.`,
+    flags: MessageFlags.Ephemeral
   });
 };
