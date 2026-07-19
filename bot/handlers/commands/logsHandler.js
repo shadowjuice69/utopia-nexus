@@ -1,39 +1,19 @@
-const permissionService = require("../../services/permissionService");
 const database = require("../../services/database");
 const { MessageFlags } = require("discord.js");
 
 module.exports = async function logsHandler(interaction) {
-  if (!permissionService.isAdmin(interaction.user.id)) {
-    return interaction.reply({
-      content: "❌ Admin access required.",
-      flags: MessageFlags.Ephemeral,
-    });
-  }
-
   const db = database.getDb();
-  const logs = db.data.logs || [];
+  const logs = db.get("logs").value() || [];
 
   if (!logs.length) {
-    return interaction.reply({
-      content: "📋 No admin logs found.",
-      flags: MessageFlags.Ephemeral,
-    });
+    return interaction.reply({ content: "📋 No audit logs yet.", flags: MessageFlags.Ephemeral });
   }
 
-  let content = "📋 Recent Admin Logs:\n\n";
-
-  logs
-    .slice(-10)
-    .reverse()
-    .forEach((log) => {
-      content +=
-        `Action: ${log.action || "Unknown"}\n` +
-        `User: ${log.target?.username || "Unknown"}\n` +
-        `By: ${log.actor?.username || "Unknown"}\n\n`;
-    });
+  const recent = logs.slice(-10).reverse();
+  const lines = recent.map(l => `• [${l.time?.slice(0,10)}] **${l.action}** by ${l.actor} → ${l.target || "—"}`);
 
   return interaction.reply({
-    content,
-    flags: MessageFlags.Ephemeral,
+    content: `📋 **Recent Audit Logs**\n\n${lines.join("\n")}`,
+    flags: MessageFlags.Ephemeral
   });
 };

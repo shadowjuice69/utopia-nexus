@@ -9,7 +9,7 @@ module.exports = async function modalHandler(interaction) {
   const supabase = supabaseService.getClient();
 
   if (interaction.customId === "utopia_register_1") {
-    const user = db.data.users.find(u => u.id === interaction.user.id);
+    const user = db.get("users").value()?.find(u => u.id === interaction.user.id);
     if (!user) {
       return interaction.reply({
         content: "❌ You need a profile first. Use /utopia register.",
@@ -37,7 +37,7 @@ module.exports = async function modalHandler(interaction) {
   }
 
   if (interaction.customId === "utopia_register_2") {
-    const user = db.data.users.find(u => u.id === interaction.user.id);
+    const user = db.get("users").value()?.find(u => u.id === interaction.user.id);
     if (!user) {
       return interaction.reply({
         content: "❌ Registration session expired. Please start again.",

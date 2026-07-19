@@ -1,42 +1,18 @@
 const database = require("./database");
-const config = require("../config/config");
-
-const cooldowns = new Map();
 
 module.exports = {
-  async addXP(userId, amount = config.xp.amountPerMessage) {
-    const now = Date.now();
-    const cooldown = config.xp.cooldown;
-
-    if (cooldowns.has(userId)) {
-      const lastMessage = cooldowns.get(userId);
-
-      if (now - lastMessage < cooldown) {
-        return null;
-      }
-    }
-
-    cooldowns.set(userId, now);
-
+  async addXP(userId, amount) {
     const db = database.getDb();
+    const users = db.get("users").value() || [];
+    const idx = users.findIndex(u => u.id === userId);
+    if (idx === -1) return null;
 
-    let user = db.data.users.find(
-      (u) => u.id === userId
-    );
+    users[idx].xp = (users[idx].xp || 0) + amount;
+    const newLevel = Math.floor(users[idx].xp / 100) + 1;
+    const leveledUp = newLevel > (users[idx].level || 1);
+    users[idx].level = newLevel;
+    db.set("users", users).write();
 
-    if (!user) return null;
-
-    const oldLevel = user.level || 1;
-
-    user.xp = (user.xp || 0) + amount;
-    user.level = Math.floor(user.xp / config.xp.xpPerLevel) + 1;0
-
-
-    await db.write();
-
-    return {
-      user,
-      leveledUp: user.level > oldLevel,
-    };
-  },
+    return { user: users[idx], leveledUp };
+  }
 };

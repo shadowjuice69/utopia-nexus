@@ -1,27 +1,22 @@
-const permissionService = require("../../services/permissionService");
 const database = require("../../services/database");
+const permissionService = require("../../services/permissionService");
 const { MessageFlags } = require("discord.js");
 
 module.exports = async function resetageHandler(interaction) {
   if (!permissionService.isOwner(interaction.user.id)) {
-    return interaction.reply({
-      content: "❌ Owner access required.",
-      flags: MessageFlags.Ephemeral,
-    });
+    return interaction.reply({ content: "❌ Owner access required.", flags: MessageFlags.Ephemeral });
   }
 
   const db = database.getDb();
-
-  db.data.users.forEach((member) => {
-    member.province = null;
-    member.coordinates = null;
+  const users = db.get("users").value() || [];
+  users.forEach(u => {
+    u.province = null;
+    u.coordinates = null;
   });
-
-  await db.write();
+  db.set("users", users).write();
 
   return interaction.reply({
-    content:
-      "✅ New age reset complete. Provinces and coordinates have been cleared.",
-    flags: MessageFlags.Ephemeral,
+    content: "✅ New age reset complete. Provinces and coordinates cleared.",
+    flags: MessageFlags.Ephemeral
   });
 };

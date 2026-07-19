@@ -1,73 +1,40 @@
 const database = require("./database");
 
 module.exports = {
-  async getOrCreateUser(user) {
+  async getOrCreateUser(discordUser) {
     const db = database.getDb();
-
-    const existingUser = db.data.users.find(
-      (u) => u.id === user.id
-    );
-
-    if (existingUser) {
-      return existingUser;
-    }
+    const users = db.get("users").value() || [];
+    const existingUser = users.find(u => u.id === discordUser.id);
+    if (existingUser) return existingUser;
 
     const newUser = {
-      id: user.id,
-      username: user.username,
-      createdAt: new Date().toISOString(),
+      id: discordUser.id,
+      username: discordUser.username,
+      level: 1,
+      xp: 0,
       status: "active",
-      removedAt: null,
-      removalReason: null,
-      province: null,
-      coordinates: null,
-kingdomRole: "Member",
-
+      kingdomRole: "Member",
+      joinedAt: new Date().toISOString()
     };
 
-    db.data.users.push(newUser);
-    await db.write();
-
+    users.push(newUser);
+    db.set("users", users).write();
     return newUser;
   },
 
-  async removeUser(userId, reason) {
+  getUser(userId) {
     const db = database.getDb();
-
-    const user = db.data.users.find(
-      (u) => u.id === userId
-    );
-
-    if (!user) {
-      return null;
-    }
-
-    user.status = "former_member";
-    user.removedAt = new Date().toISOString();
-    user.removalReason = reason;
-
-    await db.write();
-
-    return user;
+    const users = db.get("users").value() || [];
+    return users.find(u => u.id === userId);
   },
 
-  async restoreUser(userId) {
+  async updateUser(userId, updates) {
     const db = database.getDb();
-
-    const user = db.data.users.find(
-      (u) => u.id === userId
-    );
-
-    if (!user) {
-      return null;
-    }
-
-    user.status = "active";
-    user.removedAt = null;
-    user.removalReason = null;
-
-    await db.write();
-
-    return user;
-  },
+    const users = db.get("users").value() || [];
+    const idx = users.findIndex(u => u.id === userId);
+    if (idx === -1) return null;
+    users[idx] = { ...users[idx], ...updates };
+    db.set("users", users).write();
+    return users[idx];
+  }
 };

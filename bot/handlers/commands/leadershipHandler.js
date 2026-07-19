@@ -2,25 +2,17 @@ const database = require("../../services/database");
 const { MessageFlags } = require("discord.js");
 
 module.exports = async function leadershipHandler(interaction) {
+  const db = database.getDb();
+  const users = db.get("users").value() || [];
+  const leaders = users.filter(u => u.kingdomRole && u.kingdomRole !== "Member");
 
-    const db = database.getDb();
+  if (!leaders.length) {
+    return interaction.reply({ content: "👑 No leadership roles assigned yet.", flags: MessageFlags.Ephemeral });
+  }
 
-    const leaders = db.data.users.filter(
-        (member) =>
-            member.kingdomRole &&
-            member.kingdomRole !== "Member"
-    );
-
-    let reply = "🏰 Kingdom Leadership\n\n";
-
-    leaders.forEach((leader) => {
-        reply += `👑 ${leader.kingdomRole}\n`;
-        reply += `<@${leader.id}>\n\n`;
-    });
-
-    return interaction.reply({
-        content: reply || "No leadership assigned.",
-        flags: MessageFlags.Ephemeral,
-    });
-
+  const lines = leaders.map(u => `• <@${u.id}> — ${u.kingdomRole}`);
+  return interaction.reply({
+    content: `👑 **Kingdom Leadership**\n\n${lines.join("\n")}`,
+    flags: MessageFlags.Ephemeral
+  });
 };
