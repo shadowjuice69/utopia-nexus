@@ -92,6 +92,43 @@ module.exports = async function modalHandler(interaction) {
     console.log("[INTEL RAW]", JSON.stringify(text.slice(0, 500)));
     const parsed = parseThrone(text);
 
+    // Save throne intel snapshot
+    if (supabase && parsed.name) {
+      const { error } = await supabase
+        .from("intel_throne")
+        .upsert({
+          province: parsed.name,
+          kd_code: parsed.coordinates || "unknown",
+          race: parsed.race,
+          ruler: parsed.ruler,
+          land: parsed.acres,
+          networth: parsed.nw,
+          honor: parsed.honor,
+          offense: parsed.off,
+          defense: parsed.def,
+          be: parsed.be,
+          peasants: parsed.peons,
+          troops: {
+            soldiers: parsed.soldiers,
+            off_specs: parsed.off_specs,
+            def_specs: parsed.def_specs,
+            elites: parsed.elites,
+            thieves: parsed.thieves,
+            wizards: parsed.wizards,
+            war_horses: parsed.war_horses,
+            prisoners: parsed.prisoners
+          },
+          spells: parsed.good_spells,
+          updated_at: new Date().toISOString()
+        }, { onConflict: "province,kd_code" });
+
+      if (error) {
+        console.error("[THRONE INTEL SAVE ERROR]", error.message);
+      } else {
+        console.log("[THRONE INTEL SAVED]", parsed.name);
+      }
+    }
+
     if (!parsed.name && !parsed.nw && !parsed.acres) {
       return interaction.editReply("❌ Could not parse intel from that text. Make sure you're pasting a throne or military page.");
     }
