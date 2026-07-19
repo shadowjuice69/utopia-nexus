@@ -89,10 +89,19 @@ async function saveIntel(parsed, prov) {
   if (!sb) return;
   try {
     if (parsed.type === "throne") {
-      await sb.from("intel_throne").upsert({
-        province: prov, kd_code: parsed.kd, ...parsed.data,
+      const { data, error } = await sb.from("intel_throne").upsert({
+        province: prov,
+        kd_code: parsed.kd,
+        ...parsed.data,
         updated_at: new Date().toISOString()
       }, { onConflict: "province,kd_code" });
+
+      if (error) {
+        logger.error(`[THRONE SAVE ERROR] ${error.message}`);
+        return;
+      }
+
+      logger.info(`[THRONE SAVED] ${prov}`);
     } else if (parsed.type === "som") {
       await sb.from("intel_military").upsert({
         province: prov, kd_code: parsed.kd, ...parsed.data,
