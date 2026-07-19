@@ -142,6 +142,9 @@ function parseThrone(text) {
     }
   }
 
+  if (result.race) result.race = result.race.split("\t")[0].trim();
+  if (result.ruler) result.ruler = result.ruler.split("\t")[0].trim();
+
   result.game_type = isGenesis ? "genesis" : "wol";
   console.log("[PARSED INTEL]", JSON.stringify(result, null, 2));
   return result;
