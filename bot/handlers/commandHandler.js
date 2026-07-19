@@ -14,6 +14,7 @@ const logsHandler = require("./commands/logsHandler");
 const resetageHandler = require("./commands/resetageHandler");
 const restoreHandler = require("./commands/restoreHandler");
 const registerHandler = require("./commands/registerHandler");
+const helpHandler = require("./commands/helpHandler");
 const intelHandler = require('./commands/intelHandler');
 const adminHandler = require("./commands/adminHandler");
 const askHandler = require("./commands/askHandler");

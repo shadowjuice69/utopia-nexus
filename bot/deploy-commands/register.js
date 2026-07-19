@@ -7,6 +7,7 @@ const commands = [
     description: "Utopia Nexus player commands",
     options: [
       { name: "register", description: "Register your province", type: 1 },
+      { name: "help", description: "Show all available commands", type: 1 },
       { name: "intel", description: "Paste province throne intel", type: 1 },
       { name: "province", description: "View your province profile", type: 1 },
       { name: "profile", description: "View your profile", type: 1 },
