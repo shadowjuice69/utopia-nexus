@@ -7,7 +7,7 @@ const db = low(adapter);
 
 module.exports = {
   async connect() {
-    db.defaults({ users: [], admins: [] }).write();
+    db.defaults({ users: [], admins: [], logs: [] }).write();
     logger.info("Database initialized");
   },
 
