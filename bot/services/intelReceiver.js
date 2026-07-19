@@ -1,6 +1,7 @@
 const http = require("http");
 const supabaseService = require("./supabase");
 const logger = require("./logger");
+const { parseThrone } = require("../parsers/throneParser");
 
 const INTEL_KEY = process.env.INTEL_KEY || "";
 const PORT = parseInt(process.env.PORT || "3000", 10);
@@ -32,14 +33,31 @@ function parseIntel(url, prov, text) {
       }
       return null;
     };
+    const parsed = parseThrone(text);
+
     result.data = {
-      race: get("Race"), personality: get("Personality") || get("Class"),
-      ruler: get("Ruler"), land: get("Land") || get("Acres"),
-      networth: get("Networth") || get("Net Worth"), honor: get("Honor"),
-      offense: get("Off. Points") || get("Offense"),
-      defense: get("Def. Points") || get("Defense"),
-      be: get("Building Eff.") || get("BE"),
-      peasants: get("Peasants"),
+      race: parsed.race,
+      ruler: parsed.ruler,
+      land: parsed.acres,
+      networth: parsed.nw,
+      honor: parsed.honor,
+      offense: parsed.off,
+      defense: parsed.def,
+      be: parsed.be,
+      peasants: parsed.peons,
+
+      troops: {
+        soldiers: parsed.soldiers,
+        off_specs: parsed.off_specs,
+        def_specs: parsed.def_specs,
+        elites: parsed.elites,
+        thieves: parsed.thieves,
+        wizards: parsed.wizards,
+        war_horses: parsed.war_horses,
+        prisoners: parsed.prisoners
+      },
+
+      spells: parsed.good_spells
     };
   } else if (url.includes("survey")) {
     result.type = "survey";
