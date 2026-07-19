@@ -101,6 +101,7 @@ async function saveIntel(parsed, prov) {
         return;
       }
 
+      logger.info(`[THRONE RESULT] data=${JSON.stringify(data)} error=${JSON.stringify(error)}`);
       logger.info(`[THRONE SAVED] ${prov}`);
     } else if (parsed.type === "som") {
       await sb.from("intel_military").upsert({
