@@ -133,8 +133,25 @@ module.exports = async function modalHandler(interaction) {
 
     // Look up province by ruler name if name not parsed
     if (!parsed.name && parsed.ruler && supabase) {
-      const { data: byRuler } = await supabase.from("provinces").select("name").ilike("ruler", `%${parsed.ruler}%`).limit(1);
+      const { data: byRuler } = await supabase
+        .from("provinces")
+        .select("name")
+        .ilike("ruler", `%${parsed.ruler}%`)
+        .limit(1);
+
       if (byRuler?.[0]) parsed.name = byRuler[0].name;
+    }
+
+    // Match province by NW + acres from intel summary
+    if (!parsed.name && parsed.nw && parsed.acres && supabase) {
+      const { data: byStats } = await supabase
+        .from("provinces")
+        .select("name")
+        .eq("nw", parsed.nw)
+        .eq("acres", parsed.acres)
+        .limit(1);
+
+      if (byStats?.[0]) parsed.name = byStats[0].name;
     }
     if (!parsed.name && !parsed.nw && !parsed.acres && !parsed.off && !parsed.def && !parsed.off_specs && !parsed.def_specs && !parsed.science && !parsed.buildings) {
       return interaction.editReply("❌ Could not parse intel from that text. Make sure you're pasting a throne or military page.");
