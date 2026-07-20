@@ -93,7 +93,7 @@ function parseThrone(text) {
     for (const part of parts) {
       // Province name
       // Military page: "Baron X, we have N generals"
-      const genMatch = part.match(/^(.+?), we have (\d+) generals/i);
+      const genMatch = part.match(/^(.+?), (?:we have \d+ generals|you know that study)/i);
       if (genMatch) { if (!result.ruler) result.ruler = genMatch[1].trim(); result.generals = genMatch[2]; continue; }
       const provMatch = part.match(/^The Province of (.+?)\s*\((\d+:\d+)\)$/i);
       if (provMatch) { result.name = provMatch[1].trim(); result.coordinates = provMatch[2]; continue; }
