@@ -11,7 +11,9 @@ async function run() {
     process.exit(1);
   }
 
-  const csv = fs.readFileSync("wiki_entries.csv", "utf8");
+  const file = process.argv[2] || "wiki_entries.csv";
+
+  const csv = fs.readFileSync(file, "utf8");
 
   const lines = csv
     .split("\n")
@@ -31,7 +33,7 @@ async function run() {
     };
   });
 
-  console.log(`Importing ${entries.length} wiki entries...`);
+  console.log(`Importing ${entries.length} wiki entries from ${file}...`);
 
   const { error } = await supabase
     .from("wiki_entries")
