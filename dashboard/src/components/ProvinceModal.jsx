@@ -13,10 +13,21 @@ function ProvinceModal({ province, onClose }) {
         <h2>🏰 {province.name}</h2>
 
         <div className="modal-tabs">
-          <button onClick={() => setTab("overview")}>Overview</button>
-          <button onClick={() => setTab("military")}>Military</button>
-          <button onClick={() => setTab("science")}>Science</button>
-          <button onClick={() => setTab("buildings")}>Buildings</button>
+          <button className={tab === "overview" ? "active-tab" : ""} onClick={() => setTab("overview")}>
+            📋 Overview
+          </button>
+
+          <button className={tab === "military" ? "active-tab" : ""} onClick={() => setTab("military")}>
+            ⚔️ Military
+          </button>
+
+          <button className={tab === "science" ? "active-tab" : ""} onClick={() => setTab("science")}>
+            🧪 Science
+          </button>
+
+          <button className={tab === "buildings" ? "active-tab" : ""} onClick={() => setTab("buildings")}>
+            🏗️ Buildings
+          </button>
         </div>
 
         {tab === "overview" && (

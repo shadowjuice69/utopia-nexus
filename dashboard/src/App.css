@@ -649,3 +649,21 @@ body {
   .tick-grid { grid-template-columns: repeat(6, 1fr); }
   .timeline { grid-template-columns: repeat(6, 1fr); }
 }
+
+.modal-tabs {
+  display: flex;
+  gap: 8px;
+  margin: 15px 0;
+  flex-wrap: wrap;
+}
+
+.modal-tabs button {
+  padding: 8px 14px;
+  border-radius: 6px;
+  border: 1px solid #444;
+  cursor: pointer;
+}
+
+.active-tab {
+  font-weight: bold;
+}
