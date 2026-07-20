@@ -93,9 +93,6 @@ function parseThrone(text) {
       // Key: Value patterns
       if (part.match(/^Race\s+\w/i)) { result.race = part.replace(/^Race\s+/i, '').trim(); continue; }
       if (part.match(/^Ruler\s+/i)) { result.ruler = part.replace(/^Ruler\s+/i, "").trim(); continue; }
-      // Military page ruler line
-      const genMatch = part.match(/^(.+?), we have (\d+) generals/i);
-      if (genMatch) { result.ruler = genMatch[1].trim(); result.generals = genMatch[2]; continue; }
       if (part.match(/^Land\s+[\d,]+/i)) { const m = part.match(/[\d,]+/); if (m) result.acres = cleanNum(m[0]); continue; }
       if (part.match(/^Peasants\s+[\d,]+/i)) { const m = part.match(/[\d,]+/); if (m) result.peons = cleanNum(m[0]); continue; }
       if (part.match(/^Building Eff/i)) { const m = part.match(/([\d.]+)%/); if (m) result.be = m[1]; continue; }
