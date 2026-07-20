@@ -14,6 +14,15 @@ const FIELDS = [
   { key: "d_tpa", label: "dTPA" },
   { key: "o_wpa", label: "oWPA" },
   { key: "d_wpa", label: "dWPA" },
+  { key: "soldiers", label: "Soldiers" },
+  { key: "off_specs", label: "Off Specs" },
+  { key: "def_specs", label: "Def Specs" },
+  { key: "elites", label: "Elites" },
+  { key: "thieves", label: "Thieves" },
+  { key: "wizards", label: "Wizards" },
+  { key: "war_horses", label: "War Horses" },
+  { key: "prisoners", label: "Prisoners" },
+  { key: "ruler", label: "Ruler" },
 ];
 
 const HIGH_GAIN_RACES = ["elf", "faery", "halfling", "dryad"];
