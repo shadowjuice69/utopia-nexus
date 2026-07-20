@@ -1,21 +1,28 @@
-const supabaseService = require("../../services/supabase");
-const { parseThrone, parseMilitary, summarizeIntel } = require("../../parsers/throneParser");
-const { ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle } = require("discord.js");
+const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require("discord.js");
 
 module.exports = async function intelHandler(interaction) {
-  // Show modal for pasting throne data
   const modal = new ModalBuilder()
     .setCustomId("intel_paste")
     .setTitle("Paste Province Intel");
 
+  const provinceInput = new TextInputBuilder()
+    .setCustomId("intel_province")
+    .setLabel("Province name (if not in paste)")
+    .setStyle(TextInputStyle.Short)
+    .setRequired(false)
+    .setPlaceholder("e.g. Freaking A — leave blank if in the paste");
+
   const pasteInput = new TextInputBuilder()
     .setCustomId("intel_text")
-    .setLabel("Paste throne/military page here")
+    .setLabel("Paste throne/military/science page here")
     .setStyle(TextInputStyle.Paragraph)
     .setRequired(true)
-    .setPlaceholder("Copy from Utopia throne or military page and paste here...");
+    .setPlaceholder("Copy from Utopia/Genesis page and paste here...");
 
-  modal.addComponents(new ActionRowBuilder().addComponents(pasteInput));
+  modal.addComponents(
+    new ActionRowBuilder().addComponents(provinceInput),
+    new ActionRowBuilder().addComponents(pasteInput)
+  );
 
   return interaction.showModal(modal);
 };

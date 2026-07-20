@@ -134,6 +134,15 @@ function parseThrone(text) {
       if (wpaMatch) { result.wizards = cleanNum(wpaMatch[1]); result.o_wpa = wpaMatch[2]; result.d_wpa = wpaMatch[2]; continue; }
       if (part.match(/^Wizards\s+[\d,]+/i)) { const m = part.match(/([\d,]+)/); if (m && !result.wizards) result.wizards = cleanNum(m[1]); continue; }
 
+      // OME/DME
+      if (part.match(/Offensive Military Effectiveness[\s\t]+([\d.]+)%/i)) { const m = part.match(/([d.]+)%/); if (m) result.ome = m[1]; continue; }
+      if (part.match(/Defensive Military Effectiveness[\s\t]+([\d.]+)%/i)) { const m = part.match(/([d.]+)%/); if (m) result.dme = m[1]; continue; }
+      // OME/DME
+      if (part.match(/Offensive Military Effectiveness/i)) { const m = part.match(/([d.]+)%/); if (m) result.ome = m[1]; continue; }
+      if (part.match(/Defensive Military Effectiveness/i)) { const m = part.match(/([d.]+)%/); if (m) result.dme = m[1]; continue; }
+      if (part.match(/Net Offensive Points/i)) { const m = part.match(/([d,]+)$/); if (m) result.off = cleanNum(m[1]); continue; }
+      if (part.match(/Net Defensive Points/i)) { const m = part.match(/([d,]+)$/); if (m) result.def = cleanNum(m[1]); continue; }
+      if (part.match(/Wage Rate.*?([d.]+)%/i)) { const m = part.match(/([d.]+)%/); if (m) result.wages = m[1]; continue; }
       // MAP
       if (part.match(/^MAP\s*:/i) || part.match(/^Military Access Pact/i)) {
         result.map = part.replace(/^(?:MAP|Military Access Pact)\s*:?\s*/i, '').trim();

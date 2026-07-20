@@ -89,6 +89,7 @@ module.exports = async function modalHandler(interaction) {
     await interaction.deferReply({ ephemeral: true });
 
     const text = interaction.fields.getTextInputValue("intel_text");
+    const manualProvince = interaction.fields.getTextInputValue("intel_province")?.trim();
     console.log("[INTEL RAW]", JSON.stringify(text.slice(0, 500)));
     const parsed = parseThrone(text);
 
@@ -129,7 +130,7 @@ module.exports = async function modalHandler(interaction) {
       }
     }
 
-    if (!parsed.name && !parsed.nw && !parsed.acres) {
+    if (!parsed.name if (!parsed.name && !parsed.nw && !parsed.acres) {if (!parsed.name && !parsed.nw && !parsed.acres) { !parsed.nw if (!parsed.name && !parsed.nw && !parsed.acres) {if (!parsed.name && !parsed.nw && !parsed.acres) { !parsed.acres if (!parsed.name && !parsed.nw && !parsed.acres) {if (!parsed.name && !parsed.nw && !parsed.acres) { !parsed.off if (!parsed.name && !parsed.nw && !parsed.acres) {if (!parsed.name && !parsed.nw && !parsed.acres) { !parsed.def) {
       return interaction.editReply("❌ Could not parse intel from that text. Make sure you're pasting a throne or military page.");
     }
 
@@ -179,6 +180,8 @@ module.exports = async function modalHandler(interaction) {
       if (parsed.prisoners) updateData.prisoners = parsed.prisoners;
       if (parsed.ruler) updateData.ruler = parsed.ruler;
       if (parsed.game_type) updateData.game_type = parsed.game_type;
+      if (parsed.ome) updateData.ome = parsed.ome;
+      if (parsed.dme) updateData.dme = parsed.dme;
 
       let error;
       if (existing && existing.length > 0) {
