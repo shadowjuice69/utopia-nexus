@@ -135,7 +135,7 @@ module.exports = async function modalHandler(interaction) {
       const { data: byRuler } = await supabase.from("provinces").select("name").ilike("ruler", parsed.ruler).limit(1);
       if (byRuler?.[0]) parsed.name = byRuler[0].name;
     }
-    if (!parsed.name && !parsed.nw && !parsed.acres && !parsed.off && !parsed.def && !parsed.off_specs && !parsed.def_specs) {
+    if (!parsed.name && !parsed.nw && !parsed.acres && !parsed.off && !parsed.def && !parsed.off_specs && !parsed.def_specs && !parsed.science) {
       return interaction.editReply("❌ Could not parse intel from that text. Make sure you're pasting a throne or military page.");
     }
 
@@ -185,6 +185,7 @@ module.exports = async function modalHandler(interaction) {
       if (parsed.prisoners) updateData.prisoners = parsed.prisoners;
       if (parsed.ruler) updateData.ruler = parsed.ruler;
       if (parsed.game_type) updateData.game_type = parsed.game_type;
+      if (parsed.science) updateData.science = parsed.science;
       if (parsed.ome) updateData.ome = parsed.ome;
       if (parsed.dme) updateData.dme = parsed.dme;
 

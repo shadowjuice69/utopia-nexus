@@ -12,7 +12,7 @@ function parseThrone(text) {
   for (const line of lines) {
     // Skip noise lines
     if (line.startsWith('http') || line.includes('next tick') || line.includes('Recent News') || line.includes('See all')) continue;
-    if (line.includes("Military Training Estimates")) break; // Stop parsing here
+    if (line.includes("Military Training Estimates") || line.includes("Science Book Recovery Schedule")) break; // Stop parsing here
     if (line.includes("Money") && line.includes("Peasants") && line.includes("Food")) continue;
 
     // Duration/spells line
@@ -83,6 +83,13 @@ function parseThrone(text) {
       }
     }
 
+    // Science page parsing
+    const sciMatch = line.match(/^(Alchemy|Tools|Housing|Production|Bookkeeping|Artisan|Strategy|Siege|Tactics|Valor|Heroism|Resilience|Crime|Channeling|Shielding|Cunning|Sorcery|Finesse)\t([\d,]+)/i);
+    if (sciMatch) {
+      if (!result.science) result.science = {};
+      result.science[sciMatch[1].toLowerCase()] = cleanNum(sciMatch[2]);
+      continue;
+    }
     for (const part of parts) {
       // Province name
       // Military page: "Baron X, we have N generals"
