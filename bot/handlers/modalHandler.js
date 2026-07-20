@@ -89,7 +89,7 @@ module.exports = async function modalHandler(interaction) {
     await interaction.deferReply({ ephemeral: true });
 
     const text = interaction.fields.getTextInputValue("intel_text");
-    const manualProvince = interaction.fields.getTextInputValue("intel_province")?.trim();
+    
     console.log("[INTEL RAW]", JSON.stringify(text.slice(0, 500)));
     const parsed = parseThrone(text);
 
@@ -130,7 +130,11 @@ module.exports = async function modalHandler(interaction) {
       }
     }
 
-    if (manualProvince && !parsed.name) parsed.name = manualProvince;
+    // Look up province by ruler name if name not parsed
+    if (!parsed.name && parsed.ruler && supabase) {
+      const { data: byRuler } = await supabase.from("provinces").select("name").ilike("ruler", parsed.ruler).limit(1);
+      if (byRuler?.[0]) parsed.name = byRuler[0].name;
+    }
     if (!parsed.name && !parsed.nw && !parsed.acres && !parsed.off && !parsed.def && !parsed.off_specs && !parsed.def_specs) {
       return interaction.editReply("❌ Could not parse intel from that text. Make sure you're pasting a throne or military page.");
     }

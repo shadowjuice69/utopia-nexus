@@ -12,6 +12,7 @@ function parseThrone(text) {
   for (const line of lines) {
     // Skip noise lines
     if (line.startsWith('http') || line.includes('next tick') || line.includes('Recent News') || line.includes('See all')) continue;
+    if (line.includes("Military Training Estimates")) break; // Stop parsing here
     if (line.includes("Money") && line.includes("Peasants") && line.includes("Food")) continue;
 
     // Duration/spells line
