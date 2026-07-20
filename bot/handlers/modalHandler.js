@@ -85,7 +85,7 @@ module.exports = async function modalHandler(interaction) {
   }
 
   // Intel paste handler
-  if (interaction.customId === "intel_paste") {
+  if (interaction.customId === "intel_paste" || interaction.customId === "intel_paste_throne") {
     await interaction.deferReply({ ephemeral: true });
 
     const text = interaction.fields.getTextInputValue("intel_text");
@@ -241,6 +241,20 @@ module.exports = async function modalHandler(interaction) {
   }
 
   // Broadcast modal handler
+  if (interaction.customId === "intel_paste_news") {
+    await interaction.deferReply({ ephemeral: true });
+    const text = interaction.fields.getTextInputValue("intel_text");
+    const { parseNewsLog, saveNewsIntel } = require("../parsers/newsParser");
+    const parsed = parseNewsLog(text);
+    const result = await saveNewsIntel(parsed, interaction.user.id);
+    return interaction.editReply(
+      `✅ **News log processed**\n\n` +
+      `🗡️ Spy reports found: ${result.spyCount}\n` +
+      `⚔️ Attacks found: ${result.attackCount}\n` +
+      `💾 Records saved: ${result.saved}` +
+      (result.errors > 0 ? `\n⚠️ Errors: ${result.errors}` : "")
+    );
+  }
   if (interaction.customId === "broadcast_modal") {
     await interaction.deferReply({ ephemeral: true });
 
