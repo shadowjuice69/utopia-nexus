@@ -1,0 +1,10 @@
+title,category,content,keywords,source
+
+Spy on Throne,thievery_ops,"Reveals information about a target province including resources, military, buildings, and other available intelligence.","spy on throne,sot,throne intel,province intel","utopia wiki"
+Survey,thievery_ops,"Reveals building distribution and efficiency information for a target province.","survey,buildings,building intel","utopia wiki"
+Spy on Military,thievery_ops,"Reveals military composition and strength of a target province.","spy on military,som,military intel","utopia wiki"
+Nightstrike,thievery_ops,"Kills enemy offensive military units using thieves. Useful before coordinated attacks to reduce enemy offense.","nightstrike,ns,kill offense,sabotage","utopia wiki"
+Assassinate Wizards,thievery_ops,"Removes enemy wizards and weakens magical capability.","assassinate wizards,aw,wizards,sabotage","utopia wiki"
+Rob the Vaults,thievery_ops,"Steals gold from a target province using thieves.","rob vaults,gold steal,money","utopia wiki"
+Kidnap,thievery_ops,"Steals peasants from a target province, reducing population.","kidnap,peasants,steal peasants","utopia wiki"
+Propaganda,thievery_ops,"Reduces enemy honor through thievery operations.","propaganda,honor,thievery","utopia wiki"

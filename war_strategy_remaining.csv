@@ -1,0 +1,13 @@
+title,category,content,keywords,source
+Wave Coordination,strategy,"A wave is a coordinated set of attacks performed by multiple kingdom members against selected targets at a planned time. Good waves require updated intel, target assignments, and timing.","wave,waves,coordination,attack timing","utopia wiki"
+Chain Strategy,strategy,"A chain is a coordinated attack plan focused on reducing one enemy province through repeated attacks. Used to remove enemy strength and control the battlefield.","chain,chaining,target kill,war strategy","utopia wiki"
+Target Selection Strategy,strategy,"Targets should be selected using updated intelligence including networth, defense, offense, race, personality, and province role.","targets,intel,war planning,selection","utopia wiki"
+Intel Checklist,strategy,"Before attacking, gather Spy on Throne, Spy on Military, and Survey information to understand the target province.","intel,sot,som,survey,attack preparation","utopia wiki"
+Defense Evaluation,strategy,"Evaluate enemy defense values, military composition, and bonuses before committing attacks.","defense,def,targets,military","utopia wiki"
+Offense Evaluation,strategy,"Evaluate available offense, offensive units, and attack requirements before selecting targets.","offense,off,attack power,military","utopia wiki"
+Thievery Role,strategy,"Thieves provide intelligence and sabotage support. Effective thievery weakens targets before attacks.","thieves,rogue,thievery role","utopia wiki"
+Magic Role,strategy,"Magic supports kingdoms through offense, defense, economy, and battlefield control. Spell timing is important during wars.","magic,wizards,spells,war role","utopia wiki"
+Province Recovery,strategy,"After attacks, provinces recover through rebuilding, population growth, economy management, and defensive actions.","recovery,rebuild,growth,war","utopia wiki"
+War Preparation,strategy,"Successful wars require organized roles, updated intel, attack plans, and communication between kingdom members.","war preparation,planning,kingdom,coordination","utopia wiki"
+Hostile Progression,hostile_ops,"Hostile progression describes increasing conflict between kingdoms through actions that raise relations toward war.","hostile,unfriendly,relations,war","utopia wiki"
+War Declaration,hostile_ops,"War begins when kingdoms reach the required conditions for conflict. War changes available actions and strategy.","war,declaration,relations","utopia wiki"

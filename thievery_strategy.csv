@@ -1,0 +1,10 @@
+title,category,content,keywords,source
+Spy on Throne Strategy,strategy,"Use Spy on Throne before attacks to gather province information including land, networth, resources, military, and available defenses. Essential for target evaluation.","sot,spy throne,intel,target check","utopia wiki"
+Spy on Military Strategy,strategy,"Use Spy on Military to determine enemy troop composition and estimate offensive and defensive strength before planning attacks.","som,military intel,troops,defense","utopia wiki"
+Survey Strategy,strategy,"Use Survey to discover building distribution and efficiency. Helps identify targets with weak infrastructure or vulnerable setups.","survey,buildings,be,intel","utopia wiki"
+Nightstrike Strategy,strategy,"Use Nightstrike to remove enemy offensive units before coordinated attacks. Most effective against provinces relying on offense for their role.","nightstrike,ns,offense kill,sabotage","utopia wiki"
+Assassinate Wizards Strategy,strategy,"Use Assassinate Wizards to reduce enemy magical power and weaken their ability to cast important spells.","aw,wizards,magic,sabotage","utopia wiki"
+Kidnap Strategy,strategy,"Use Kidnap to reduce enemy population and weaken province economy, military capacity, and recovery.","kidnap,peasants,population,sabotage","utopia wiki"
+Rob the Vaults Strategy,strategy,"Use Rob the Vaults to steal enemy gold and damage their economy.","rob vaults,gold,theft,economy","utopia wiki"
+Propaganda Strategy,strategy,"Use Propaganda to reduce enemy honor and weaken provinces that rely on honor bonuses.","propaganda,honor,thievery","utopia wiki"
+Pre Wave Intel,strategy,"Before a coordinated wave, gather updated intel with Spy on Throne, Spy on Military, and Survey to choose targets and avoid surprises.","wave,intel,sot,som,survey","utopia wiki"

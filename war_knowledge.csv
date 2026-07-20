@@ -1,0 +1,13 @@
+title,category,content,keywords,source
+Traditional March Strategy,strategy,"The primary land attack method used during wars. Usually used in coordinated waves to gain acres and weaken enemy provinces.","march,wave,land attack,war strategy","utopia wiki"
+Ambush Strategy,strategy,"A defensive response to enemy land attacks. Used to recover lost land and punish attackers when conditions allow.","ambush,counter attack,recover land","utopia wiki"
+Raze Strategy,strategy,"An attack used to destroy enemy buildings and reduce province value instead of gaining land.","raze,building destruction,war strategy","utopia wiki"
+Massacre Strategy,strategy,"An attack focused on killing enemy population and reducing province strength. Often used against difficult targets.","massacre,population kill,war strategy","utopia wiki"
+Plunder Strategy,strategy,"An attack focused on stealing resources from an enemy province.","plunder,gold,resources,war strategy","utopia wiki"
+Learn Strategy,strategy,"An attack focused on gaining science knowledge from an enemy province.","learn,science,war strategy","utopia wiki"
+Wave,strategy,"A coordinated series of attacks performed by multiple kingdom members against selected targets at the same time.","wave,coordination,attack timing","utopia wiki"
+Chain,strategy,"A coordinated attack plan where multiple hits reduce a target province through acres, population, and military losses.","chain,target kill,war strategy","utopia wiki"
+Target Selection,strategy,"Choosing enemy targets based on intel such as networth, defense, offense, race, and role.","target selection,intel,war planning","utopia wiki"
+Hostile Meter,hostile_ops,"A measure of kingdom relations that increases through hostile actions and affects available interactions.","hostile meter,relations,hostility","utopia wiki"
+Unfriendly,hostile_ops,"A kingdom relation state indicating rising conflict and access to additional hostile actions.","unfriendly,relations,hostile","utopia wiki"
+Hostile,hostile_ops,"A kingdom relation state showing active conflict and enabling war-related actions.","hostile,relations,war","utopia wiki"
