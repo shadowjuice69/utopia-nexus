@@ -12,6 +12,7 @@ function parseThrone(text) {
   for (const line of lines) {
     // Skip noise lines
     if (line.startsWith('http') || line.includes('next tick') || line.includes('Recent News') || line.includes('See all')) continue;
+    if (line.includes("Money") && line.includes("Peasants") && line.includes("Food")) continue;
 
     // Duration/spells line
     if (line.startsWith('Duration:') || line.match(/^(Love and Peace|Inspire Army|Town Watch|Greater Protection|Minor Protection|Bloodlust|Fanaticism|Patriotism|Mist|Wrath|Salvation|Anonymity)/i)) {
@@ -20,76 +21,81 @@ function parseThrone(text) {
     }
 
     // Handle Utopia table format with tabs
+    // Handle Utopia table format with tabs
     const parts = [line];
-
     const cols = line.split("\t").map(p => p.trim()).filter(Boolean);
+
+    // Skip Intel summary header line
+    if (cols[0] === "Money" && cols[1] === "Peasants") continue;
 
     if (cols.length >= 2) {
       const key = cols[0];
 
       if (key === "Race") {
         result.race = cols[1];
-        result.soldiers = cleanNum(cols[3]);
+        if (cols[2] === "Soldiers" && cols[3]) result.soldiers = cleanNum(cols[3]);
         continue;
       }
-
       if (key === "Ruler") {
         result.ruler = cols[1];
-        result.off_specs = cleanNum(cols[3]);
+        if (cols[2] === "Quickblades" && cols[3]) result.off_specs = cleanNum(cols[3]);
         continue;
       }
-
       if (key === "Land") {
         result.acres = cleanNum(cols[1]);
-        result.def_specs = cleanNum(cols[3]);
+        if (cols[2] === "Pikemen" && cols[3]) result.def_specs = cleanNum(cols[3]);
         continue;
       }
-
       if (key === "Peasants") {
         result.peons = cleanNum(cols[1]);
-        result.elites = cleanNum(cols[3]);
+        if (cols[2] === "Golems" && cols[3]) result.elites = cleanNum(cols[3]);
         continue;
       }
-
       if (key === "Building Eff.") {
         result.be = cols[1].replace("%","");
-        result.thieves = cleanNum(cols[3]);
+        if (cols[2] === "Thieves" && cols[3]) result.thieves = cleanNum(cols[3]);
         continue;
       }
-
       if (key === "Money") {
         result.gold = cleanNum(cols[1]);
-        result.wizards = cleanNum(cols[3]);
+        if (cols[2] === "Wizards" && cols[3]) result.wizards = cleanNum(cols[3]);
         continue;
       }
-
       if (key === "Food") {
         result.food = cleanNum(cols[1]);
-        result.war_horses = cleanNum(cols[3]);
+        if (cols[2] === "War Horses" && cols[3]) result.war_horses = cleanNum(cols[3]);
         continue;
       }
-
       if (key === "Runes") {
         result.runes = cleanNum(cols[1]);
-        result.prisoners = cleanNum(cols[3]);
+        if (cols[2] === "Prisoners" && cols[3]) result.prisoners = cleanNum(cols[3]);
         continue;
       }
-
+      if (key === "Trade Balance") {
+        if (cols[2] === "Off. Points" && cols[3]) result.off = cleanNum(cols[3]);
+        continue;
+      }
       if (key === "Networth") {
         result.nw = cleanNum(cols[1]);
-        result.def = cleanNum(cols[3]);
+        if (cols[2] === "Def. Points" && cols[3]) result.def = cleanNum(cols[3]);
         continue;
       }
     }
 
     for (const part of parts) {
       // Province name
+      // Military page: "Baron X, we have N generals"
+      const genMatch = part.match(/^(.+?), we have (\d+) generals/i);
+      if (genMatch) { if (!result.ruler) result.ruler = genMatch[1].trim(); result.generals = genMatch[2]; continue; }
       const provMatch = part.match(/^The Province of (.+?)\s*\((\d+:\d+)\)$/i);
       if (provMatch) { result.name = provMatch[1].trim(); result.coordinates = provMatch[2]; continue; }
 
       // Key: Value patterns
       if (part.match(/^Race\s+\w/i)) { result.race = part.replace(/^Race\s+/i, '').trim(); continue; }
-      if (part.match(/^Ruler\s+/i)) { result.ruler = part.replace(/^Ruler\s+/i, '').trim(); continue; }
+      if (part.match(/^Ruler\s+/i)) { result.ruler = part.replace(/^Ruler\s+/i, "").trim(); continue; }
+      // Military page ruler line
+      const genMatch = part.match(/^(.+?), we have (\d+) generals/i);
+      if (genMatch) { result.ruler = genMatch[1].trim(); result.generals = genMatch[2]; continue; }
       if (part.match(/^Land\s+[\d,]+/i)) { const m = part.match(/[\d,]+/); if (m) result.acres = cleanNum(m[0]); continue; }
       if (part.match(/^Peasants\s+[\d,]+/i)) { const m = part.match(/[\d,]+/); if (m) result.peons = cleanNum(m[0]); continue; }
       if (part.match(/^Building Eff/i)) { const m = part.match(/([\d.]+)%/); if (m) result.be = m[1]; continue; }
