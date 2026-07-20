@@ -131,6 +131,13 @@ module.exports = async function modalHandler(interaction) {
       }
     }
 
+    console.log("[DEBUG INTEL MATCH]", {
+      name: parsed.name,
+      ruler: parsed.ruler,
+      nw: parsed.nw,
+      acres: parsed.acres
+    });
+
     // Look up province by ruler name if name not parsed
     if (!parsed.name && parsed.ruler && supabase) {
       const { data: byRuler } = await supabase

@@ -22,6 +22,28 @@ function parseThrone(text) {
     }
 
     // Handle Utopia table format with tabs
+    // Intel summary row: Money TAB Peasants TAB Food TAB Runes TAB NW TAB Land
+    const intelSummaryMatch = line.match(/^([\d,]+)\t([\d,]+)\t([\d,]+)\t([\d,]+)\t([\d,]+)\t([\d,]+)/i);
+    if (intelSummaryMatch) {
+      result.gold = cleanNum(intelSummaryMatch[1]);
+      result.peons = cleanNum(intelSummaryMatch[2]);
+      result.food = cleanNum(intelSummaryMatch[3]);
+      result.runes = cleanNum(intelSummaryMatch[4]);
+      if (!result.nw) result.nw = cleanNum(intelSummaryMatch[5]);
+      if (!result.acres) result.acres = cleanNum(intelSummaryMatch[6]);
+      continue;
+    }
+    // Intel summary row: Money TAB Peasants TAB Food TAB Runes TAB NW TAB Land
+    const intelSummaryMatch = line.match(/^([\d,]+)\t([\d,]+)\t([\d,]+)\t([\d,]+)\t([\d,]+)\t([\d,]+)/i);
+    if (intelSummaryMatch) {
+      result.gold = cleanNum(intelSummaryMatch[1]);
+      result.peons = cleanNum(intelSummaryMatch[2]);
+      result.food = cleanNum(intelSummaryMatch[3]);
+      result.runes = cleanNum(intelSummaryMatch[4]);
+      if (!result.nw) result.nw = cleanNum(intelSummaryMatch[5]);
+      if (!result.acres) result.acres = cleanNum(intelSummaryMatch[6]);
+      continue;
+    }
     // Handle Utopia table format with tabs
     const parts = [line];
     const cols = line.split("\t").map(p => p.trim()).filter(Boolean);
