@@ -169,6 +169,16 @@ module.exports = async function modalHandler(interaction) {
       if (parsed.map) updateData.map = parsed.map;
       if (parsed.coordinates) updateData.coordinates = parsed.coordinates;
       if (parsed.kingdom) updateData.kingdom_name = parsed.kingdom;
+      if (parsed.soldiers) updateData.soldiers = parsed.soldiers;
+      if (parsed.off_specs) updateData.off_specs = parsed.off_specs;
+      if (parsed.def_specs) updateData.def_specs = parsed.def_specs;
+      if (parsed.elites) updateData.elites = parsed.elites;
+      if (parsed.thieves) updateData.thieves = parsed.thieves;
+      if (parsed.wizards) updateData.wizards = parsed.wizards;
+      if (parsed.war_horses) updateData.war_horses = parsed.war_horses;
+      if (parsed.prisoners) updateData.prisoners = parsed.prisoners;
+      if (parsed.ruler) updateData.ruler = parsed.ruler;
+      if (parsed.game_type) updateData.game_type = parsed.game_type;
 
       let error;
       if (existing && existing.length > 0) {
