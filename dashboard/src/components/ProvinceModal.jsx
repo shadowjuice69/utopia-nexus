@@ -10,7 +10,27 @@ function ProvinceModal({ province, onClose }) {
       <div className="modal-content">
         <button onClick={onClose}>✖ Close</button>
 
-        <h2>🏰 {province.name}</h2>
+        <div className="province-header">
+          <h2>🏰 {province.name}</h2>
+
+          <p>
+            👑 {province.ruler || "Unknown Ruler"}
+          </p>
+
+          <p>
+            {province.race || "Unknown Race"} • {province.personality || "Unknown Personality"}
+          </p>
+
+          <p>
+            NW: {Number(province.nw || 0).toLocaleString()}
+            {" | "}
+            Acres: {Number(province.acres || 0).toLocaleString()}
+          </p>
+
+          <p>
+            🌎 {province.game_type || "Unknown"}
+          </p>
+        </div>
 
         <div className="modal-tabs">
           <button className={tab === "overview" ? "active-tab" : ""} onClick={() => setTab("overview")}>

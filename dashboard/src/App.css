@@ -667,3 +667,15 @@ body {
 .active-tab {
   font-weight: bold;
 }
+
+.province-header {
+  margin-bottom: 15px;
+}
+
+.province-header h2 {
+  margin-bottom: 8px;
+}
+
+.province-header p {
+  margin: 4px 0;
+}
