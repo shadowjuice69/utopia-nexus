@@ -7,6 +7,7 @@ import WaveTracker from "./components/WaveTracker";
 import AlertPanel from "./components/AlertPanel";
 import KingdomOverview from "./components/KingdomOverview";
 import AttackCalc from "./components/AttackCalc";
+import BuildingIntel from "./components/BuildingIntel";
 import Login from "./components/Login";
 
 const TABS = [
@@ -16,6 +17,7 @@ const TABS = [
   { id: "waves", label: "🌊 Waves" },
   { id: "alerts", label: "🔔 Alerts" },
   { id: "calc", label: "🧮 Calculator" },
+  { id: "buildings", label: "🏗️ Buildings" },
 ];
 
 function App() {
@@ -45,6 +47,7 @@ function App() {
         {tab === "waves" && <WaveTracker />}
         {tab === "alerts" && <AlertPanel />}
         {tab === "calc" && <AttackCalc />}
+{tab === "buildings" && <BuildingIntel />}
       </main>
     </div>
   );
