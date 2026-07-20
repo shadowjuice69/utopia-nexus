@@ -130,6 +130,7 @@ module.exports = async function modalHandler(interaction) {
       }
     }
 
+    if (manualProvince && !parsed.name) parsed.name = manualProvince;
     if (!parsed.name && !parsed.nw && !parsed.acres && !parsed.off && !parsed.def) {
       return interaction.editReply("❌ Could not parse intel from that text. Make sure you're pasting a throne or military page.");
     }
