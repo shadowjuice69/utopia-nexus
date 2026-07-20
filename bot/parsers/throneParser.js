@@ -82,21 +82,22 @@ function parseThrone(text) {
         continue;
       }
     }
-
     // Science page parsing
     const sciMatch = line.match(/^(Alchemy|Tools|Housing|Production|Bookkeeping|Artisan|Strategy|Siege|Tactics|Valor|Heroism|Resilience|Crime|Channeling|Shielding|Cunning|Sorcery|Finesse)\t([\d,]+)/i);
     if (sciMatch) {
       if (!result.science) result.science = {};
       result.science[sciMatch[1].toLowerCase()] = cleanNum(sciMatch[2]);
       continue;
+    }
+
     // Buildings page parsing
-    const bldMatch = line.match(/^(Barren Land|Homes|Farms|Mills|Banks|Training Grounds|Armouries|Military Barracks|Forts|Castles|Hospitals|Guilds|Towers|Thieves. Dens|Watch Towers|Libraries|Stables|Dungeons)[\t ]+([\d,]+)\t([\d.]+)%/i);
+    const bldMatch = line.match(/^(Barren Land|Homes|Farms|Mills|Banks|Training Grounds|Armouries|Military Barracks|Forts|Castles|Hospitals|Guilds|Towers|Thieves' Dens|Watch Towers|Libraries|Stables|Dungeons)\t([\d,]+)\t([\d.]+)%/i);
     if (bldMatch) {
       if (!result.buildings) result.buildings = {};
       result.buildings[bldMatch[1].toLowerCase().replace(/\s+/g, "_")] = { qty: cleanNum(bldMatch[2]), pct: bldMatch[3] };
       continue;
     }
-    }
+
     for (const part of parts) {
       // Province name
       // Military page: "Baron X, we have N generals"
