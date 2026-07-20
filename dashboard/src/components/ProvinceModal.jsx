@@ -1,7 +1,18 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { getProvinceAttackStatus } from "../services/attackService";
 
 function ProvinceModal({ province, onClose }) {
   const [tab, setTab] = useState("overview");
+  const [lastAttack, setLastAttack] = useState(null);
+
+  useEffect(() => {
+    async function checkAttack() {
+      const attack = await getProvinceAttackStatus(province.name);
+      setLastAttack(attack);
+    }
+
+    checkAttack();
+  }, [province]);
 
   if (!province) return null;
 
@@ -37,9 +48,13 @@ function ProvinceModal({ province, onClose }) {
               : `🟡 Intel Age: ${province.intel_age}`}
           </p>
 
-          {province.ops_status && (
+          <p>
+            ⚔️ Target: {province.ops_status || "Available"}
+          </p>
+
+          {lastAttack && (
             <p>
-              ⚔️ Status: {province.ops_status}
+              🔴 Last Hit: {new Date(lastAttack.created_at).toLocaleString()}
             </p>
           )}
         </div>

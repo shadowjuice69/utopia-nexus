@@ -30,3 +30,19 @@ export function subscribeToAttacks(callback) {
     )
     .subscribe();
 }
+
+export async function getProvinceAttackStatus(provinceName) {
+  const { data, error } = await supabase
+    .from("attacks")
+    .select("*")
+    .eq("target_province", provinceName)
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  if (error) {
+    console.error("Attack status error:", error);
+    return null;
+  }
+
+  return data?.[0] || null;
+}
