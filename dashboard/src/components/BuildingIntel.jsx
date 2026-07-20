@@ -3,6 +3,7 @@ import {
   getProvinces,
   subscribeToProvinces
 } from "../services/provinceService";
+import ProvinceModal from "./ProvinceModal";
 
 function BuildingIntel() {
   const [provinces, setProvinces] = useState([]);
@@ -49,41 +50,16 @@ function BuildingIntel() {
             <p>
               Acres: {Number(province.acres).toLocaleString()}
             </p>
-            <span>Click to view buildings</span>
+            <span>Click to view intelligence</span>
           </button>
         ))}
       </div>
 
       {selected && (
-        <div className="modal">
-          <div className="modal-content">
-            <button onClick={() => setSelected(null)}>
-              ✖ Close
-            </button>
-
-            <h2>🏰 {selected.name}</h2>
-
-            <p>
-              NW: {Number(selected.nw).toLocaleString()}
-            </p>
-
-            <p>
-              Acres: {Number(selected.acres).toLocaleString()}
-            </p>
-
-            <h3>Buildings</h3>
-
-            {Object.entries(selected.buildings).map(
-              ([name, data]) => (
-                <div key={name}>
-                  {name.replaceAll("_", " ")}:
-                  {" "}
-                  {data.qty} ({data.pct}%)
-                </div>
-              )
-            )}
-          </div>
-        </div>
+        <ProvinceModal
+          province={selected}
+          onClose={() => setSelected(null)}
+        />
       )}
     </section>
   );
