@@ -30,6 +30,18 @@ function ProvinceModal({ province, onClose }) {
           <p>
             🌎 {province.game_type || "Unknown"}
           </p>
+
+          <p>
+            {Number(province.intel_age) === 0
+              ? "🟢 Intel: Fresh"
+              : `🟡 Intel Age: ${province.intel_age}`}
+          </p>
+
+          {province.ops_status && (
+            <p>
+              ⚔️ Status: {province.ops_status}
+            </p>
+          )}
         </div>
 
         <div className="modal-tabs">
