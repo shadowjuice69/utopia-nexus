@@ -186,6 +186,8 @@ module.exports = async function modalHandler(interaction) {
       if (parsed.ruler) updateData.ruler = parsed.ruler;
       if (parsed.game_type) updateData.game_type = parsed.game_type;
       if (parsed.science) updateData.science = parsed.science;
+      if (parsed.buildings) updateData.buildings = parsed.buildings;
+      if (parsed.buildings) updateData.buildings = parsed.buildings;
       if (parsed.ome) updateData.ome = parsed.ome;
       if (parsed.dme) updateData.dme = parsed.dme;
 
