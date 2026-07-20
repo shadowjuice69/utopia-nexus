@@ -132,7 +132,7 @@ module.exports = async function modalHandler(interaction) {
 
     // Look up province by ruler name if name not parsed
     if (!parsed.name && parsed.ruler && supabase) {
-      const { data: byRuler } = await supabase.from("provinces").select("name").ilike("ruler", parsed.ruler).limit(1);
+      const { data: byRuler } = await supabase.from("provinces").select("name").ilike("ruler", `%${parsed.ruler}%`).limit(1);
       if (byRuler?.[0]) parsed.name = byRuler[0].name;
     }
     if (!parsed.name && !parsed.nw && !parsed.acres && !parsed.off && !parsed.def && !parsed.off_specs && !parsed.def_specs && !parsed.science) {
@@ -213,7 +213,7 @@ module.exports = async function modalHandler(interaction) {
     const summary = summarizeIntel(parsed);
     const fields = Object.entries(parsed)
       .filter(([k, v]) => v && !["name", "combo", "kingdom"].includes(k))
-      .map(([k, v]) => `• **${k}:** ${v}`)
+      .map(([k, v]) => `• **${k}:** ${typeof v === "object" ? JSON.stringify(v) : v}`)
       .join('\n');
 
     return interaction.editReply(
