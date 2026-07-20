@@ -90,6 +90,7 @@ module.exports = async function modalHandler(interaction) {
 
     const text = interaction.fields.getTextInputValue("intel_text");
     
+    console.log("[INTEL RAW FULL]", text.slice(0, 1000));
     console.log("[INTEL RAW]", JSON.stringify(text.slice(0, 500)));
     const parsed = parseThrone(text);
 
