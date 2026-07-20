@@ -130,7 +130,7 @@ module.exports = async function modalHandler(interaction) {
       }
     }
 
-    if (!parsed.name if (!parsed.name && !parsed.nw && !parsed.acres) {if (!parsed.name && !parsed.nw && !parsed.acres) { !parsed.nw if (!parsed.name && !parsed.nw && !parsed.acres) {if (!parsed.name && !parsed.nw && !parsed.acres) { !parsed.acres if (!parsed.name && !parsed.nw && !parsed.acres) {if (!parsed.name && !parsed.nw && !parsed.acres) { !parsed.off if (!parsed.name && !parsed.nw && !parsed.acres) {if (!parsed.name && !parsed.nw && !parsed.acres) { !parsed.def) {
+    if (!parsed.name && !parsed.nw && !parsed.acres && !parsed.off && !parsed.def) {
       return interaction.editReply("❌ Could not parse intel from that text. Make sure you're pasting a throne or military page.");
     }
 
