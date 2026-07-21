@@ -9,6 +9,7 @@ function parseScience(line, date) {
   return {
     type: "science",
     date,
+    raw_text: line,
     books: cleanNumber(match[1]),
     category: match[2].toLowerCase()
   };
