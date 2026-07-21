@@ -6,6 +6,11 @@ async function saveAgeUpdate(updateText, userId, filename) {
   const supabase = supabaseService.getClient();
   if (!supabase) return null;
 
+  // Clean invalid characters before storing in Supabase
+  updateText = String(updateText)
+    .replace(/\u0000/g, "")
+    .replace(/\\(?!["\\/bfnrtu])/g, "");
+
   try {
     const match = filename?.match(/Age[_\s-]?(\d+)/i);
     const ageNumber = match ? parseInt(match[1], 10) : null;
