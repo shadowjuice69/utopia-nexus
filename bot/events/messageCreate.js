@@ -5,6 +5,7 @@ const xpService = require("../services/xpService");
 const { saveOpsMessage, saveAttack, saveHostileOp, saveSpell } = require("../services/opsService");
 const { parseOpsMessage } = require("../parsers/opsParser");
 const axios = require("axios");
+const pdfParse = require("pdf-parse");
 const { saveAgeUpdate } = require("../services/ageUpdateService");
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 
@@ -13,9 +14,7 @@ const UTOPIABOT_IDS = new Set((process.env.UTOPIABOT_IDS || "").split(",").map(s
 module.exports = {
   name: "messageCreate",
   async execute(message) {
-
     console.log("[HANDLER INSTANCE]", process.pid, message.id);
-
     console.log("[MESSAGE HANDLER HIT]", message.id);
 
     if (message.author.bot) return;
@@ -24,23 +23,40 @@ module.exports = {
 
     if (isAgeUpdateChannel) {
       console.log("📘 Age update channel message detected");
-
       let updateText = message.content || "";
       let ageUpdateFilename = null;
 
       if (message.attachments.size > 0) {
         const attachment = message.attachments.first();
         ageUpdateFilename = attachment.name;
+        console.log("📎 Attachments:", message.attachments.size);
         console.log("📄 File name:", attachment.name);
-        if (attachment.name.endsWith(".txt")) {
-          const response = await axios.get(attachment.url);
-          updateText += "\n" + response.data;
+
+        try {
+          const response = await axios.get(attachment.url, { responseType: "arraybuffer" });
+          const buffer = Buffer.from(response.data);
+
+          // Detect PDF by magic bytes
+          const isPdf = buffer.slice(0, 4).toString("ascii") === "%PDF";
+
+          if (isPdf) {
+            console.log("📄 Detected PDF — extracting text with pdf-parse");
+            const parsed = await pdfParse(buffer);
+            updateText += "\n" + parsed.text;
+          } else {
+            updateText += "\n" + buffer.toString("utf8");
+          }
+
+          console.log("📏 Age Update Text Length:", updateText.length);
+        } catch (err) {
+          logger.error(`[AGE UPDATE] File download/parse error: ${err.message}`);
+          return message.reply("⚠️ Failed to read the attachment. Make sure it's a valid PDF or TXT file.");
         }
       }
 
       if (!updateText || updateText.trim().length === 0) {
         logger.info("[AGE UPDATE] Skipping empty file");
-        return message.reply("⚠️ Age update file contained no readable text. Upload the TXT file.");
+        return message.reply("⚠️ Age update file contained no readable text. Upload the TXT or PDF file.");
       }
 
       const savedUpdate = await saveAgeUpdate(updateText, message.author.id, ageUpdateFilename);
@@ -50,16 +66,12 @@ module.exports = {
         return;
       }
 
-      if (!savedUpdate) {
-        return message.reply("⚠️ Age update save failed.");
-      }
-
       if (savedUpdate.error === "no_age_number") {
         return message.reply("⚠️ Could not detect age number from filename. Name your file like `Age_116_changes.txt`.");
       }
 
       if (savedUpdate.error === "duplicate") {
-        return message.reply(`⚠️ Age ${savedUpdate.existingId ? `update already exists` : "update"} is already **${savedUpdate.status}**. No duplicate created.`);
+        return message.reply(`⚠️ Age update already exists and is **${savedUpdate.status}**. No duplicate created.`);
       }
 
       const buttons = new ActionRowBuilder().addComponents(
@@ -109,7 +121,6 @@ module.exports = {
     });
 
     console.log(`[OPS PARSED] ${parsed.ops.length} ops, ${parsed.atks.length} attacks, ${parsed.spells.length} spells`);
-
     for (const attack of parsed.atks) await saveAttack(attack);
     for (const op of parsed.ops) await saveHostileOp(op);
     for (const spell of parsed.spells) await saveSpell(spell);
