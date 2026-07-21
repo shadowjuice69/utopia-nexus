@@ -8,7 +8,23 @@ const commands = [
     options: [
       { name: "register", description: "Register your province", type: 1 },
       { name: "help", description: "Show all available commands", type: 1 },
-      { name: "intel", description: "Paste province throne intel", type: 1 },
+      {
+  name: "intel",
+  description: "Paste province intel or news logs",
+  type: 1,
+  options: [
+    {
+      name: "type",
+      description: "Choose intel type",
+      type: 3,
+      required: true,
+      choices: [
+        { name: "Province Intel", value: "throne" },
+        { name: "News Log", value: "news" }
+      ]
+    }
+  ]
+},
       { name: "province", description: "View your province profile", type: 1 },
       { name: "profile", description: "View your profile", type: 1 },
       { name: "citizens", description: "View kingdom citizens", type: 1 },

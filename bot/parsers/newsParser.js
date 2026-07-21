@@ -1,95 +1,85 @@
 const supabaseService = require("../services/supabase");
 const logger = require("../services/logger");
-const { parseNews } = require("./news");
 
 function cleanNum(str) {
   if (!str) return null;
   return str.toString().replace(/,/g, "").trim();
 }
 
-function parseSpyMilitary(text, coordsStr) {
-  const result = { coordinates: coordsStr };
+function parseNewsLog(text) {
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  const results = { spyMilitary: [], attacks: [] };
 
-  // Province name from coords context — "The Humble Baron Novice"
-  const nameMatch = text.match(/Military Elders of (.+?):/i);
-  if (nameMatch) result.ruler = nameMatch[1].trim();
+  for (const line of lines) {
+    // Spy on Military
+    if (line.includes("Military Elders of") && line.includes("net Offensive Points")) {
+      const coordsMatch = line.match(/\(([^)]+)\),\s*sent/);
+      const coords = coordsMatch ? coordsMatch[1] : null;
+      const spy = { coordinates: coords };
 
-  // Generals
-  const genMatch = text.match(/(\d+) generals? are available/i);
-  if (genMatch) result.generals = genMatch[1];
+      const nameMatch = line.match(/Military Elders of (.+?):/i);
+      if (nameMatch) spy.ruler = nameMatch[1].trim();
 
-  // Wages
-  const wagesMatch = text.match(/wages are at ([\d.]+)% of normal/i);
-  if (wagesMatch) result.wages = wagesMatch[1];
+      const genMatch = line.match(/(\d+) generals? are available/i);
+      if (genMatch) spy.generals = genMatch[1];
 
-  // OME
-  const omeMatch = text.match(/Offense: ([\d.]+)% effectiveness with ([\d,]+) net Offensive Points/i);
-  if (omeMatch) { result.ome = omeMatch[1]; result.off = cleanNum(omeMatch[2]); }
+      const wagesMatch = line.match(/wages are at ([\d.]+)% of normal/i);
+      if (wagesMatch) spy.wages = wagesMatch[1];
 
-  // DME
-  const dmeMatch = text.match(/Defense: ([\d.]+)% effectiveness with ([\d,]+) net Defensive Points/i);
-  if (dmeMatch) { result.dme = dmeMatch[1]; result.def = cleanNum(dmeMatch[2]); }
+      const omeMatch = line.match(/Offense: ([\d.]+)% effectiveness with ([\d,]+) net Offensive Points/i);
+      if (omeMatch) { spy.ome = omeMatch[1]; spy.off = cleanNum(omeMatch[2]); }
 
-  // Troops
-  const troopsMatch = text.match(/At home: ([\d,]+) soldiers?, ([\d,]+) offensive specialists?, ([\d,]+) defensive specialists?, ([\d,]+) elites?, and ([\d,]+) war horses/i);
-  if (troopsMatch) {
-    result.soldiers = cleanNum(troopsMatch[1]);
-    result.off_specs = cleanNum(troopsMatch[2]);
-    result.def_specs = cleanNum(troopsMatch[3]);
-    result.elites = cleanNum(troopsMatch[4]);
-    result.war_horses = cleanNum(troopsMatch[5]);
+      const dmeMatch = line.match(/Defense: ([\d.]+)% effectiveness with ([\d,]+) net Defensive Points/i);
+      if (dmeMatch) { spy.dme = dmeMatch[1]; spy.def = cleanNum(dmeMatch[2]); }
+
+      const troopsMatch = line.match(/At home: ([\d,]+) soldiers?, ([\d,]+) offensive specialists?, ([\d,]+) defensive specialists?, ([\d,]+) elites?, and ([\d,]+) war horses/i);
+      if (troopsMatch) {
+        spy.soldiers = cleanNum(troopsMatch[1]);
+        spy.off_specs = cleanNum(troopsMatch[2]);
+        spy.def_specs = cleanNum(troopsMatch[3]);
+        spy.elites = cleanNum(troopsMatch[4]);
+        spy.war_horses = cleanNum(troopsMatch[5]);
+      }
+
+      if (spy.off) results.spyMilitary.push(spy);
+      continue;
+    }
+
+    // Attack result
+    if (line.includes("Your forces arrive at") && line.includes("taken")) {
+      const coordsMatch = line.match(/arrive at (.+?)\s*\(([^)]+)\)/i);
+      const atk = {
+        target_province: coordsMatch ? coordsMatch[1].trim() : null,
+        target_kingdom: coordsMatch ? coordsMatch[2] : null
+      };
+
+      const acresMatch = line.match(/taken ([\d,]+) acres/i);
+      if (acresMatch) atk.acres_captured = cleanNum(acresMatch[1]);
+
+      const killsMatch = line.match(/killed about ([\d,]+) enemy troops/i);
+      if (killsMatch) atk.kills = cleanNum(killsMatch[1]);
+
+      const lossMatch = line.match(/lost ([\d,]+) (\w+) in this battle/i);
+      if (lossMatch) { atk.own_losses = cleanNum(lossMatch[1]); atk.unit_lost = lossMatch[2]; }
+
+      if (atk.acres_captured) results.attacks.push(atk);
+      continue;
+    }
   }
 
-  return result;
-}
-
-function parseAttackResult(text, coordsStr) {
-  const result = { coordinates: coordsStr };
-
-  const acresMatch = text.match(/taken ([\d,]+) acres/i);
-  if (acresMatch) result.acres_captured = cleanNum(acresMatch[1]);
-
-  const killsMatch = text.match(/killed about ([\d,]+) enemy troops/i);
-  if (killsMatch) result.kills = cleanNum(killsMatch[1]);
-
-  const lossMatch = text.match(/lost ([\d,]+) (\w+) in this battle/i);
-  if (lossMatch) { result.own_losses = cleanNum(lossMatch[1]); result.unit_lost = lossMatch[2]; }
-
-  const honorMatch = text.match(/gained ([\d,]+) honor/i);
-  if (honorMatch) result.honor_gained = cleanNum(honorMatch[1]);
-
-  const specCreditsMatch = text.match(/gained ([\d,]+) specialist training credits/i);
-  if (specCreditsMatch) result.spec_credits = cleanNum(specCreditsMatch[1]);
-
-  return result;
-}
-
-function parseNewsLog(text) {
-  const parsed = parseNews(text);
-
-  return {
-    spyMilitary: parsed.intel.filter(i => i.category === "military"),
-    attacks: parsed.attacks,
-    spells: parsed.spells,
-    science: parsed.science,
-    military: parsed.military,
-    economy: parsed.economy,
-    events: parsed.events
-  };
+  return results;
 }
 
 async function saveNewsIntel(parsed, submittedBy) {
   const supabase = supabaseService.getClient();
-  if (!supabase) return { saved: 0, errors: 0 };
+  if (!supabase) return { saved: 0, errors: 0, spyCount: 0, attackCount: 0 };
 
   let saved = 0;
   let errors = 0;
 
-  // Save spy military intel to provinces
   for (const spy of parsed.spyMilitary) {
     if (!spy.off && !spy.def) continue;
     try {
-      // Try to find existing province by coordinates
       const { data: existing } = await supabase
         .from("provinces")
         .select("id, name")
@@ -98,7 +88,8 @@ async function saveNewsIntel(parsed, submittedBy) {
 
       const updateData = {
         updated_at: new Date().toISOString(),
-        coordinates: spy.coordinates
+        coordinates: spy.coordinates,
+        intel_age: "0"
       };
 
       if (spy.off) updateData.off = spy.off;
@@ -117,7 +108,7 @@ async function saveNewsIntel(parsed, submittedBy) {
       if (existing && existing.length > 0) {
         await supabase.from("provinces").update(updateData).eq("id", existing[0].id);
       } else {
-        updateData.name = spy.coordinates; // Use coords as temp name
+        updateData.name = spy.ruler || spy.coordinates;
         await supabase.from("provinces").insert(updateData);
       }
       saved++;
@@ -127,18 +118,16 @@ async function saveNewsIntel(parsed, submittedBy) {
     }
   }
 
-  // Save attacks
   for (const atk of parsed.attacks) {
-    if (!atk.acres_captured) continue;
     try {
       await supabase.from("attacks").insert({
         timestamp: new Date().toISOString(),
         attacker_province: "Freaking A",
         target_province: atk.target_province,
         target_kingdom: atk.target_kingdom,
-        acres_captured: atk.acres_captured,
-        kills: atk.kills,
-        message_id: `news_${Date.now()}`
+        acres_captured: parseInt(atk.acres_captured) || 0,
+        kills: parseInt(atk.kills) || 0,
+        message_id: `news_${Date.now()}_${Math.random().toString(36).slice(2)}`
       });
       saved++;
     } catch (e) {

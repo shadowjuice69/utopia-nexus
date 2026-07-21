@@ -85,7 +85,11 @@ module.exports = async function modalHandler(interaction) {
   }
 
   // Intel paste handler
-  if (interaction.customId === "intel_paste" || interaction.customId === "intel_paste_throne") {
+  if (
+  interaction.customId === "intel_paste" ||
+  interaction.customId === "intel_paste_throne" ||
+  interaction.customId === "intel_paste_news"
+) {
     await interaction.deferReply({ ephemeral: true });
 
     const text = interaction.fields.getTextInputValue("intel_text");
