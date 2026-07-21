@@ -92,6 +92,7 @@ module.exports = async function modalHandler(interaction) {
 ) {
     await interaction.deferReply({ ephemeral: true });
 
+    console.log("[MODAL CUSTOM ID]", interaction.customId);
     const text = interaction.fields.getTextInputValue("intel_text");
     
     console.log("[INTEL RAW FULL]", text.slice(0, 1000));
