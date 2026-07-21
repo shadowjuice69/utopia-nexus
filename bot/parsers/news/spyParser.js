@@ -4,6 +4,7 @@ function parseMilitaryIntel(line, date) {
   const result = {
     type: "intel",
     category: "military",
+    raw_text: line,
     date,
     coordinates: extractTarget(line)
   };
@@ -34,6 +35,7 @@ function parseThievery(line, date) {
   const result = {
     type: "intel",
     category: "thievery",
+    raw_text: line,
     date,
     coordinates: extractTarget(line)
   };
