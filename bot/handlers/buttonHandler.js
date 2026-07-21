@@ -40,6 +40,13 @@ module.exports = async function buttonHandler(interaction) {
   if (interaction.customId.startsWith("age_apply_")) {
     const id = interaction.customId.replace("age_apply_", "");
 
+    if (!id || id === "undefined") {
+      return interaction.reply({
+        content: "⚠️ This approval button is expired. Upload the age update again.",
+        ephemeral: true
+      });
+    }
+
     // Defer so we have time to parse + insert
     await interaction.deferUpdate();
 
