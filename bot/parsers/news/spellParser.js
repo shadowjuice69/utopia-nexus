@@ -1,6 +1,7 @@
 function parseSpell(line, date) {
   const result = {
     type: "spell",
+    raw_text: line,
     date,
     success: line.includes("spell succeeds")
   };
