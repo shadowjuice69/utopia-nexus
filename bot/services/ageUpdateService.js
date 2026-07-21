@@ -77,6 +77,10 @@ async function approveAgeUpdate(id, adminId) {
 
     // Parse it
     const parsed = parseAgeFile(update.raw_text);
+
+    console.log("[AGE DEBUG] races:", Object.keys(parsed.races || {}));
+    console.log("[AGE DEBUG] personalities:", Object.keys(parsed.personalities || {}));
+    console.log("[AGE DEBUG] game_rules:", Object.keys(parsed.game_rules || {}));
     const ageNumber = update.age_number;
 
     // Batch insert to rules tables
