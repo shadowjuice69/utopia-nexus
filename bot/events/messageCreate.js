@@ -1,3 +1,4 @@
+const logger = require("../services/logger");
 const config = require("../config/config");
 const userService = require("../services/userService");
 const xpService = require("../services/xpService");
