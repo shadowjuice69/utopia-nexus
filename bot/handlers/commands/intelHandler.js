@@ -2,6 +2,7 @@ const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = req
 
 module.exports = async function intelHandler(interaction) {
   const type = interaction.options.getString("type") || "throne";
+  console.log("[INTEL TYPE]", type, interaction.options.getString("type"));
 
   const modal = new ModalBuilder()
     .setCustomId(`intel_paste_${type}`)
