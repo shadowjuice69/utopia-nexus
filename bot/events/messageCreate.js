@@ -14,6 +14,8 @@ module.exports = {
   name: "messageCreate",
   async execute(message) {
 
+    console.log("[MESSAGE HANDLER HIT]", message.id);
+
     if (message.author.bot) return;
 
     const isAgeUpdateChannel = message.channel.id === process.env.AGE_UPDATE_CHANNEL_ID;
