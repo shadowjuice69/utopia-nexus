@@ -13,6 +13,7 @@ module.exports = (client) => {
     );
 
   for (const file of eventFiles) {
+    console.log("[EVENT LOADING]", file);
     const event = require(`./events/${file}`);
 
     if (event.once) {
