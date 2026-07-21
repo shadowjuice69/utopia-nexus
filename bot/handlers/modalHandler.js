@@ -98,6 +98,15 @@ module.exports = async function modalHandler(interaction) {
     
     console.log("[INTEL RAW FULL]", text.slice(0, 1000));
     console.log("[INTEL RAW]", JSON.stringify(text.slice(0, 500)));
+    // Auto-detect news log by content
+    if (text.includes('Province Logs') || text.includes('Province Reporter') || text.includes('books allocated to')) {
+      const { parseNewsLog, saveNewsIntel } = require('../parsers/newsParser');
+      const parsedNews = parseNewsLog(text);
+      const result = await saveNewsIntel(parsedNews, interaction.user.id);
+      return interaction.editReply(
+        `✅ **News log processed**\n\n🗡️ Spy reports: ${result.spyCount}\n⚔️ Attacks: ${result.attackCount}\n💾 Saved: ${result.saved}`
+      );
+    }
     const parsed = parseThrone(text);
 
     // Save throne intel snapshot
