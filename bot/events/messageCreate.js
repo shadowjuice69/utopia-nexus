@@ -34,6 +34,11 @@ module.exports = {
         }
       }
 
+      if (!updateText || updateText.trim().length === 0) {
+        logger.info("[AGE UPDATE] Skipping empty file");
+        return message.reply("⚠️ Age update file contained no readable text. Upload the TXT file.");
+      }
+
       const savedUpdate = await saveAgeUpdate(updateText, message.author.id, ageUpdateFilename);
 
       if (!savedUpdate || savedUpdate.error) {
