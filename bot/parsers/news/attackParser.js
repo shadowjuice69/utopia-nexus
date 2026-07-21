@@ -9,6 +9,7 @@ function parseOutgoingAttack(line, date) {
   const result = {
     type: "attack",
     direction: "outgoing",
+    raw_text: line,
     date,
     target_province: extractProvince(line),
     target_coordinates: extractTarget(line),
@@ -61,6 +62,7 @@ function parseIncomingAttack(line, date) {
   const result = {
     type: "attack",
     direction: "incoming",
+    raw_text: line,
     date,
     attacker_province: attacker ? attacker[1] : null,
     attacker_coordinates: attacker ? attacker[2] : null
