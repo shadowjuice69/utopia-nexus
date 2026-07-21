@@ -1,5 +1,6 @@
 const supabaseService = require("../services/supabase");
 const logger = require("../services/logger");
+const { parseNews } = require("./news");
 
 function cleanNum(str) {
   if (!str) return null;
@@ -64,47 +65,17 @@ function parseAttackResult(text, coordsStr) {
 }
 
 function parseNewsLog(text) {
-  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-  const results = { spyMilitary: [], attacks: [], spells: [] };
+  const parsed = parseNews(text);
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-
-    // Spy on Military
-    if (line.includes("Military Elders of") && line.includes("net Offensive Points")) {
-      const coordsMatch = line.match(/\(([^)]+)\),\s*sent/);
-      const coords = coordsMatch ? coordsMatch[1] : null;
-      const parsed = parseSpyMilitary(line, coords);
-      if (parsed.off) results.spyMilitary.push(parsed);
-      continue;
-    }
-
-    // Attack result
-    if (line.includes("Your forces arrive at") && line.includes("taken")) {
-      const coordsMatch = line.match(/arrive at (.+?)\s*\(([^)]+)\)/i);
-      const province = coordsMatch ? coordsMatch[1].trim() : null;
-      const coords = coordsMatch ? coordsMatch[2] : null;
-      const parsed = parseAttackResult(line, coords);
-      parsed.target_province = province;
-      parsed.target_kingdom = coords;
-      results.attacks.push(parsed);
-      continue;
-    }
-
-    // Spy on Throne (not hit)
-    if (line.includes("has not been attacked in the last month")) {
-      const coordsMatch = line.match(/\(([^)]+)\),\s*sent/);
-      if (coordsMatch) {
-        results.spyMilitary.push({
-          coordinates: coordsMatch[1],
-          note: "Not hit in last month — safe target"
-        });
-      }
-      continue;
-    }
-  }
-
-  return results;
+  return {
+    spyMilitary: parsed.intel.filter(i => i.category === "military"),
+    attacks: parsed.attacks,
+    spells: parsed.spells,
+    science: parsed.science,
+    military: parsed.military,
+    economy: parsed.economy,
+    events: parsed.events
+  };
 }
 
 async function saveNewsIntel(parsed, submittedBy) {
