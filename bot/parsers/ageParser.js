@@ -150,6 +150,12 @@ function parseAgeFileChunked(rawText) {
   const SECTION_HEADERS = ['Buildings','Science','Spells','Thievery','Attacking and Defending','Relations & Hostility','Relations & Hostility Updates','Dragons','Races','Personalities'];
   const lines = rawText.split('\n').map(l => l.replace(/^\uFEFF/, '').trim());
 
+  console.log("[AGE HEADERS FOUND]", lines.filter(l =>
+    l.includes("Race") ||
+    l.includes("Personal") ||
+    l.includes("Game")
+  ));
+
   // Find section boundaries
   const sections = [];
   let currentHeader = null;
