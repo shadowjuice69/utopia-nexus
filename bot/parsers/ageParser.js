@@ -150,6 +150,8 @@ function parseAgeFileChunked(rawText) {
   const SECTION_HEADERS = ['Buildings','Science','Spells','Thievery','Attacking and Defending','Relations & Hostility','Relations & Hostility Updates','Dragons','Races','Personalities'];
   const lines = rawText.split('\n').map(l => l.replace(/^\uFEFF/, '').trim());
 
+  console.log("[AGE FIRST 100 LINES]", lines.slice(0, 100));
+
   console.log("[AGE HEADERS FOUND]", lines.filter(l =>
     l.includes("Race") ||
     l.includes("Personal") ||
