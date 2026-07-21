@@ -35,6 +35,11 @@ module.exports = {
 
       const savedUpdate = await saveAgeUpdate(updateText, message.author.id, ageUpdateFilename);
 
+      if (!savedUpdate || savedUpdate.error) {
+        logger.info(`[AGE UPDATE] Skipping approval window: ${savedUpdate?.error || "unknown error"}`);
+        return;
+      }
+
       if (!savedUpdate) {
         return message.reply("⚠️ Age update save failed.");
       }
