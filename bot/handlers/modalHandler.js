@@ -4,6 +4,7 @@ const { MessageFlags, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("
 const { parseThrone, parseMilitary, summarizeIntel } = require("../parsers/throneParser");
 
 module.exports = async function modalHandler(interaction) {
+  console.log("[MODAL RECEIVED]", interaction.customId);
 
   const db = database.getDb();
   const supabase = supabaseService.getClient();
