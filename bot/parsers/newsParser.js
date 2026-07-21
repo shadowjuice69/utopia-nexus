@@ -13,9 +13,10 @@ function parseNewsLog(text) {
   for (const line of lines) {
     // Spy on Military
     if (line.includes("Military Elders of") && line.includes("net Offensive Points")) {
-      const coordsMatch = line.match(/\(([^)]+)\),\s*sent/);
-      const coords = coordsMatch ? coordsMatch[1] : null;
-      const spy = { coordinates: coords };
+      const coordsMatch = line.match(/(\w[\w\s]+?)\s*\(([^)]+)\),\s*sent/i);
+      const province = coordsMatch ? coordsMatch[1].trim() : null;
+      const coords = coordsMatch ? coordsMatch[2] : null;
+      const spy = { coordinates: coords, province_name: province };
 
       const nameMatch = line.match(/Military Elders of (.+?):/i);
       if (nameMatch) spy.ruler = nameMatch[1].trim();
@@ -83,7 +84,7 @@ async function saveNewsIntel(parsed, submittedBy) {
       const { data: existing } = await supabase
         .from("provinces")
         .select("id, name")
-        .eq("coordinates", spy.coordinates)
+        .or(`coordinates.eq.${spy.coordinates},name.ilike.${spy.province_name || "NOMATCH"}`)
         .limit(1);
 
       const updateData = {
@@ -108,7 +109,7 @@ async function saveNewsIntel(parsed, submittedBy) {
       if (existing && existing.length > 0) {
         await supabase.from("provinces").update(updateData).eq("id", existing[0].id);
       } else {
-        updateData.name = spy.ruler || spy.coordinates;
+        updateData.name = spy.province_name || spy.ruler || spy.coordinates;
         await supabase.from("provinces").insert(updateData);
       }
       saved++;
