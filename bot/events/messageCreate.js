@@ -14,6 +14,8 @@ module.exports = {
   name: "messageCreate",
   async execute(message) {
 
+    console.log("[HANDLER INSTANCE]", process.pid, message.id);
+
     console.log("[MESSAGE HANDLER HIT]", message.id);
 
     if (message.author.bot) return;
