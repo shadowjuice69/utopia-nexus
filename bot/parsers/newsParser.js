@@ -84,7 +84,7 @@ async function saveNewsIntel(parsed, submittedBy) {
       const { data: existing } = await supabase
         .from("provinces")
         .select("id, name")
-        .or(`coordinates.eq.${spy.coordinates},name.ilike.${spy.province_name || "NOMATCH"}`)
+        .eq("coordinates", spy.coordinates)
         .limit(1);
 
       const updateData = {
@@ -110,7 +110,8 @@ async function saveNewsIntel(parsed, submittedBy) {
         await supabase.from("provinces").update(updateData).eq("id", existing[0].id);
       } else {
         updateData.name = spy.province_name || spy.ruler || spy.coordinates;
-        await supabase.from("provinces").insert(updateData);
+        const { error: insertErr } = await supabase.from("provinces").insert(updateData);
+        if (insertErr) logger.error(`[NEWS INSERT ERROR] ${insertErr.message}`);
       }
       saved++;
     } catch (e) {
