@@ -3,7 +3,8 @@ const { cleanNumber } = require("./utils");
 function parseTraining(line, date) {
   const result = {
     type: "military_training",
-    date
+    date,
+    raw_text: line
   };
 
   const training = line.match(/ordered that ([\d,]+) ([A-Za-z]+) be trained/i);
@@ -16,11 +17,11 @@ function parseTraining(line, date) {
   return result;
 }
 
-
 function parsePromotion(line, date) {
   const result = {
     type: "military_promotion",
-    date
+    date,
+    raw_text: line
   };
 
   const promotion = line.match(/([\d,]+) of your specialists have been promoted to elites/i);
@@ -32,7 +33,6 @@ function parsePromotion(line, date) {
 
   return result;
 }
-
 
 function parseMilitaryEvents(lines) {
   const results = [];
@@ -53,7 +53,6 @@ function parseMilitaryEvents(lines) {
 
   return results;
 }
-
 
 module.exports = {
   parseMilitaryEvents
