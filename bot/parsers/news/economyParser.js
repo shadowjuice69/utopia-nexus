@@ -1,19 +1,18 @@
 const { cleanNumber } = require("./utils");
 
 function parseEconomy(line, date) {
-
   const stolen = line.match(/([\d,]+) runes were stolen from our Towers/i);
 
   if (stolen) {
     return {
       type: "economy",
       date,
+      raw_text: line,
       event: "resource_stolen",
       resource: "runes",
       amount: cleanNumber(stolen[1])
     };
   }
-
 
   const gold = line.match(/receives ([\d,]+) gold/i);
 
@@ -21,15 +20,14 @@ function parseEconomy(line, date) {
     return {
       type: "economy",
       date,
+      raw_text: line,
       event: "gold_received",
       amount: cleanNumber(gold[1])
     };
   }
 
-
   return null;
 }
-
 
 function parseEconomyEvents(lines) {
   const results = [];
@@ -44,7 +42,6 @@ function parseEconomyEvents(lines) {
 
   return results;
 }
-
 
 module.exports = {
   parseEconomyEvents
