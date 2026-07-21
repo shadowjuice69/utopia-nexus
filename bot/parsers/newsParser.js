@@ -137,7 +137,36 @@ async function saveNewsIntel(parsed, submittedBy) {
     }
   }
 
-  return { saved, errors, spyCount: parsed.spyMilitary.length, attackCount: parsed.attacks.length };
+  
+  // Save news event records
+  for (const atk of parsed.attacks) {
+    try {
+      const { error } = await supabase.from("news_events").insert({
+        user_id: submittedBy,
+        date: new Date().toISOString(),
+        attacker_name: "Freaking A",
+        defender_name: atk.target_province,
+        defender_kd: atk.target_kingdom,
+        acres: parseInt(atk.acres_captured) || 0,
+        killed: parseInt(atk.kills) || 0,
+        in_war: false,
+        event_type: "attack",
+        kd_code: atk.target_kingdom
+      });
+
+      if (error) {
+        logger.error(`[NEWS EVENT ERROR] ${error.message}`);
+        errors++;
+      } else {
+        saved++;
+      }
+    } catch (e) {
+      logger.error(`[NEWS EVENT ERROR] ${e.message}`);
+      errors++;
+    }
+  }
+
+return { saved, errors, spyCount: parsed.spyMilitary.length, attackCount: parsed.attacks.length };
 }
 
 module.exports = { parseNewsLog, saveNewsIntel };
