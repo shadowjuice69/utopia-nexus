@@ -3,7 +3,8 @@ const { cleanNumber } = require("./utils");
 function parseEvent(line, date) {
   const result = {
     type: "province_event",
-    date
+    date,
+    raw_text: line
   };
 
   if (line.includes("settled") && line.includes("acres")) {
@@ -43,9 +44,8 @@ function parseEvent(line, date) {
     if (days) result.duration_days = Number(days[1]);
   }
 
-  return Object.keys(result).length > 2 ? result : null;
+  return Object.keys(result).length > 3 ? result : null;
 }
-
 
 function parseEvents(lines) {
   const results = [];
@@ -62,7 +62,6 @@ function parseEvents(lines) {
 
   return results;
 }
-
 
 module.exports = {
   parseEvents
