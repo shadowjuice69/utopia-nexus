@@ -9,22 +9,22 @@ const commands = [
       { name: "register", description: "Register your province", type: 1 },
       { name: "help", description: "Show all available commands", type: 1 },
       {
-  name: "intel",
-  description: "Paste province intel or news logs",
-  type: 1,
-  options: [
-    {
-      name: "type",
-      description: "Choose intel type",
-      type: 3,
-      required: true,
-      choices: [
-        { name: "Province Intel", value: "throne" },
-        { name: "News Log", value: "news" }
-      ]
-    }
-  ]
-},
+        name: "intel",
+        description: "Paste province intel or news logs",
+        type: 1,
+        options: [
+          {
+            name: "type",
+            description: "Choose intel type",
+            type: 3,
+            required: true,
+            choices: [
+              { name: "Province Intel", value: "throne" },
+              { name: "News Log", value: "news" }
+            ]
+          }
+        ]
+      },
       { name: "province", description: "View your province profile", type: 1 },
       { name: "profile", description: "View your profile", type: 1 },
       { name: "citizens", description: "View kingdom citizens", type: 1 },
@@ -49,6 +49,35 @@ const commands = [
         description: "View a member profile",
         type: 1,
         options: [{ name: "user", description: "User to view", type: 6, required: true }]
+      },
+      {
+        name: "ambush",
+        description: "Calculate minimum offense needed to ambush an enemy army",
+        type: 1,
+        options: [
+          {
+            name: "race",
+            description: "Enemy race",
+            type: 3,
+            required: true,
+            choices: [
+              { name: "Avian", value: "avian" },
+              { name: "Dark Elf", value: "darkelf" },
+              { name: "Dryad", value: "dryad" },
+              { name: "Dwarf", value: "dwarf" },
+              { name: "Elf", value: "elf" },
+              { name: "Faery", value: "faery" },
+              { name: "Halfling", value: "halfling" },
+              { name: "Human", value: "human" },
+              { name: "Orc", value: "orc" },
+              { name: "Undead", value: "undead" }
+            ]
+          },
+          { name: "elites", description: "Enemy elites in army", type: 4, required: true },
+          { name: "offspecs", description: "Enemy off specs in army", type: 4, required: false },
+          { name: "soldiers", description: "Enemy soldiers in army", type: 4, required: false },
+          { name: "defspecs", description: "Enemy def specs in army (NOT used in ambush def)", type: 4, required: false }
+        ]
       }
     ]
   },
