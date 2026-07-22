@@ -5,7 +5,7 @@ const xpService = require("../services/xpService");
 const { saveOpsMessage, saveAttack, saveHostileOp, saveSpell } = require("../services/opsService");
 const { parseOpsMessage } = require("../parsers/opsParser");
 const axios = require("axios");
-const pdfParse = require("pdf-parse/lib/pdf-parse.js");
+const pdfParse = require("pdf-parse");
 const { saveAgeUpdate } = require("../services/ageUpdateService");
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 
