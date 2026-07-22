@@ -9,10 +9,11 @@ const MY_UNITS = {
   prisoners: { off: 8, def: 0, label: "Prisoners (8/0)" },
 };
 
-function calcOffense(units, generals, ome, bloodlust) {
+function calcOffense(units, generals, ome, bloodlust, diveBomb) {
+  const specOff = diveBomb ? 14 : 12; // Dive Bomb: +2 off spec in war
   const raw =
     (units.soldiers || 0) * 3 +
-    (units.off_specs || 0) * 12 +
+    (units.off_specs || 0) * specOff +
     (units.elites || 0) * 16 +
     (units.mercs || 0) * 8 +
     (units.prisoners || 0) * 8;
@@ -62,24 +63,25 @@ function InputRow({ label, value, onChange, min = 0, max, step = 1, suffix = "" 
 
 export default function AttackCalc() {
   const [units, setUnits] = useState({ soldiers: 0, off_specs: 0, elites: 0, mercs: 0, prisoners: 0 });
-  const [generals, setGenerals] = useState(5);
+  const [generals, setGenerals] = useState(1);
   const [ome, setOme] = useState(100);
-  const [bloodlust, setBloodlust] = useState(true);
+  const [bloodlust, setBloodlust] = useState(false);
+  const [diveBomb, setDiveBomb] = useState(false);
   const [theirDef, setTheirDef] = useState(0);
   const [theirAcres, setTheirAcres] = useState(0);
   const [myNW, setMyNW] = useState(0);
   const [theirNW, setTheirNW] = useState(0);
   const [traditional, setTraditional] = useState(true);
 
-  const myOff = calcOffense(units, generals, ome, bloodlust);
-  const myOffNoBL = calcOffense(units, generals, ome, false);
+  const myOff = calcOffense(units, generals, ome, bloodlust, diveBomb);
+  const myOffNoBL = calcOffense(units, generals, ome, false, diveBomb);
   const chance = successChance(myOff, theirDef);
   const acres = acresGained(myNW, theirNW, theirAcres, traditional);
 
   const generalAuthority = generals >= 2;
-  const killBonus = generalAuthority ? 1.15 : 1.0;
-
   const chanceColor = chance >= 80 ? "#4ade80" : chance >= 50 ? "#facc15" : "#f87171";
+
+  const specLabel = diveBomb ? "Off Specs (14/0 ⚡ Dive Bomb)" : "Off Specs (12/0)";
 
   function setUnit(key, val) {
     setUnits(u => ({ ...u, [key]: Math.max(0, val) }));
@@ -94,14 +96,12 @@ export default function AttackCalc() {
           <h2>⚔️ My Forces</h2>
 
           <div className="calc-section-label">Units Sent</div>
-          {Object.entries(MY_UNITS).map(([key, unit]) => (
-            <InputRow
-              key={key}
-              label={unit.label}
-              value={units[key]}
-              onChange={v => setUnit(key, v)}
-            />
-          ))}
+
+          <InputRow label="Soldiers (3/0)" value={units.soldiers} onChange={v => setUnit("soldiers", v)} />
+          <InputRow label={specLabel} value={units.off_specs} onChange={v => setUnit("off_specs", v)} />
+          <InputRow label="Elites (16/2)" value={units.elites} onChange={v => setUnit("elites", v)} />
+          <InputRow label="Mercs (8/0)" value={units.mercs} onChange={v => setUnit("mercs", v)} />
+          <InputRow label="Prisoners (8/0)" value={units.prisoners} onChange={v => setUnit("prisoners", v)} />
 
           <div className="calc-divider" />
 
@@ -115,6 +115,16 @@ export default function AttackCalc() {
               onClick={() => setBloodlust(b => !b)}
             >
               {bloodlust ? "✅ ON" : "❌ OFF"}
+            </button>
+          </div>
+
+          <div className="calc-toggle-row">
+            <label className="calc-label">Dive Bomb (War)</label>
+            <button
+              className={`toggle-btn ${diveBomb ? "on" : "off"}`}
+              onClick={() => setDiveBomb(d => !d)}
+            >
+              {diveBomb ? "✅ ON (+2 spec off)" : "❌ OFF"}
             </button>
           </div>
 
@@ -146,6 +156,11 @@ export default function AttackCalc() {
           {generalAuthority && (
             <div className="calc-note">
               ✅ General's Authority active (+15% kills)
+            </div>
+          )}
+          {diveBomb && (
+            <div className="calc-note" style={{ color: "#38bdf8" }}>
+              ⚡ Dive Bomb active — Off Specs +2 offense (war only)
             </div>
           )}
         </div>
