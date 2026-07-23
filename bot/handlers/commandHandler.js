@@ -43,6 +43,7 @@ const UTOPIA_COMMANDS = {
   target: targetHandler,
   member: memberHandler,
   register: registerHandler,
+  ambush: ambushHandler,
   intel: intelHandler,
   help: helpHandler
 };
