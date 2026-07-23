@@ -109,6 +109,24 @@ module.exports = async function modalHandler(interaction) {
     }
     const parsed = parseThrone(text);
 
+console.log("[THIEVERY DEBUG]", {
+  thieves: parsed.thieves,
+  wizards: parsed.wizards,
+  o_tpa: parsed.o_tpa,
+  d_tpa: parsed.d_tpa,
+  o_wpa: parsed.o_wpa,
+  d_wpa: parsed.d_wpa
+});
+
+console.log("[THIEVERY DEBUG]", {
+  thieves: parsed.thieves,
+  wizards: parsed.wizards,
+  o_tpa: parsed.o_tpa,
+  d_tpa: parsed.d_tpa,
+  o_wpa: parsed.o_wpa,
+  d_wpa: parsed.d_wpa
+});
+
     // Save throne intel snapshot
     if (supabase && parsed.name) {
       const { error } = await supabase
