@@ -57,8 +57,10 @@ const parsed = parseThrone(text);
         war_horses: parsed.war_horses,
         prisoners: parsed.prisoners
       },
-        thieves: parsed.thieves,
-        wizards: parsed.wizards,
+        thieves: Number(String(parsed.thieves || "").replace(/,/g,"").match(/\d+/)?.[0] || 0),
+      wizards: Number(String(parsed.wizards || "").replace(/,/g,"").match(/\d+/)?.[0] || 0),
+      tpa: Number(String(parsed.thieves || "").match(/([\d.]+)tpa/i)?.[1] || 0),
+      wpa: Number(String(parsed.wizards || "").match(/([\d.]+)wpa/i)?.[1] || 0),
 
       spells: parsed.good_spells
     };
