@@ -39,31 +39,32 @@ console.log("[THRONE RAW START]", text.substring(0,500));
 const parsed = parseThrone(text);
 
     result.data = {
-      race: parsed.race,
-      ruler: parsed.ruler,
-      land: parsed.acres,
-      networth: parsed.nw,
-      honor: parsed.honor,
-      offense: parsed.off,
-      defense: parsed.def,
-      be: parsed.be,
-      peasants: parsed.peons,
+        race: parsed.race,
+        ruler: parsed.ruler,
+        land: parsed.acres,
+        networth: parsed.nw,
+        honor: parsed.honor,
+        offense: parsed.off,
+        defense: parsed.def,
+        be: parsed.be,
+        peasants: parsed.peons,
 
-      troops: {
-        soldiers: parsed.soldiers,
-        off_specs: parsed.off_specs,
-        def_specs: parsed.def_specs,
-        elites: parsed.elites,
-        war_horses: parsed.war_horses,
-        prisoners: parsed.prisoners
-      },
-        thieves: Number(String(parsed.thieves || "").replace(/,/g,"").match(/\d+/)?.[0] || 0),
-      wizards: Number(String(parsed.wizards || "").replace(/,/g,"").match(/\d+/)?.[0] || 0),
-      tpa: Number(String(parsed.thieves || "").match(/([\d.]+)tpa/i)?.[1] || 0),
-      wpa: Number(String(parsed.wizards || "").match(/([\d.]+)wpa/i)?.[1] || 0),
+        troops: {
+          soldiers: parsed.soldiers,
+          off_specs: parsed.off_specs,
+          def_specs: parsed.def_specs,
+          elites: parsed.elites,
+          war_horses: parsed.war_horses,
+          prisoners: parsed.prisoners
+        },
 
-      spells: parsed.good_spells
-    };
+        thieves: Number(parsed.thieves || 0),
+        wizards: Number(parsed.wizards || 0),
+        tpa: Number(parsed.o_tpa || parsed.r_tpa || parsed.d_tpa || 0),
+        wpa: Number(parsed.o_wpa || parsed.r_wpa || parsed.d_wpa || 0),
+
+        spells: parsed.good_spells
+      };
   } else if (url.includes("survey")) {
     result.type = "survey";
     const buildings = {};
