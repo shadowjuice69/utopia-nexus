@@ -155,8 +155,8 @@ console.log("[THIEVERY DEBUG]", {
           },
           thieves: Number(parsed.thieves || 0),
         wizards: Number(parsed.wizards || 0),
-        tpa: Number(String(parsed.thieves || "").match(/([\d.]+)\s*tpa/i)?.[1] || 0),
-        wpa: Number(String(parsed.wizards || "").match(/([\d.]+)\s*wpa/i)?.[1] || 0),
+        tpa: Number(parsed.o_tpa || parsed.d_tpa || 0),
+        wpa: Number(parsed.o_wpa || parsed.d_wpa || 0),
 
         spells: parsed.good_spells,
           updated_at: new Date().toISOString()
