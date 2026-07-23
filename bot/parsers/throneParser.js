@@ -65,12 +65,18 @@ function parseThrone(text) {
       }
       if (key === "Building Eff.") {
         result.be = cols[1].replace("%","");
-        if (cols[2] === "Thieves" && cols[3]) result.thieves = cleanNum(cols[3]);
+        if (cols[2] === "Thieves" && cols[3]) {
+  result.thieves = cleanNum((cols[3] || "").match(/[\d,]+/)?.[0] || "0");
+  continue;
+}
         continue;
       }
       if (key === "Money") {
         result.gold = cleanNum(cols[1]);
-        if (cols[2] === "Wizards" && cols[3]) result.wizards = cleanNum(cols[3]);
+        if (cols[2] === "Wizards" && cols[3]) {
+  result.wizards = cleanNum((cols[3] || "").match(/[\d,]+/)?.[0] || "0");
+  continue;
+}
         continue;
       }
       if (key === "Food") {

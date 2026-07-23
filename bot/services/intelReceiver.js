@@ -98,6 +98,10 @@ async function saveIntel(parsed, prov) {
         province: prov,
         kd_code: parsed.kd,
         ...parsed.data,
+        thieves: parsed.data.thieves,
+        wizards: parsed.data.wizards,
+        tpa: parsed.data.tpa,
+        wpa: parsed.data.wpa,
         updated_at: new Date().toISOString()
       }, { onConflict: "province,kd_code" });
 
