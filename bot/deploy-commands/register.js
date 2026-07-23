@@ -81,6 +81,48 @@ const commands = [
       }
     ]
   },
+      {
+        name: 'spellcheck',
+        description: 'Calculate spell success chance based on WPA',
+        type: 1,
+        options: [
+          { name: 'my_wizards', description: 'Your wizard count', type: 4, required: true },
+          { name: 'my_land', description: 'Your land (acres)', type: 4, required: true },
+          { name: 'my_race', description: 'Your race', type: 3, required: true, choices: [
+            {name:'Avian',value:'avian'},{name:'Dark Elf',value:'darkelf'},{name:'Dryad',value:'dryad'},
+            {name:'Dwarf',value:'dwarf'},{name:'Elf',value:'elf'},{name:'Faery',value:'faery'},
+            {name:'Halfling',value:'halfling'},{name:'Human',value:'human'},{name:'Orc',value:'orc'},{name:'Undead',value:'undead'}
+          ]},
+          { name: 'their_wizards', description: 'Enemy wizard count', type: 4, required: true },
+          { name: 'their_land', description: 'Enemy land (acres)', type: 4, required: true },
+          { name: 'their_race', description: 'Enemy race', type: 3, required: false, choices: [
+            {name:'Avian',value:'avian'},{name:'Dark Elf',value:'darkelf'},{name:'Dryad',value:'dryad'},
+            {name:'Dwarf',value:'dwarf'},{name:'Elf',value:'elf'},{name:'Faery',value:'faery'},
+            {name:'Halfling',value:'halfling'},{name:'Human',value:'human'},{name:'Orc',value:'orc'},{name:'Undead',value:'undead'}
+          ]},
+          { name: 'my_personality', description: 'Your personality', type: 3, required: false, choices: [
+            {name:'None',value:'none'},{name:'Heretic',value:'heretic'},{name:'Mystic',value:'mystic'},
+            {name:'Necromancer',value:'necromancer'},{name:'Cleric',value:'cleric'},{name:'General',value:'general'},
+            {name:'Artisan',value:'artisan'},{name:'Rogue',value:'rogue'},{name:'Sage',value:'sage'},
+            {name:'Tactician',value:'tactician'},{name:'Warrior',value:'warrior'},{name:'War Hero',value:'warhero'}
+          ]},
+          { name: 'my_channeling', description: 'Channeling science bonus (e.g. 1.15)', type: 10, required: false },
+          { name: 'my_honor_mod', description: 'Honor WPA modifier (e.g. 1.12)', type: 10, required: false },
+          { name: 'mages_fury', description: 'Mages Fury active?', type: 5, required: false },
+          { name: 'their_magic_shield', description: 'Target has Magic Shield?', type: 5, required: false },
+          { name: 'my_nw', description: 'Your NW', type: 4, required: false },
+          { name: 'their_nw', description: 'Their NW', type: 4, required: false },
+          { name: 'spell', description: 'Specific spell to check', type: 3, required: false, choices: [
+            {name:'Fireball',value:'fireball'},{name:'Storms',value:'storms'},{name:'Droughts',value:'droughts'},
+            {name:'Chastity',value:'chastity'},{name:'Sloth',value:'sloth'},{name:'Nightmares',value:'nightmares'},
+            {name:'Tornadoes',value:'tornadoes'},{name:'Mystic Vortex',value:'mysticvortex'},
+            {name:'Fools Gold',value:'foolsgold'},{name:'Land Lust',value:'landlust'},
+            {name:'Meteor Showers',value:'meteor'},{name:'Nightfall',value:'nightfall'},
+            {name:'Blizzard',value:'blizzard'},{name:'Pitfalls',value:'pitfalls'},
+            {name:'Expose Thieves',value:'exposethieves'},{name:'Magic Ward',value:'magicward'}
+          ]}
+        ]
+      },
   {
     name: "admin",
     description: "Utopia Nexus admin commands",
