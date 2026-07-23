@@ -161,12 +161,12 @@ function parseThrone(text) {
       if (part.match(/^Generals?\s+/i)) { const m = part.match(/([\d,]+)/); if (m) result.generals = cleanNum(m[1]); continue; }
 
       // Thieves with TPA
-      const tpaMatch = part.match(/^Thieves\s+([\d,]+)\s*\(([\d.]+)\s*tpa\)/i);
+      const tpaMatch = part.match(/^Thieves\s+([\d,]+).*?([\d.]+)\s*tpa/i);
       if (tpaMatch) { result.thieves = cleanNum(tpaMatch[1]); result.o_tpa = tpaMatch[2]; result.d_tpa = tpaMatch[2]; continue; }
       if (part.match(/^Thieves\s+[\d,]+/i)) { const m = part.match(/([\d,]+)/); if (m && !result.thieves) result.thieves = cleanNum(m[1]); continue; }
 
       // Wizards with WPA
-      const wpaMatch = part.match(/^Wizards\s+([\d,]+)\s*\(([\d.]+)\s*wpa\)/i);
+      const wpaMatch = part.match(/^Wizards\s+([\d,]+).*?([\d.]+)\s*wpa/i);
       if (wpaMatch) { result.wizards = cleanNum(wpaMatch[1]); result.o_wpa = wpaMatch[2]; result.d_wpa = wpaMatch[2]; continue; }
       if (part.match(/^Wizards\s+[\d,]+/i)) { const m = part.match(/([\d,]+)/); if (m && !result.wizards) result.wizards = cleanNum(m[1]); continue; }
 
