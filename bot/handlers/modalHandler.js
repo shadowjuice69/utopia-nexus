@@ -135,7 +135,12 @@ module.exports = async function modalHandler(interaction) {
             war_horses: parsed.war_horses,
             prisoners: parsed.prisoners
           },
-          spells: parsed.good_spells,
+          thieves: Number(parsed.thieves || 0),
+        wizards: Number(parsed.wizards || 0),
+        tpa: Number(String(parsed.thieves || "").match(/([\d.]+)\s*tpa/i)?.[1] || 0),
+        wpa: Number(String(parsed.wizards || "").match(/([\d.]+)\s*wpa/i)?.[1] || 0),
+
+        spells: parsed.good_spells,
           updated_at: new Date().toISOString()
         }, { onConflict: "province,kd_code" });
 
