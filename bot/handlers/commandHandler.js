@@ -74,7 +74,6 @@ const ADMIN_COMMANDS = {
 const ALL_COMMANDS = { ...UTOPIA_COMMANDS, ...ADMIN_COMMANDS };
 
 module.exports = async function commandHandler(interaction) {
-  console.log("COMMAND HANDLER ENTERED");
   const cmd = interaction.commandName;
   if (cmd !== "utopia" && cmd !== "admin") return;
 
