@@ -96,7 +96,7 @@ module.exports = async function modalHandler(interaction) {
     console.log("[MODAL CUSTOM ID]", interaction.customId);
     const text = interaction.fields.getTextInputValue("intel_text");
     
-    console.log("[INTEL RAW FULL]", text.slice(0, 1000));
+    console.log("[INTEL RAW END]", text.slice(-1000));
     console.log("[INTEL RAW]", JSON.stringify(text.slice(0, 500)));
     // Auto-detect news log by content
     if (text.includes('Province Logs') || text.includes('Province Reporter') || text.includes('books allocated to')) {
