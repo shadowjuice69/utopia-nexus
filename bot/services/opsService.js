@@ -4,10 +4,13 @@ const logger = require("./logger");
 
 async function saveHostileOp(op) {
   if (!supabase) return;
+
   try {
+    const now = new Date().toISOString();
+
     const { error } = await supabase.from("hostile_ops").insert({
       message_id: op.msgId,
-      timestamp: new Date().toISOString(),
+      timestamp: now,
       attacker_province: op.attackerProvince,
       target_province: op.targetProvince,
       target_kingdom: op.targetKingdom,
@@ -19,13 +22,54 @@ async function saveHostileOp(op) {
       thieves_lost: op.thievesLost,
       wizards_lost: op.wizardsLost
     });
+
     if (error) throw error;
+
+    const { data: existing } = await supabase
+      .from("intel_ops")
+      .select("*")
+      .eq("province", op.attackerProvince)
+      .eq("operation", op.op)
+      .maybeSingle();
+
+    if (existing) {
+      await supabase
+        .from("intel_ops")
+        .update({
+          times_seen: existing.times_seen + 1,
+          threat_score: existing.threat_score + (op.success ? 5 : 1),
+          last_seen: now,
+          updated_at: now
+        })
+        .eq("id", existing.id);
+    } else {
+      await supabase
+        .from("intel_ops")
+        .insert({
+          province: op.attackerProvince,
+          kd_code: op.targetKingdom,
+          operation: op.op,
+          category: op.category,
+          target_province: op.targetProvince,
+          success: op.success,
+          result_value: op.resultValue,
+          times_seen: 1,
+          threat_score: op.success ? 5 : 1,
+          last_seen: now
+        });
+    }
+
     logger.info(`[HOSTILE OP SAVED] ${op.attackerProvince} → ${op.targetProvince}`);
-  } catch (err) { logger.error(`[HOSTILE OP ERROR] ${err.message}`); }
+    logger.info(`[INTEL OPS UPDATED] ${op.op}`);
+
+  } catch (err) {
+    logger.error(`[HOSTILE OP ERROR] ${err.message}`);
+  }
 }
 
 async function saveSpell(spell) {
   if (!supabase) return;
+
   try {
     const { error } = await supabase.from("spell_events").insert({
       message_id: spell.msgId,
@@ -38,13 +82,18 @@ async function saveSpell(spell) {
       success: spell.success,
       result_value: spell.resultValue
     });
+
     if (error) throw error;
+
     logger.info(`[SPELL SAVED] ${spell.attackerProvince} → ${spell.targetProvince} (${spell.op})`);
-  } catch (err) { logger.error(`[SPELL ERROR] ${err.message}`); }
+  } catch (err) {
+    logger.error(`[SPELL ERROR] ${err.message}`);
+  }
 }
 
 async function saveAttack(atk) {
   if (!supabase) return;
+
   try {
     const { error } = await supabase.from("attacks").insert({
       message_id: atk.msgId,
@@ -60,9 +109,13 @@ async function saveAttack(atk) {
       kills: atk.kills,
       prisoners: atk.prisoners
     });
+
     if (error) throw error;
+
     logger.info(`[ATTACK SAVED] ${atk.attackerProvince} → ${atk.targetProvince}`);
-  } catch (err) { logger.error(`[ATTACK SERVICE ERROR] ${err.message}`); }
+  } catch (err) {
+    logger.error(`[ATTACK SERVICE ERROR] ${err.message}`);
+  }
 }
 
 async function saveOpsMessage(message) {
