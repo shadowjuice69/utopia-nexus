@@ -66,7 +66,10 @@ function parseThrone(text) {
       if (key === "Building Eff.") {
         result.be = cols[1].replace("%","");
         if (cols[2] === "Thieves" && cols[3]) {
-  const thiefText = cols[3] || "";\n        result.thieves = cleanNum(thiefText.match(/[\d,]+/)?.[0] || "0");\n        result.o_tpa = thiefText.match(/([\d.]+)tpa/i)?.[1];\n        result.d_tpa = result.o_tpa;
+  const thiefText = cols[3] || "";
+        result.thieves = cleanNum(thiefText.match(/[\d,]+/)?.[0] || "0");
+        result.o_tpa = thiefText.match(/([\d.]+)\s*tpa/i)?.[1];
+        result.d_tpa = result.o_tpa;
   continue;
 }
         continue;
@@ -74,7 +77,10 @@ function parseThrone(text) {
       if (key === "Money") {
         result.gold = cleanNum(cols[1]);
         if (cols[2] === "Wizards" && cols[3]) {
-  const wizardText = cols[3] || "";\n        result.wizards = cleanNum(wizardText.match(/[\d,]+/)?.[0] || "0");\n        result.o_wpa = wizardText.match(/([\d.]+)wpa/i)?.[1];\n        result.d_wpa = result.o_wpa;
+  const wizardText = cols[3] || "";
+        result.wizards = cleanNum(wizardText.match(/[\d,]+/)?.[0] || "0");
+        result.o_wpa = wizardText.match(/([\d.]+)\s*wpa/i)?.[1];
+        result.d_wpa = result.o_wpa;
   continue;
 }
         continue;
