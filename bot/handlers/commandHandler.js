@@ -18,6 +18,7 @@ const intelHandler = require('./commands/intelHandler');
 const adminHandler = require("./commands/adminHandler");
 const askHandler = require("./commands/askHandler");
 const wavesHandler = require("./commands/wavesHandler");
+const spellcheckHandler = require("./commands/spellcheckHandler");
 const ambushHandler = require("./commands/ambushHandler");
 const analyzeWarHandler = require("./commands/analyzeWarHandler");
 const setalertHandler = require("./commands/setalertHandler");
@@ -44,6 +45,7 @@ const UTOPIA_COMMANDS = {
   member: memberHandler,
   register: registerHandler,
   ambush: ambushHandler,
+  spellcheck: spellcheckHandler,
   intel: intelHandler,
   help: helpHandler
 };
