@@ -76,7 +76,7 @@ module.exports = async function spellcheckHandler(interaction) {
   const magesFuryMod   = myMagesFury ? 1.25 : 1.0;
   const magicShieldMod = theirMagicShield ? 1.20 : 1.0;
   const myModWPA    = myRawWPA * myScience * myRaceMod.off * myPersMod.off * myHonor * magesFuryMod;
-  const theirModWPA = theirRawWPA * myScience * theirRaceMod.def * magicShieldMod;
+  const theirModWPA = theirRawWPA * 1.0 * theirRaceMod.def * magicShieldMod;
   const ratio = theirModWPA > 0 ? myModWPA / theirModWPA : 999;
 
   let nwWarning = "";
