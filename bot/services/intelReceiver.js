@@ -99,10 +99,14 @@ async function saveIntel(parsed, prov) {
         province: prov,
         kd_code: parsed.kd,
         ...parsed.data,
-        thieves: parsed.data.thieves,
-        wizards: parsed.data.wizards,
-        tpa: parsed.data.tpa,
-        wpa: parsed.data.wpa,
+        thieves: Number(parsed.data.thieves || parsed.data.troops?.thieves || 0),
+        wizards: Number(parsed.data.wizards || parsed.data.troops?.wizards || 0),
+
+        tpa: Number(String(parsed.data.thieves || parsed.data.troops?.thieves || "")
+          .match(/([\d.]+)\s*tpa/i)?.[1] || 0),
+
+        wpa: Number(String(parsed.data.wizards || parsed.data.troops?.wizards || "")
+          .match(/([\d.]+)\s*wpa/i)?.[1] || 0),
         updated_at: new Date().toISOString()
       }, { onConflict: "province,kd_code" });
 
