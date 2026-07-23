@@ -33,7 +33,10 @@ function parseIntel(url, prov, text) {
       }
       return null;
     };
-    const parsed = parseThrone(text);
+    console.log("[THRONE RAW LENGTH]", text.length);
+console.log("[THRONE RAW START]", text.substring(0,500));
+
+const parsed = parseThrone(text);
 
     result.data = {
       race: parsed.race,
@@ -51,11 +54,11 @@ function parseIntel(url, prov, text) {
         off_specs: parsed.off_specs,
         def_specs: parsed.def_specs,
         elites: parsed.elites,
-        thieves: parsed.thieves,
-        wizards: parsed.wizards,
         war_horses: parsed.war_horses,
         prisoners: parsed.prisoners
       },
+        thieves: parsed.thieves,
+        wizards: parsed.wizards,
 
       spells: parsed.good_spells
     };
@@ -166,5 +169,7 @@ function start() {
     logger.info(`[INTEL RECEIVER] listening on port ${PORT}`);
   });
 }
+
+module.exports = { start };
 
 module.exports = { start };
