@@ -17,7 +17,7 @@ const PERS_SCIENCE_MODS = {
 
 function calcBonus(books, multiplier, persMod = 1.0) {
   if (!books || books === 0 || !multiplier) return 0;
-  return Math.pow(books, 1 / 2.125) * parseFloat(multiplier) * persMod;
+  return Math.pow(books, 0.5556) * parseFloat(multiplier) * persMod;
 }
 
 module.exports = async function scienceSummaryHandler(interaction) {
