@@ -186,6 +186,12 @@ const commands = [
         ]
       },
       {
+      {
+        name: "science-summary",
+        description: "Calculate science bonuses for your province or a target",
+        type: 1,
+        options: [{ name: "province", description: "Province name (leave blank for yourself)", type: 3, required: false }]
+      },
         name: "analyze-war",
         description: "AI analysis of current war situation",
         type: 1
