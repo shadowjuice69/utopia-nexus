@@ -91,7 +91,7 @@ module.exports = async function scienceSummaryHandler(interaction) {
     grouped[cat].push({
       name: rule.science_name,
       books: bookCount,
-      bonus: (bonus * 100).toFixed(1),
+      bonus: bonus.toFixed(1),
       persMod,
     });
   }
