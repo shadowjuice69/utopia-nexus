@@ -241,10 +241,40 @@ console.log("[THIEVERY DEBUG]", {
       if (parsed.prisoners) updateData.prisoners = parsed.prisoners;
       if (parsed.ruler) updateData.ruler = parsed.ruler;
       if (parsed.game_type) updateData.game_type = parsed.game_type;
-      if (parsed.science) updateData.science = parsed.science;
       if (parsed.buildings) updateData.buildings = parsed.buildings;
       if (parsed.ome) updateData.ome = parsed.ome;
       if (parsed.dme) updateData.dme = parsed.dme;
+
+    if (parsed.science && supabase) {
+      const sci = parsed.science;
+      const sciData = {
+        province: parsed.name,
+        kd_code: parsed.coordinates || "unknown",
+        user_id: interaction.user.id || null,
+        alchemy:     parseInt(sci.alchemy     || 0),
+        artisan:     parseInt(sci.artisan     || 0),
+        bookkeeping: parseInt(sci.bookkeeping || 0),
+        channeling:  parseInt(sci.channeling  || 0),
+        crime:       parseInt(sci.crime       || 0),
+        finesse:     parseInt(sci.finesse     || 0),
+        heroism:     parseInt(sci.heroism     || 0),
+        housing:     parseInt(sci.housing     || 0),
+        production:  parseInt(sci.production  || 0),
+        resilience:  parseInt(sci.resilience  || 0),
+        shielding:   parseInt(sci.shielding   || 0),
+        siege:       parseInt(sci.siege       || 0),
+        strategy:    parseInt(sci.strategy    || 0),
+        tactics:     parseInt(sci.tactics     || 0),
+        tools:       parseInt(sci.tools       || 0),
+        valor:       parseInt(sci.valor       || 0),
+        arcana:      parseInt(sci.arcana || 0) + parseInt(sci.cunning || 0) + parseInt(sci.sorcery || 0),
+        updated_at:  new Date().toISOString(),
+      };
+      const { error: sciErr } = await supabase
+        .from("intel_science")
+        .upsert(sciData, { onConflict: "province" });
+      if (sciErr) console.error("[SCIENCE SAVE ERROR]", sciErr.message);
+    }
 
       let error;
       if (existing && existing.length > 0) {
