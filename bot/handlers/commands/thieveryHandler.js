@@ -1,3 +1,4 @@
+const { EmbedBuilder } = require("discord.js");
 const thieveryCalculatorService = require("../../services/thieveryCalculatorService");
 
 module.exports = async function thieveryHandler(interaction) {
@@ -26,39 +27,51 @@ module.exports = async function thieveryHandler(interaction) {
       targetModifiers
     });
 
-    await interaction.reply({
-      content:
-`🕵️ **Thievery Analysis**
+    const embed = new EmbedBuilder()
+      .setTitle("🕵️ Thievery Analysis")
+      .setDescription(`Operation: **${result.operation}**`)
+      .addFields(
+        {
+          name: "📊 Modified TPA",
+          value:
+            `Your TPA: **${result.modifiedTPA.attacker}**\n` +
+            `Target TPA: **${result.modifiedTPA.target}**`
+        },
+        {
+          name: "⚖️ Result",
+          value:
+            `Ratio: **${result.ratio}x**\n` +
+            `Rating: **${result.rating}**`
+        },
+        {
+          name: "🧙 Recommended Thieves",
+          value: `**${result.recommendedThieves.toLocaleString()}**`
+        },
+        {
+          name: "⚔️ Your Modifiers",
+          value: result.modifiers.attacker.length
+            ? result.modifiers.attacker.map(x => `• ${x}`).join("\n")
+            : "None"
+        },
+        {
+          name: "🛡️ Target Defense",
+          value: result.modifiers.target.length
+            ? result.modifiers.target.map(x => `• ${x}`).join("\n")
+            : "None"
+        }
+      )
+      .setTimestamp();
 
-Operation: **${result.operation}**
-
-Raw TPA:
-• Your TPA: ${result.rawTPA.attacker}
-• Target TPA: ${result.rawTPA.target}
-
-Modified TPA:
-• Your TPA: ${result.modifiedTPA.attacker}
-• Target TPA: ${result.modifiedTPA.target}
-
-Ratio: **${result.ratio}x**
-
-Rating: **${result.rating}**
-
-Recommended Thieves:
-**${result.recommendedThieves.toLocaleString()}**
-
-Your Modifiers:
-${result.modifiers.attacker.map(x => `• ${x}`).join("\n") || "None"}
-
-Target Defense:
-${result.modifiers.target.map(x => `• ${x}`).join("\n") || "None"}`
-    });
+    await interaction.reply({ embeds: [embed] });
 
   } catch (err) {
     console.error("[THIEVERY HANDLER ERROR]", err);
-    await interaction.reply({
-      content: "❌ Thievery calculation failed.",
-      ephemeral: true
-    });
+
+    if (!interaction.replied) {
+      await interaction.reply({
+        content: "❌ Thievery calculation failed.",
+        ephemeral: true
+      });
+    }
   }
 };
