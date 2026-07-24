@@ -77,6 +77,12 @@ const commands = [
         }]
       },
       {
+        name: "science-summary",
+        description: "Calculate science bonuses for your province or a target",
+        type: 1,
+        options: [{ name: "province", description: "Province name (leave blank for yourself)", type: 3, required: false }]
+      },
+      {
         name: "target",
         description: "Look up enemy province intel",
         type: 1,
@@ -146,17 +152,17 @@ const commands = [
         description: "Calculate spell success chance based on WPA",
         type: 1,
         options: [
-          { name: "my_wizards",         description: "Your wizard count",                   type: 4,  required: true  },
-          { name: "my_land",            description: "Your land (acres)",                   type: 4,  required: true  },
-          { name: "my_race",            description: "Your race",                           type: 3,  required: true,  choices: RACE_CHOICES },
-          { name: "their_wizards",      description: "Enemy wizard count",                  type: 4,  required: true  },
-          { name: "their_land",         description: "Enemy land (acres)",                  type: 4,  required: true  },
-          { name: "their_race",         description: "Enemy race",                          type: 3,  required: false, choices: RACE_CHOICES },
-          { name: "my_personality",     description: "Your personality",                    type: 3,  required: false, choices: PERS_CHOICES },
-          { name: "my_channeling",      description: "Channeling science bonus (e.g. 1.15)",type: 10, required: false },
-          { name: "my_honor_mod",       description: "Honor modifier (e.g. 1.05)",         type: 10, required: false },
-          { name: "mages_fury",         description: "Mages Fury active?",                 type: 5,  required: false },
-          { name: "their_magic_shield", description: "Their Magic Shield active?",         type: 5,  required: false },
+          { name: "my_wizards",         description: "Your wizard count",                    type: 4,  required: true  },
+          { name: "my_land",            description: "Your land (acres)",                    type: 4,  required: true  },
+          { name: "my_race",            description: "Your race",                            type: 3,  required: true,  choices: RACE_CHOICES },
+          { name: "their_wizards",      description: "Enemy wizard count",                   type: 4,  required: true  },
+          { name: "their_land",         description: "Enemy land (acres)",                   type: 4,  required: true  },
+          { name: "their_race",         description: "Enemy race",                           type: 3,  required: false, choices: RACE_CHOICES },
+          { name: "my_personality",     description: "Your personality",                     type: 3,  required: false, choices: PERS_CHOICES },
+          { name: "my_channeling",      description: "Channeling science bonus (e.g. 1.15)", type: 10, required: false },
+          { name: "my_honor_mod",       description: "Honor modifier (e.g. 1.05)",          type: 10, required: false },
+          { name: "mages_fury",         description: "Mages Fury active?",                  type: 5,  required: false },
+          { name: "their_magic_shield", description: "Their Magic Shield active?",          type: 5,  required: false },
           { name: "spell", description: "Specific spell to check", type: 3, required: false,
             choices: [
               { name: "Fireball",         value: "fireball"      },
@@ -186,12 +192,6 @@ const commands = [
         ]
       },
       {
-      {
-        name: "science-summary",
-        description: "Calculate science bonuses for your province or a target",
-        type: 1,
-        options: [{ name: "province", description: "Province name (leave blank for yourself)", type: 3, required: false }]
-      },
         name: "analyze-war",
         description: "AI analysis of current war situation",
         type: 1
