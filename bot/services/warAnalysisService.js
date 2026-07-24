@@ -1,5 +1,6 @@
 const supabaseService = require("./supabase");
 const logger = require("./logger");
+const opsAnalysisService = require("./opsAnalysisService");
 
 async function getWarData() {
   const supabase = supabaseService.getClient();
@@ -8,23 +9,26 @@ async function getWarData() {
   try {
     const since = new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString();
 
-    const [attacks, hostileOps, intelMilitary, intelThrone] = await Promise.all([
+    const [attacks, hostileOps, intelMilitary, intelThrone, intelOps] = await Promise.all([
       supabase.from("attacks").select("*").gte("timestamp", since).order("timestamp", { ascending: false }).limit(50),
       supabase.from("hostile_ops").select("*").gte("timestamp", since).order("timestamp", { ascending: false }).limit(100),
       supabase.from("intel_military").select("*").limit(20),
       supabase.from("intel_throne").select("*").limit(20),
+    supabase.from("intel_ops").select("*").limit(50),
     ]);
 
     if (attacks.error) logger.error(`[ATTACKS ERROR] ${attacks.error.message}`);
     if (hostileOps.error) logger.error(`[OPS ERROR] ${hostileOps.error.message}`);
     if (intelMilitary.error) logger.error(`[INTEL MIL ERROR] ${intelMilitary.error.message}`);
     if (intelThrone.error) logger.error(`[INTEL THRONE ERROR] ${intelThrone.error.message}`);
+    if (intelOps.error) logger.error(`[INTEL OPS ERROR] ${intelOps.error.message}`);
 
     return {
       attacks: attacks.data || [],
       hostileOps: hostileOps.data || [],
       intelMilitary: intelMilitary.data || [],
       intelThrone: intelThrone.data || [],
+    intelOps: intelOps.data || [],
     };
   } catch (err) {
     logger.error(`[WAR ANALYSIS ERROR] ${err.message}`);
@@ -36,7 +40,7 @@ async function analyzeWar() {
   const data = await getWarData();
   if (!data) return null;
 
-  const { attacks, hostileOps, intelMilitary, intelThrone } = data;
+  const { attacks, hostileOps, intelMilitary, intelThrone, intelOps } = data;
 
   logger.info(`[WAR DATA] attacks=${attacks.length} ops=${hostileOps.length} mil=${intelMilitary.length} throne=${intelThrone.length}`);
 
@@ -60,13 +64,20 @@ async function analyzeWar() {
     JSON.stringify(t)
   ).join("\n");
 
-  const prompt = `You are a Utopia war strategist analyzing an active war for kingdom Judo (4:9 WoL).
+  const opsThreats = [];
+
+for (const op of intelOps) {
+  const analysis = await opsAnalysisService.analyzeHostileProvince(op.province);
+  if (analysis) opsThreats.push(analysis);
+}
+
+const prompt = `You are a Utopia war strategist analyzing an active war for kingdom Judo (4:9 WoL).
 
 ATTACKS (${attacks.length} total):
 ${attackSummary || "None"}
 
 HOSTILE OPS (${hostileOps.length} total):
-${opsSummary || "None"}
+${opsSummary || "None"}\n\nHOSTILE THREAT ANALYSIS:\n${JSON.stringify(opsThreats, null, 2) || "None"}
 
 ENEMY MILITARY INTEL:
 ${militarySummary || "None available"}
