@@ -1,9 +1,7 @@
 const profileHandler = require("./commands/profileHandler");
 const provinceHandler = require("./commands/provinceHandler");
-const citizensHandler = require("./commands/citizensHandler");
 const leadershipHandler = require("./commands/leadershipHandler");
 const adminsHandler = require("./commands/adminsHandler");
-const wikiHandler = require("./commands/wikiHandler");
 const addadminHandler = require("./commands/addadminHandler");
 const removeadminHandler = require("./commands/removeadminHandler");
 const memberHandler = require("./commands/memberHandler");
@@ -20,6 +18,7 @@ const askHandler = require("./commands/askHandler");
 const wavesHandler = require("./commands/wavesHandler");
 const spellcheckHandler = require("./commands/spellcheckHandler");
 const thieveryHandler = require("./commands/thieveryHandler");
+const scienceHandler = require("./commands/scienceHandler");
 const ambushHandler = require("./commands/ambushHandler");
 const analyzeWarHandler = require("./commands/analyzeWarHandler");
 const setalertHandler = require("./commands/setalertHandler");
@@ -36,11 +35,10 @@ const permissionService = require("../services/permissionService");
 const UTOPIA_COMMANDS = {
   profile: profileHandler,
   province: provinceHandler,
-  citizens: citizensHandler,
   leadership: leadershipHandler,
   waves: wavesHandler,
-  wiki: wikiHandler,
   ask: askHandler,
+  science: scienceHandler,
   status: statusHandler,
   target: targetHandler,
   member: memberHandler,
