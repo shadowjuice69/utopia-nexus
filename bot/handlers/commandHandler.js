@@ -20,7 +20,6 @@ const spellcheckHandler = require("./commands/spellcheckHandler");
 const thieveryHandler = require("./commands/thieveryHandler");
 const scienceHandler = require("./commands/scienceHandler");
 const scienceSummaryHandler = require("./commands/scienceSummaryHandler");
-const scienceSummaryHandler = require("./commands/scienceSummaryHandler");
 const ambushHandler = require("./commands/ambushHandler");
 const analyzeWarHandler = require("./commands/analyzeWarHandler");
 const setalertHandler = require("./commands/setalertHandler");
@@ -41,7 +40,6 @@ const UTOPIA_COMMANDS = {
   waves: wavesHandler,
   ask: askHandler,
   science: scienceHandler,
-  "science-summary": scienceSummaryHandler,
   "science-summary": scienceSummaryHandler,
   status: statusHandler,
   target: targetHandler,
