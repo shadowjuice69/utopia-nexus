@@ -62,7 +62,10 @@ module.exports = async function thieveryHandler(interaction) {
       )
       .setTimestamp();
 
-    await interaction.reply({ embeds: [embed] });
+    await interaction.reply({
+      embeds: [embed],
+      ephemeral: true
+    });
 
   } catch (err) {
     console.error("[THIEVERY HANDLER ERROR]", err);
