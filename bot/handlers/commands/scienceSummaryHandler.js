@@ -5,19 +5,24 @@ const CATEGORY_EMOJI = {
   economy: '💰', military: '⚔️', arcane_arts: '🔮',
 };
 
+// Personality science modifiers
 const PERS_SCIENCE_MODS = {
-  artisan:     { artisan: 1.25 },
-  tactician:   { siege: 1.40 },
-  mystic:      { channeling: 1.75 },
-  necromancer: { channeling: 1.30 },
-  heretic:     { channeling: 1.30, crime: 1.30 },
-  rogue:       { crime: 1.50 },
-  warhero:     { valor: 1.40 },
+  artisan:     { artisan: 1.25, _all: 1.0 },
+  tactician:   { siege: 1.40,   _all: 1.0 },
+  mystic:      { channeling: 1.75, _all: 1.0 },
+  necromancer: { channeling: 1.30, _all: 1.0 },
+  heretic:     { channeling: 1.30, crime: 1.30, _all: 1.0 },
+  rogue:       { crime: 1.50,   _all: 1.0 },
+  warhero:     { valor: 1.40,   _all: 1.0 },
+  sage:        { _all: 1.15 },
+  cleric:      { _all: 1.0 },
+  general:     { _all: 1.0 },
+  warrior:     { _all: 1.0 },
 };
 
-function calcBonus(books, multiplier, persMod = 1.0) {
+function calcBonus(books, multiplier, persMod = 1.0, allMod = 1.0) {
   if (!books || books === 0 || !multiplier) return 0;
-  return Math.pow(books, 0.5556) * parseFloat(multiplier) * persMod;
+  return Math.pow(books, 1 / 2.125) * parseFloat(multiplier) * persMod * allMod;
 }
 
 module.exports = async function scienceSummaryHandler(interaction) {
@@ -25,6 +30,7 @@ module.exports = async function scienceSummaryHandler(interaction) {
   if (!supabase) return interaction.reply({ content: "❌ Database unavailable.", ephemeral: true });
 
   const targetProvince = interaction.options.getString("province") || null;
+  const librariesPct  = interaction.options.getNumber("libraries") || 0;
   let provinceName, race, personality;
 
   if (targetProvince) {
@@ -41,7 +47,7 @@ module.exports = async function scienceSummaryHandler(interaction) {
       .from("provinces").select("name, race, personality")
       .eq("user_id", interaction.user.id).limit(1);
     if (!prov || prov.length === 0)
-      return interaction.reply({ content: "❌ No province found. Register with `/utopia register` or specify a province name.", ephemeral: true });
+      return interaction.reply({ content: "❌ No province found. Register with `/utopia register` or specify a province.", ephemeral: true });
     provinceName = prov[0].name;
     race = prov[0].race?.toLowerCase();
     personality = prov[0].personality?.toLowerCase().replace(/\s/g, '');
@@ -54,25 +60,24 @@ module.exports = async function scienceSummaryHandler(interaction) {
 
   const books = sciData[0];
 
-  // Get ONE row per science name — the one with a valid multiplier
   const { data: rules } = await supabase
     .from("science_rules")
     .select("science_name, category, multiplier, effect")
-    .eq("active", true)
-    .eq("age_number", 116)
+    .eq("active", true).eq("age_number", 116)
     .not("multiplier", "is", null);
 
   if (!rules || rules.length === 0)
     return interaction.reply({ content: "❌ Science rules not found.", ephemeral: true });
 
-  // Build map: lowercase name -> first rule with a multiplier
   const ruleMap = {};
   for (const r of rules) {
     const key = r.science_name.toLowerCase();
     if (!ruleMap[key]) ruleMap[key] = r;
   }
 
-  const persMods = PERS_SCIENCE_MODS[personality] || {};
+  const persMods   = PERS_SCIENCE_MODS[personality] || { _all: 1.0 };
+  const allMod     = (persMods._all || 1.0) * (1 + librariesPct / 100);
+
   const scienceKeys = [
     'alchemy','artisan','bookkeeping','channeling','crime','finesse',
     'heroism','housing','production','resilience','shielding','siege',
@@ -85,7 +90,7 @@ module.exports = async function scienceSummaryHandler(interaction) {
     const rule = ruleMap[key];
     if (!rule) continue;
     const persMod = persMods[key] || 1.0;
-    const bonus = calcBonus(bookCount, rule.multiplier, persMod);
+    const bonus = calcBonus(bookCount, rule.multiplier, persMod, allMod);
     const cat = rule.category;
     if (!grouped[cat]) grouped[cat] = [];
     grouped[cat].push({
@@ -93,13 +98,15 @@ module.exports = async function scienceSummaryHandler(interaction) {
       books: bookCount,
       bonus: bonus.toFixed(1),
       persMod,
+      allMod,
     });
   }
 
+  const libNote = librariesPct > 0 ? ` · Libraries: ${librariesPct}%` : '';
   const embed = new EmbedBuilder()
     .setTitle(`🔬 Science Summary — ${provinceName}`)
     .setColor(0x6366f1)
-    .setDescription(`Race: **${race || 'Unknown'}** | Personality: **${personality || 'None'}** | Updated: <t:${Math.floor(new Date(books.updated_at).getTime()/1000)}:R>`)
+    .setDescription(`Race: **${race || 'Unknown'}** | Personality: **${personality || 'None'}**${libNote} | Updated: <t:${Math.floor(new Date(books.updated_at).getTime()/1000)}:R>`)
     .setFooter({ text: "Judo Kingdom (4:9) • WoL Age 116 • Utopia Nexus" });
 
   for (const [cat, sciences] of Object.entries(grouped)) {

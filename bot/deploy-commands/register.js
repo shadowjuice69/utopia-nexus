@@ -80,7 +80,7 @@ const commands = [
         name: "science-summary",
         description: "Calculate science bonuses for your province or a target",
         type: 1,
-        options: [{ name: "province", description: "Province name (leave blank for yourself)", type: 3, required: false }]
+        options: [{ name: "province", description: "Province name (leave blank for yourself)", type: 3, required: false }, { name: "libraries", description: "Libraries % (for accuracy)", type: 10, required: false }]
       },
       {
         name: "target",
