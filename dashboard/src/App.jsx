@@ -11,6 +11,7 @@ import BuildingIntel from "./components/BuildingIntel";
 import ScienceIntel from "./components/ScienceIntel";
 import OpsIntel from "./components/OpsIntel";
 import AttackLog from "./components/AttackLog";
+import ProvinceComparison from "./components/ProvinceComparison";
 import Login from "./components/Login";
 
 const TABS = [
@@ -24,6 +25,7 @@ const TABS = [
   { id: "science", label: "🔬 Science" },
   { id: "ops", label: "🗡️ Ops" },
   { id: "attacks", label: "⚔️ Attacks" },
+  { id: "compare", label: "📊 Compare" },
 ];
 
 function App() {
@@ -57,6 +59,7 @@ function App() {
         {tab === "science" && <ScienceIntel />}
         {tab === "ops" && <OpsIntel />}
         {tab === "attacks" && <AttackLog />}
+        {tab === "compare" && <ProvinceComparison />}
       </main>
     </div>
   );
