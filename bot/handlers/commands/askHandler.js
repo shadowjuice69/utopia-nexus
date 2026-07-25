@@ -130,6 +130,24 @@ module.exports = async function askHandler(interaction) {
   }
   if (rulesSnippet) wikiContext += rulesSnippet;
 
+  // Add science rules to wiki context if question mentions science
+  if (lq.includes('science') || lq.includes('books') || lq.includes('research')) {
+    const { data: sciRules } = await supabase
+      .from("science_rules")
+      .select("science_name, category, effect, multiplier, personality_modifier, race_modifier")
+      .eq("active", true).eq("age_number", 116)
+      .not("multiplier", "is", null);
+    if (sciRules && sciRules.length > 0) {
+      wikiContext += `\nSCIENCE TYPES (Age 116):\n`;
+      for (const s of sciRules) {
+        let line = `  • ${s.science_name} [${s.category}] — ${s.effect} (×${s.multiplier})`;
+        if (s.personality_modifier) line += ` | Pers: ${s.personality_modifier}`;
+        if (s.race_modifier) line += ` | Race: ${s.race_modifier}`;
+        wikiContext += line + '\n';
+      }
+    }
+  }
+
   // Get AI answer
   const aiAnswer = await askGroq(question, wikiContext, kingdomContext);
 
