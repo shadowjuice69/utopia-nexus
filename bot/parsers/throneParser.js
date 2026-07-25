@@ -106,10 +106,12 @@ function parseThrone(text) {
       }
     }
     // Science page parsing
-    const sciMatch = line.match(/^(Alchemy|Tools|Housing|Production|Bookkeeping|Artisan|Strategy|Siege|Tactics|Valor|Heroism|Resilience|Crime|Channeling|Shielding|Cunning|Sorcery|Finesse)\t([\d,]+)/i);
+    const sciMatch = line.match(/^(Alchemy|Tools|Housing|Production|Bookkeeping|Artisan|Strategy|Siege|Tactics|Valor|Heroism|Resilience|Crime|Channeling|Shielding|Cunning|Sorcery|Finesse)\t([\d,]+)\t?([+-][\d.]+%)?/i);
     if (sciMatch) {
       if (!result.science) result.science = {};
+      if (!result.science_effects) result.science_effects = {};
       result.science[sciMatch[1].toLowerCase()] = cleanNum(sciMatch[2]);
+      if (sciMatch[3]) result.science_effects[sciMatch[1].toLowerCase()] = sciMatch[3];
       continue;
     }
 

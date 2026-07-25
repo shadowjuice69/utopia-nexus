@@ -242,6 +242,7 @@ console.log("[THIEVERY DEBUG]", {
       if (parsed.ruler) updateData.ruler = parsed.ruler;
       if (parsed.game_type) updateData.game_type = parsed.game_type;
       if (parsed.buildings) updateData.buildings = parsed.buildings;
+      if (parsed.buildings && parsed.buildings.libraries) updateData.libraries_pct = parseFloat(parsed.buildings.libraries.pct) || 0;
       if (parsed.ome) updateData.ome = parsed.ome;
       if (parsed.dme) updateData.dme = parsed.dme;
 
@@ -268,6 +269,7 @@ console.log("[THIEVERY DEBUG]", {
         tools:       parseInt(sci.tools       || 0),
         valor:       parseInt(sci.valor       || 0),
         arcana:      parseInt(sci.arcana || 0) + parseInt(sci.cunning || 0) + parseInt(sci.sorcery || 0),
+        science_effects: parsed.science_effects || null,
         updated_at:  new Date().toISOString(),
       };
       const { error: sciErr } = await supabase

@@ -90,15 +90,21 @@ module.exports = async function scienceSummaryHandler(interaction) {
     const rule = ruleMap[key];
     if (!rule) continue;
     const persMod = persMods[key] || 1.0;
-    const bonus = calcBonus(bookCount, rule.multiplier, persMod, allMod);
+    // Use game's own effect % if available, otherwise calculate
+    const effects = books.science_effects || {};
+    const gameEffect = effects[key];
+    const bonusStr = gameEffect
+      ? gameEffect.replace('%', '')
+      : calcBonus(bookCount, rule.multiplier, persMod, allMod).toFixed(1);
     const cat = rule.category;
     if (!grouped[cat]) grouped[cat] = [];
     grouped[cat].push({
       name: rule.science_name,
       books: bookCount,
-      bonus: bonus.toFixed(1),
+      bonus: bonusStr,
       persMod,
       allMod,
+      fromGame: !!gameEffect,
     });
   }
 
