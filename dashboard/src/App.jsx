@@ -9,6 +9,7 @@ import KingdomOverview from "./components/KingdomOverview";
 import AttackCalc from "./components/AttackCalc";
 import BuildingIntel from "./components/BuildingIntel";
 import ScienceIntel from "./components/ScienceIntel";
+import OpsIntel from "./components/OpsIntel";
 import Login from "./components/Login";
 
 const TABS = [
@@ -20,6 +21,7 @@ const TABS = [
   { id: "calc", label: "🧮 Calculator" },
   { id: "buildings", label: "🏗️ Buildings" },
   { id: "science", label: "🔬 Science" },
+  { id: "ops", label: "🗡️ Ops" },
 ];
 
 function App() {
@@ -51,6 +53,7 @@ function App() {
         {tab === "calc" && <AttackCalc />}
 {tab === "buildings" && <BuildingIntel />}
         {tab === "science" && <ScienceIntel />}
+        {tab === "ops" && <OpsIntel />}
       </main>
     </div>
   );
