@@ -1,6 +1,8 @@
 function cleanNum(str) {
   if (!str) return null;
-  return str.toString().replace(/,/g, "").replace(/\s*gold coins?/i, "").trim();
+  const cleaned = str.toString().replace(/,/g, "").replace(/\s*gold coins?/i, "").replace(/\s*\(.*?\)/g, "").trim();
+  const num = parseFloat(cleaned);
+  return isNaN(num) ? null : num;
 }
 
 function parseThrone(text) {
