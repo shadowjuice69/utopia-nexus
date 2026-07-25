@@ -8,6 +8,7 @@ import AlertPanel from "./components/AlertPanel";
 import KingdomOverview from "./components/KingdomOverview";
 import AttackCalc from "./components/AttackCalc";
 import BuildingIntel from "./components/BuildingIntel";
+import ScienceIntel from "./components/ScienceIntel";
 import Login from "./components/Login";
 
 const TABS = [
@@ -18,6 +19,7 @@ const TABS = [
   { id: "alerts", label: "🔔 Alerts" },
   { id: "calc", label: "🧮 Calculator" },
   { id: "buildings", label: "🏗️ Buildings" },
+  { id: "science", label: "🔬 Science" },
 ];
 
 function App() {
@@ -48,6 +50,7 @@ function App() {
         {tab === "alerts" && <AlertPanel />}
         {tab === "calc" && <AttackCalc />}
 {tab === "buildings" && <BuildingIntel />}
+        {tab === "science" && <ScienceIntel />}
       </main>
     </div>
   );
