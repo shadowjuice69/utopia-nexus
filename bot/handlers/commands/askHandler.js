@@ -130,6 +130,34 @@ module.exports = async function askHandler(interaction) {
   }
   if (rulesSnippet) wikiContext += rulesSnippet;
 
+  // Always inject race/personality rules if mentioned in question
+  const raceNames = ['avian','darkelf','dark elf','dryad','dwarf','elf','faery','halfling','human','orc','undead'];
+  const persNames = ['artisan','cleric','general','heretic','mystic','necromancer','rogue','sage','tactician','warrior','warhero','war hero'];
+  const mentionsRace = raceNames.some(r => lq.includes(r));
+  const masterPers = persNames.some(p => lq.includes(p));
+  if (mentionsRace || masterPers) {
+    const { data: raceRules } = await supabase
+      .from("race_rules").select("race_name, rule_name, value")
+      .eq("active", true).eq("age_number", 116);
+    const { data: persRules } = await supabase
+      .from("personality_rules").select("personality_name, rule_name, value")
+      .eq("active", true).eq("age_number", 116);
+    if (raceRules && raceRules.length > 0) {
+      const relevant = raceRules.filter(r => lq.includes(r.race_name.toLowerCase().replace(' ','')));
+      if (relevant.length > 0) {
+        wikiContext += `\nRACE RULES:\n`;
+        for (const r of relevant) wikiContext += `  • ${r.race_name} ${r.rule_name}: ${r.value}\n`;
+      }
+    }
+    if (persRules && persRules.length > 0) {
+      const relevant = persRules.filter(p => lq.includes(p.personality_name.toLowerCase().replace(' ','')));
+      if (relevant.length > 0) {
+        wikiContext += `\nPERSONALITY RULES:\n`;
+        for (const p of relevant) wikiContext += `  • ${p.personality_name} ${p.rule_name}: ${p.value}\n`;
+      }
+    }
+  }
+
   // Add science rules to wiki context if question mentions science
   if (lq.includes('science') || lq.includes('books') || lq.includes('research')) {
     const { data: sciRules } = await supabase
