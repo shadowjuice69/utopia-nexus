@@ -12,6 +12,7 @@ import ScienceIntel from "./components/ScienceIntel";
 import OpsIntel from "./components/OpsIntel";
 import AttackLog from "./components/AttackLog";
 import ProvinceComparison from "./components/ProvinceComparison";
+import SpellTracker from "./components/SpellTracker";
 import Login from "./components/Login";
 
 const TABS = [
@@ -26,6 +27,7 @@ const TABS = [
   { id: "ops", label: "🗡️ Ops" },
   { id: "attacks", label: "⚔️ Attacks" },
   { id: "compare", label: "📊 Compare" },
+  { id: "spells", label: "✨ Spells" },
 ];
 
 function App() {
@@ -60,6 +62,7 @@ function App() {
         {tab === "ops" && <OpsIntel />}
         {tab === "attacks" && <AttackLog />}
         {tab === "compare" && <ProvinceComparison />}
+        {tab === "spells" && <SpellTracker />}
       </main>
     </div>
   );
