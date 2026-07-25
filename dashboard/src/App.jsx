@@ -10,6 +10,7 @@ import AttackCalc from "./components/AttackCalc";
 import BuildingIntel from "./components/BuildingIntel";
 import ScienceIntel from "./components/ScienceIntel";
 import OpsIntel from "./components/OpsIntel";
+import AttackLog from "./components/AttackLog";
 import Login from "./components/Login";
 
 const TABS = [
@@ -22,6 +23,7 @@ const TABS = [
   { id: "buildings", label: "🏗️ Buildings" },
   { id: "science", label: "🔬 Science" },
   { id: "ops", label: "🗡️ Ops" },
+  { id: "attacks", label: "⚔️ Attacks" },
 ];
 
 function App() {
@@ -54,6 +56,7 @@ function App() {
 {tab === "buildings" && <BuildingIntel />}
         {tab === "science" && <ScienceIntel />}
         {tab === "ops" && <OpsIntel />}
+        {tab === "attacks" && <AttackLog />}
       </main>
     </div>
   );
