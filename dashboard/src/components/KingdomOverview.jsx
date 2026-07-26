@@ -117,6 +117,7 @@ function MemberModal({ member, onClose }) {
 export default function KingdomOverview() {
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [kdCode, setKdCode] = useState("3:2");
   const [selected, setSelected] = useState(null);
 
   useEffect(() => {
@@ -199,7 +200,7 @@ export default function KingdomOverview() {
         </div>
         <div className="stat-card">
           <span className="stat-label">Coordinates</span>
-          <strong className="stat-value" style={{ color: "#a78bfa" }}>3:2</strong>
+          <strong className="stat-value" style={{ color: "#a78bfa" }}>{kdCode}</strong>
         </div>
       </div>
 
