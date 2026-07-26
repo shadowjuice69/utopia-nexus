@@ -164,10 +164,12 @@ async function saveIntel(parsed, prov) {
         updated_at: new Date().toISOString()
       }, { onConflict: "province,kd_code" });
     } else if (parsed.type === "survey") {
-      await sb.from("intel_buildings").upsert({
-        province: prov, kd_code: parsed.kd, ...parsed.data,
+      console.log("[SURVEY DATA]", JSON.stringify(parsed.data).substring(0, 200));
+      const { error: bldErr } = await sb.from("intel_buildings").upsert({
+        province: prov, kd_code: parsed.kd, buildings: parsed.data.buildings,
         updated_at: new Date().toISOString()
       }, { onConflict: "province,kd_code" });
+      if (bldErr) console.error("[BUILDINGS SAVE ERROR]", bldErr.message);
     }
     logger.info(`[INTEL SAVED] ${parsed.type} for ${prov}`);
   } catch(e) {
