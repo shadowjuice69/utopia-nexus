@@ -117,6 +117,31 @@ async function saveIntel(parsed, prov) {
 
       logger.info(`[THRONE RESULT] data=${JSON.stringify(data)} error=${JSON.stringify(error)}`);
       logger.info(`[THRONE SAVED] ${prov}`);
+
+      // Also update provinces table for own kingdom members
+      const myKd = process.env.MY_KD || "3:2";
+      if (parsed.kd === myKd) {
+        const d = parsed.data;
+        const provUpdate = {};
+        if (d.acres)      provUpdate.acres    = d.acres;
+        if (d.nw)         provUpdate.nw       = d.nw;
+        if (d.off)        provUpdate.off      = d.off;
+        if (d.def)        provUpdate.def      = d.def;
+        if (d.be)         provUpdate.be       = d.be;
+        if (d.race)       provUpdate.race     = d.race;
+        if (d.peons)      provUpdate.peasants = d.peons;
+        if (d.thieves)    provUpdate.thieves  = Number(d.thieves) || 0;
+        if (d.wizards)    provUpdate.wizards  = Number(d.wizards) || 0;
+        if (d.good_spells) provUpdate.good_spells = d.good_spells;
+        if (d.coordinates) provUpdate.kd_code = d.coordinates;
+        provUpdate.updated_at = new Date().toISOString();
+
+        const { error: provErr } = await sb.from("provinces")
+          .update(provUpdate)
+          .eq("name", prov);
+        if (provErr) logger.error(`[PROVINCE UPDATE ERROR] ${provErr.message}`);
+        else logger.info(`[PROVINCE UPDATED] ${prov}`);
+      }
     } else if (parsed.type === "som") {
       await sb.from("intel_military").upsert({
         province: prov, kd_code: parsed.kd, ...parsed.data,
