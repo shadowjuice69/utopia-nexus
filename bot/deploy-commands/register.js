@@ -196,6 +196,7 @@ const commands = [
         description: "AI analysis of current war situation",
         type: 1
       },
+      { name: "roster", description: "View all registered kingdom members", type: 1 },
       {
         name: "setkingdom",
         description: "Update kingdom name and code (Admin only)",
