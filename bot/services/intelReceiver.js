@@ -65,7 +65,7 @@ const parsed = parseThrone(text);
 
         spells: parsed.good_spells
       };
-  } else if (url.includes("survey") || url.includes("council_internal")) {
+  } else if (url.includes("survey") || url.includes("council_internal") || url.includes("/build")) {
     result.type = "survey";
     const buildings = {};
     text.split("\n").forEach(l => {
