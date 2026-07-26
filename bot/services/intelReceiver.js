@@ -123,17 +123,17 @@ async function saveIntel(parsed, prov) {
       if (parsed.kd === myKd) {
         const d = parsed.data;
         const provUpdate = {};
-        if (d.acres)      provUpdate.acres    = d.acres;
-        if (d.nw)         provUpdate.nw       = d.nw;
-        if (d.off)        provUpdate.off      = d.off;
-        if (d.def)        provUpdate.def      = d.def;
+        if (d.land)       provUpdate.acres    = d.land;
+        if (d.networth)   provUpdate.nw       = d.networth;
+        if (d.offense)    provUpdate.off      = d.offense;
+        if (d.defense)    provUpdate.def      = d.defense;
         if (d.be)         provUpdate.be       = d.be;
         if (d.race)       provUpdate.race     = d.race;
-        if (d.peons)      provUpdate.peasants = d.peons;
+        if (d.peasants)   provUpdate.peasants = d.peasants;
         if (d.thieves)    provUpdate.thieves  = Number(d.thieves) || 0;
         if (d.wizards)    provUpdate.wizards  = Number(d.wizards) || 0;
-        if (d.good_spells) provUpdate.good_spells = d.good_spells;
-        if (d.coordinates) provUpdate.kd_code = d.coordinates;
+        if (d.spells)     provUpdate.good_spells = d.spells;
+        if (parsed.kd)    provUpdate.kd_code  = parsed.kd;
         provUpdate.updated_at = new Date().toISOString();
 
         const { error: provErr } = await sb.from("provinces")
