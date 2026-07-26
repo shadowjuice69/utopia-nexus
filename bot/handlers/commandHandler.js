@@ -31,6 +31,7 @@ const warHandler = require("./commands/warHandler");
 const threatHandler = require("./commands/threatHandler");
 const broadcastHandler = require("./commands/broadcastHandler");
 const setkingdomHandler = require("./commands/setkingdomHandler");
+const rosterHandler = require("./commands/rosterHandler");
 const helpHandler = require("./commands/helpHandler");
 const permissionService = require("../services/permissionService");
 
@@ -71,6 +72,7 @@ const ADMIN_COMMANDS = {
   threat: threatHandler,
   broadcast: broadcastHandler,
   setkingdom: setkingdomHandler,
+  roster: rosterHandler,
   war: warHandler
 };
 
