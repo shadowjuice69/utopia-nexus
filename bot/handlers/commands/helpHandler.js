@@ -92,6 +92,11 @@ module.exports = async function helpHandler(interaction) {
         name: "🌐 War Room Dashboard",
         value: "https://dashboard-gold-six-11.vercel.app\nPassword: NikkoAce\nLive ops, attacks, waves, intel, science, spell tracker, province comparison.",
         inline: false
+      },
+      {
+        name: "📡 Intel Auto-Sync",
+        value: "Set your Utopia intel site URL to:\n`https://utopia-nexus-production.up.railway.app/intel`\nBrowse your throne, military, science & buildings pages and data auto-saves to the database.",
+        inline: false
       }
     )
     .setFooter({ text: kd.footer })
