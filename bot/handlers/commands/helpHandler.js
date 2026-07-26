@@ -89,13 +89,8 @@ module.exports = async function helpHandler(interaction) {
         inline: false
       },
       {
-        name: "🌐 War Room Dashboard",
-        value: "https://dashboard-gold-six-11.vercel.app\nPassword: NikkoAce\nLive ops, attacks, waves, intel, science, spell tracker, province comparison.",
-        inline: false
-      },
-      {
-        name: "📡 Intel Auto-Sync",
-        value: "Set your Utopia intel site URL to:\n`https://utopia-nexus-production.up.railway.app/intel`\nBrowse your throne, military, science & buildings pages and data auto-saves to the database.",
+        name: "🌐 War Room Dashboard & Intel Sync",
+        value: "Dashboard: https://dashboard-gold-six-11.vercel.app\nPassword: NikkoAce\n\n📡 Intel Site URL (set in Utopia Preferences):\n`https://utopia-nexus-production.up.railway.app/intel`\nBrowse throne/military/science/buildings pages to auto-sync data.",
         inline: false
       }
     )
