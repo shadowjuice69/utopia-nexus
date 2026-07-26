@@ -1,4 +1,5 @@
 const supabaseService = require("./supabase");
+const { getKingdomInfo } = require("./kingdomService");
 const logger = require("./logger");
 const opsAnalysisService = require("./opsAnalysisService");
 const { getRecentOps } = require("./opsIntelService");
@@ -40,6 +41,7 @@ async function getWarData() {
 }
 
 async function analyzeWar() {
+  const kd = await getKingdomInfo();
   const data = await getWarData();
   if (!data) return null;
 
@@ -78,7 +80,7 @@ for (const op of intelOps) {
   if (analysis) opsThreats.push(analysis);
 }
 
-const prompt = `You are a Utopia war strategist analyzing an active war for kingdom Judo (4:9 WoL).
+const prompt = `You are a Utopia war strategist analyzing an active war for kingdom ${kd.name} (${kd.code} WoL).
 
 ATTACKS (${attacks.length} total):
 ${attackSummary || "None"}

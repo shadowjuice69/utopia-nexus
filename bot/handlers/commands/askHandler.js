@@ -1,4 +1,5 @@
 const { EmbedBuilder } = require("discord.js");
+const { getKingdomInfo } = require("../../services/kingdomService");
 const wikiService = require("../../services/wikiService");
 const supabaseService = require("../../services/supabase");
 
@@ -18,7 +19,7 @@ async function getKingdomContext(supabase) {
     .select("name, race, personality, play_role, coordinates")
     .order("name").limit(30);
   if (provs && provs.length > 0) {
-    lines.push(`KINGDOM: Judo (4:9) — ${provs.length} provinces`);
+    lines.push(`KINGDOM: ${kd.name} (${kd.code}) — ${provs.length} provinces`);
     for (const p of provs) {
       lines.push(`  • ${p.name} — ${p.race || '?'} ${p.personality || ''} (${p.play_role || '?'}) ${p.coordinates || ''}`);
     }
@@ -64,7 +65,7 @@ async function getKingdomContext(supabase) {
 }
 
 async function askGroq(question, wikiContext, kingdomContext) {
-  const systemPrompt = `You are Nexus, the Utopia kingdom advisor for Judo (4:9) on World of Legends Age 116. You have deep knowledge of Utopia game mechanics, strategy, and the specific context of this kingdom.
+  const systemPrompt = `You are Nexus, the Utopia kingdom advisor for ${kd.name} (${kd.code}) on World of Legends Age ${kd.age}. You have deep knowledge of Utopia game mechanics, strategy, and the specific context of this kingdom.
 
 Be concise, tactical, and use Utopia terminology. IMPORTANT: Only reference spells, ops, races, personalities, and mechanics that actually exist in Utopia Age 116. Never invent spell or op names. If unsure whether something exists, say so. Answer in 3-5 sentences max unless a detailed breakdown is needed. Always consider the kingdom's specific race/personality makeup when giving advice.`;
 
@@ -100,6 +101,7 @@ Answer the question using the context above. Be specific and actionable.`;
 }
 
 module.exports = async function askHandler(interaction) {
+  const kd = await getKingdomInfo();
   const question = interaction.options.getString("question").trim();
   const lq = question.toLowerCase();
 
@@ -188,7 +190,7 @@ module.exports = async function askHandler(interaction) {
   const embed = new EmbedBuilder()
     .setTitle(`🧠 ${question}`)
     .setColor(0x6366f1)
-    .setFooter({ text: "Judo Kingdom (4:9) • WoL Age 116 • Utopia Nexus" });
+    .setFooter({ text: kd.footer });
 
   if (aiAnswer) {
     embed.setDescription(truncate(aiAnswer, 4000));

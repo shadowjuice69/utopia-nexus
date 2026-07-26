@@ -1,4 +1,5 @@
 const { EmbedBuilder } = require("discord.js");
+const { getKingdomInfo } = require("../../services/kingdomService");
 const wikiService = require("../../services/wikiService");
 
 const CATEGORY_EMOJI = {
@@ -6,6 +7,7 @@ const CATEGORY_EMOJI = {
 };
 
 module.exports = async function scienceHandler(interaction) {
+  const kd = await getKingdomInfo();
   const type = interaction.options.getString("type");
   const rows = await wikiService.searchScience(type);
 
@@ -22,7 +24,7 @@ module.exports = async function scienceHandler(interaction) {
   const embed = new EmbedBuilder()
     .setTitle(`🔬 Science Reference — Age ${rows[0].age_number}`)
     .setColor(0x6366f1)
-    .setFooter({ text: "Judo Kingdom (4:9) • WoL Age 116 • Utopia Nexus" });
+    .setFooter({ text: kd.footer });
 
   for (const [cat, sciences] of Object.entries(grouped)) {
     const emoji = CATEGORY_EMOJI[cat] || '📊';

@@ -1,7 +1,9 @@
 const { EmbedBuilder } = require("discord.js");
+const { getKingdomInfo } = require("../../services/kingdomService");
 const thieveryCalculatorService = require("../../services/thieveryCalculatorService");
 
 module.exports = async function thieveryHandler(interaction) {
+  const kd = await getKingdomInfo();
   try {
     const operation = interaction.options.getString("operation");
     const yourTPA = interaction.options.getNumber("your_tpa");

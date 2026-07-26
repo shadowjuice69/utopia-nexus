@@ -1,4 +1,5 @@
 const { EmbedBuilder } = require("discord.js");
+const { getKingdomInfo } = require("../../services/kingdomService");
 const supabaseService = require("../../services/supabase");
 
 const CATEGORY_EMOJI = {
@@ -26,6 +27,7 @@ function calcBonus(books, multiplier, persMod = 1.0, allMod = 1.0) {
 }
 
 module.exports = async function scienceSummaryHandler(interaction) {
+  const kd = await getKingdomInfo();
   const supabase = supabaseService.getClient();
   if (!supabase) return interaction.reply({ content: "❌ Database unavailable.", ephemeral: true });
 
@@ -113,7 +115,7 @@ module.exports = async function scienceSummaryHandler(interaction) {
     .setTitle(`🔬 Science Summary — ${provinceName}`)
     .setColor(0x6366f1)
     .setDescription(`Race: **${race || 'Unknown'}** | Personality: **${personality || 'None'}**${libNote} | Updated: <t:${Math.floor(new Date(books.updated_at).getTime()/1000)}:R>`)
-    .setFooter({ text: "Judo Kingdom (4:9) • WoL Age 116 • Utopia Nexus" });
+    .setFooter({ text: kd.footer });
 
   for (const [cat, sciences] of Object.entries(grouped)) {
     const emoji = CATEGORY_EMOJI[cat] || '📊';

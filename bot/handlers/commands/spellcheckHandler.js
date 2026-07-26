@@ -1,4 +1,5 @@
 const { EmbedBuilder } = require("discord.js");
+const { getKingdomInfo } = require("../../services/kingdomService");
 
 const RACE_WPA_MODS = {
   avian:    { off: 1.0,  def: 1.0,  name: "Avian" },
@@ -52,6 +53,7 @@ const SPELL_DIFFICULTY = {
 };
 
 module.exports = async function spellcheckHandler(interaction) {
+  const kd = await getKingdomInfo();
   const myWizards = interaction.options.getInteger("my_wizards");
   const myLand    = interaction.options.getInteger("my_land");
   const myRace    = interaction.options.getString("my_race").toLowerCase();
@@ -145,7 +147,7 @@ module.exports = async function spellcheckHandler(interaction) {
         inline: false
       }
     )
-    .setFooter({ text: "Judo Kingdom (4:9) • WoL Age 116 • Utopia Nexus" });
+    .setFooter({ text: kd.footer });
 
   return interaction.reply({ embeds: [embed], ephemeral: true });
 };

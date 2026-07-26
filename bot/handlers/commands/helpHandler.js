@@ -1,6 +1,8 @@
 const { EmbedBuilder } = require("discord.js");
+const { getKingdomInfo } = require("../../services/kingdomService");
 
 module.exports = async function helpHandler(interaction) {
+  const kd = await getKingdomInfo();
   const embed = new EmbedBuilder()
     .setTitle("⚔️ Utopia Nexus — Command Guide")
     .setColor(0x38bdf8)
@@ -92,7 +94,7 @@ module.exports = async function helpHandler(interaction) {
         inline: false
       }
     )
-    .setFooter({ text: "Judo Kingdom (4:9) • WoL Age 116 • Utopia Nexus" })
+    .setFooter({ text: kd.footer })
     .setTimestamp();
 
   return interaction.reply({ embeds: [embed], ephemeral: true });

@@ -1,4 +1,5 @@
 const { EmbedBuilder } = require("discord.js");
+const { getKingdomInfo } = require("../../services/kingdomService");
 
 // Age 116 WoL race unit values - defense values used in ambush
 const RACE_UNITS = {
@@ -17,6 +18,7 @@ const RACE_UNITS = {
 const RACE_CHOICES = Object.keys(RACE_UNITS);
 
 module.exports = async function ambushHandler(interaction) {
+  const kd = await getKingdomInfo();
   const race = interaction.options.getString("race").toLowerCase();
   const elites = interaction.options.getInteger("elites") || 0;
   const defspecs = interaction.options.getInteger("defspecs") || 0;
@@ -86,7 +88,7 @@ module.exports = async function ambushHandler(interaction) {
         inline: false
       }
     )
-    .setFooter({ text: "Judo Kingdom (4:9) • WoL Age 116 • Utopia Nexus" });
+    .setFooter({ text: kd.footer });
 
   return interaction.reply({ embeds: [embed], ephemeral: true });
 };

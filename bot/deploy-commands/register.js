@@ -195,6 +195,15 @@ const commands = [
         name: "analyze-war",
         description: "AI analysis of current war situation",
         type: 1
+      },
+      {
+        name: "setkingdom",
+        description: "Update kingdom name and code (Admin only)",
+        type: 1,
+        options: [
+          { name: "name", description: "New kingdom name", type: 3, required: true },
+          { name: "code", description: "New kingdom code (e.g. 3:2)", type: 3, required: true }
+        ]
       }
     ]
   }

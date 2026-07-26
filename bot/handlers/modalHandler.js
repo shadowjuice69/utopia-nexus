@@ -1,4 +1,5 @@
 const database = require("../services/database");
+const { getKingdomInfo } = require("../../services/kingdomService");
 const supabaseService = require("../services/supabase");
 const { MessageFlags, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 const { parseThrone, parseMilitary, summarizeIntel } = require("../parsers/throneParser");
