@@ -199,7 +199,7 @@ export default function KingdomOverview() {
         </div>
         <div className="stat-card">
           <span className="stat-label">Coordinates</span>
-          <strong className="stat-value" style={{ color: "#a78bfa" }}>{provinces.find(p => p.kd_code)?.kd_code || "3:2"}</strong>
+          <strong className="stat-value" style={{ color: "#a78bfa" }}>3:2</strong>
         </div>
       </div>
 
