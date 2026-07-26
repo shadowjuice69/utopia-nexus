@@ -199,7 +199,7 @@ export default function KingdomOverview() {
         </div>
         <div className="stat-card">
           <span className="stat-label">Coordinates</span>
-          <strong className="stat-value" style={{ color: "#a78bfa" }}>4:9</strong>
+          <strong className="stat-value" style={{ color: "#a78bfa" }}>{provinces[0]?.kd_code || "3:2"}</strong>
         </div>
       </div>
 
