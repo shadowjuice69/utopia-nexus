@@ -255,6 +255,8 @@ function start() {
 
         console.log("[INTEL URL]", url);
         console.log("[INTEL PROV]", prov);
+        console.log("[INTEL KEY]", key);
+        console.log("[INTEL DATA SNIPPET]", data_simple.substring(0, 100));
         const parsed = parseIntel(url, prov, data_simple);
         console.log("[INTEL TYPE]", parsed.type);
         await saveIntel(parsed, prov);
