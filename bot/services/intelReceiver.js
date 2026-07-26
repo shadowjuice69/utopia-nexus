@@ -69,8 +69,24 @@ const parsed = parseThrone(text);
     result.type = "survey";
     const buildings = {};
     text.split("\n").forEach(l => {
+      // Tab-separated format: "Building Name	Quantity	% of Total	..."
+      const tabs = l.split("\t");
+      if (tabs.length >= 3) {
+        const name = tabs[0].trim();
+        const qty = parseInt(tabs[1].replace(/,/g,""), 10);
+        const pctStr = tabs[2].replace('%','').trim();
+        const pct = parseFloat(pctStr);
+        const KNOWN = ["Barren Land","Homes","Farms","Mills","Banks","Training Grounds","Armouries","Military Barracks","Forts","Castles","Hospitals","Guilds","Towers","Thieves' Dens","Watch Towers","Universities","Libraries","Stables","Dungeons"];
+        if (KNOWN.includes(name) && !isNaN(qty) && !isNaN(pct)) {
+          buildings[name.toLowerCase().replace(/[^a-z]/g,"_")] = { qty, pct };
+        }
+      }
+      // Fallback: old format "Name  1234  (12.3%)"
       const m = l.match(/^(.+?)\s+([\d,]+)\s*\(([\d.]+)%\)/);
-      if (m) buildings[m[1].trim()] = { count: parseInt(m[2].replace(/,/g,""),10), pct: parseFloat(m[3]) };
+      if (m) {
+        const name = m[1].trim().toLowerCase().replace(/[^a-z]/g,"_");
+        if (!buildings[name]) buildings[name] = { qty: parseInt(m[2].replace(/,/g,""),10), pct: parseFloat(m[3]) };
+      }
     });
     result.data = { buildings };
   } else if (url.includes("som") || url.includes("military")) {
