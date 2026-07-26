@@ -89,7 +89,7 @@ const parsed = parseThrone(text);
       }
     });
     result.data = { buildings };
-  } else if (url.includes("council_science") || url.includes("sciences")) {
+  } else if (url.includes("council_science") || url.includes("sciences") || url.includes("/science")) {
     result.type = "science";
     const scienceData = {};
     const scienceEffects = {};
