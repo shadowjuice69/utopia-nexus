@@ -90,7 +90,7 @@ module.exports = async function helpHandler(interaction) {
       },
       {
         name: "🌐 War Room Dashboard & Intel Sync",
-        value: "🖥️ Dashboard: https://dashboard-gold-six-11.vercel.app\n📡 Intel Site URL: https://utopia-nexus-production.up.railway.app/intel\n🔑 Password for both: NikkoAce\n\nSet Intel Site URL in Utopia → Preferences. Browse throne/military/science/buildings pages to auto-sync data to dashboard.",
+        value: "🖥️ Dashboard: https://dashboard-gold-six-11.vercel.app\n📡 Intel Site URL: https://utopia-nexus-production.up.railway.app/intel\n🔑 Password for both: NikkoAce\n\n**Setup:** In Utopia go to Preferences → scroll to \'Send intel to your own Intel site\' → paste the Intel Site URL above → Save. Then browse your throne, military, science & buildings pages to auto-sync to the dashboard.",
         inline: false
       }
     )
