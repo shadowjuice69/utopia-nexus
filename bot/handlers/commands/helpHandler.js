@@ -23,7 +23,32 @@ module.exports = async function helpHandler(interaction) {
       },
       {
         name: "🧠 /utopia ask [question]",
-        value: "Ask the AI a game question. Searches the full Age 116 wiki — spells, ops, races, formulas, mechanics.",
+        value: "AI-powered wiki search. Ask about spells, ops, races, formulas, science, or kingdom strategy. Also type 'wiki' for the wiki link.",
+        inline: false
+      },
+      {
+        name: "🔮 /utopia spellcheck",
+        value: "Calculate spell success chance based on WPA. Supports all spells, race/personality mods, Mage's Fury, Magic Shield, honor mod, NW warning.",
+        inline: false
+      },
+      {
+        name: "🗡️ /utopia thievery",
+        value: "Calculate thievery op success chance based on TPA. Supports race/personality mods, Thieves Dens, Watch Towers, Invisibility, NW warning.",
+        inline: false
+      },
+      {
+        name: "⚔️ /utopia ambush",
+        value: "Calculate minimum offense needed to ambush an enemy army. Enter their troop counts and race.",
+        inline: false
+      },
+      {
+        name: "🔬 /utopia science [type]",
+        value: "Look up Age 116 science multipliers and effects. Choose a type or 'All' for the full table.",
+        inline: false
+      },
+      {
+        name: "📊 /utopia science-summary [province]",
+        value: "Calculate science bonuses for your province or a target. Pulls from pasted intel — accurate to game values.",
         inline: false
       },
       {
@@ -38,32 +63,17 @@ module.exports = async function helpHandler(interaction) {
       },
       {
         name: "📋 /utopia intel",
-        value: "Paste a throne or military page from Utopia to save enemy intel to the database.",
+        value: "Paste a throne, military, science, or buildings page to save intel to the database.",
         inline: false
       },
       {
         name: "🎯 /utopia target [province]",
-        value: "Look up intel on a specific province or show top ranked targets in your NW range.",
+        value: "Look up intel on a specific province.",
         inline: false
       },
       {
         name: "📊 /utopia status",
         value: "Quick kingdom health check — NW, members, recent activity.",
-        inline: false
-      },
-      {
-        name: "⚠️ /utopia threat",
-        value: "Show threat levels from enemy kingdoms based on recent ops and attacks.",
-        inline: false
-      },
-      {
-        name: "📖 /utopia wiki",
-        value: "Open the Utopia Nexus Age 116 wiki.",
-        inline: false
-      },
-      {
-        name: "👥 /utopia citizens",
-        value: "View all kingdom citizens.",
         inline: false
       },
       {
@@ -78,7 +88,7 @@ module.exports = async function helpHandler(interaction) {
       },
       {
         name: "🌐 War Room Dashboard",
-        value: "https://dashboard-gold-six-11.vercel.app\nPassword: NikkoAce\nLive ops, wave schedule, attack calculator, intel, alerts.",
+        value: "https://dashboard-gold-six-11.vercel.app\nPassword: NikkoAce\nLive ops, attacks, waves, intel, science, spell tracker, province comparison.",
         inline: false
       }
     )
