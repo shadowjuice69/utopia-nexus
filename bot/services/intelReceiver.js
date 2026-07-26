@@ -188,7 +188,10 @@ function start() {
           res.writeHead(400); res.end("missing data"); return;
         }
 
+        console.log("[INTEL URL]", url);
+        console.log("[INTEL PROV]", prov);
         const parsed = parseIntel(url, prov, data_simple);
+        console.log("[INTEL TYPE]", parsed.type);
         await saveIntel(parsed, prov);
         res.writeHead(200); res.end("ok");
       } catch(e) {
