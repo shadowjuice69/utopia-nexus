@@ -1,6 +1,7 @@
 const supabaseService = require("./supabase");
 const logger = require("./logger");
 const opsAnalysisService = require("./opsAnalysisService");
+const { getRecentOps } = require("./opsIntelService");
 
 async function getWarData() {
   const supabase = supabaseService.getClient();
@@ -9,12 +10,13 @@ async function getWarData() {
   try {
     const since = new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString();
 
-    const [attacks, hostileOps, intelMilitary, intelThrone, intelOps] = await Promise.all([
+    const [attacks, hostileOps, intelMilitary, intelThrone, intelOps, allyOps] = await Promise.all([
       supabase.from("attacks").select("*").gte("timestamp", since).order("timestamp", { ascending: false }).limit(50),
       supabase.from("hostile_ops").select("*").gte("timestamp", since).order("timestamp", { ascending: false }).limit(100),
       supabase.from("intel_military").select("*").limit(20),
       supabase.from("intel_throne").select("*").limit(20),
     supabase.from("intel_ops").select("*").limit(50),
+      getRecentOps(72),
     ]);
 
     if (attacks.error) logger.error(`[ATTACKS ERROR] ${attacks.error.message}`);
@@ -29,6 +31,7 @@ async function getWarData() {
       intelMilitary: intelMilitary.data || [],
       intelThrone: intelThrone.data || [],
     intelOps: intelOps.data || [],
+      allyOps: allyOps || [],
     };
   } catch (err) {
     logger.error(`[WAR ANALYSIS ERROR] ${err.message}`);
@@ -40,7 +43,7 @@ async function analyzeWar() {
   const data = await getWarData();
   if (!data) return null;
 
-  const { attacks, hostileOps, intelMilitary, intelThrone, intelOps } = data;
+  const { attacks, hostileOps, intelMilitary, intelThrone, intelOps, allyOps } = data;
 
   logger.info(`[WAR DATA] attacks=${attacks.length} ops=${hostileOps.length} mil=${intelMilitary.length} throne=${intelThrone.length}`);
 
@@ -64,7 +67,11 @@ async function analyzeWar() {
     JSON.stringify(t)
   ).join("\n");
 
-  const opsThreats = [];
+  const allyOpsSummary = allyOps.map(o =>
+  `${o.attacker_province} → ${o.target_province}: ${o.op} [${o.outcome}] aTPA:${o.att_tpa_modified || "?"} dTPA:${o.def_tpa_modified || "?"} aWPA:${o.att_wpa_modified || "?"} dWPA:${o.def_wpa_modified || "?"}`
+).join("\n");
+
+const opsThreats = [];
 
 for (const op of intelOps) {
   const analysis = await opsAnalysisService.analyzeHostileProvince(op.province);
@@ -77,7 +84,10 @@ ATTACKS (${attacks.length} total):
 ${attackSummary || "None"}
 
 HOSTILE OPS (${hostileOps.length} total):
-${opsSummary || "None"}\n\nHOSTILE THREAT ANALYSIS:\n${JSON.stringify(opsThreats, null, 2) || "None"}
+${opsSummary || "None"}
+
+ALLY OPS INTELLIGENCE (${allyOps.length} total):
+${allyOpsSummary || "None"}\n\nHOSTILE THREAT ANALYSIS:\n${JSON.stringify(opsThreats, null, 2) || "None"}
 
 ENEMY MILITARY INTEL:
 ${militarySummary || "None available"}
