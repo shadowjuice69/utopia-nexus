@@ -2,17 +2,12 @@ const axios = require("axios");
 
 const URL = "https://fcvozxmfocvrqfyrakbq.supabase.co/rest/v1/my_kd_ops";
 
-async function getRecentOps(hours = 24) {
+async function getRecentOps() {
   try {
-    const since = new Date(
-      Date.now() - hours * 60 * 60 * 1000
-    ).toISOString();
-
     const params = new URLSearchParams({
       select: "tick,timestamp,category,op,outcome,attacker_province,target_province,target_kingdom,result_value,unit,att_tpa_modified,def_tpa_modified,att_wpa_modified,def_wpa_modified,fail_units_lost,fail_units_lost_unit",
-      timestamp: `gte.${since}`,
-      order: "timestamp.desc",
-      limit: "200"
+      order: "tick.desc",
+      limit: "100"
     });
 
     const response = await axios.get(
@@ -25,10 +20,12 @@ async function getRecentOps(hours = 24) {
       }
     );
 
+    console.log(`[NICOLAIJ OPS RAW] ${response.data.length} records`);
+
     return response.data;
 
   } catch (error) {
-    console.error("[OPS INTEL ERROR]", error.message);
+    console.error("[OPS INTEL ERROR]", error.response?.data || error.message);
     return [];
   }
 }
