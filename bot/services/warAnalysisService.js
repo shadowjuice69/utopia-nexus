@@ -45,9 +45,9 @@ async function analyzeWar() {
 
   const { attacks, hostileOps, intelMilitary, intelThrone, intelOps, allyOps } = data;
 
-  logger.info(`[WAR DATA] attacks=${attacks.length} ops=${hostileOps.length} mil=${intelMilitary.length} throne=${intelThrone.length}`);
+  logger.info(`[WAR DATA] attacks=${attacks.length} ops=${hostileOps.length} allyOps=${allyOps.length} mil=${intelMilitary.length} throne=${intelThrone.length}`);
 
-  if (attacks.length === 0 && hostileOps.length === 0) {
+  if (attacks.length === 0 && hostileOps.length === 0 && allyOps.length === 0) {
     return "No war activity found in the last 72 hours.";
   }
 
