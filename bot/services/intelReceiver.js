@@ -129,7 +129,7 @@ async function saveIntel(parsed, prov) {
         if (d.defense)    provUpdate.def      = d.defense;
         if (d.be)         provUpdate.be       = d.be;
         if (d.race)       provUpdate.race     = d.race;
-        if (d.peasants)   provUpdate.peasants = d.peasants;
+        if (d.peasants)   provUpdate.peons = d.peasants;
         if (d.thieves)    provUpdate.thieves  = Number(d.thieves) || 0;
         if (d.wizards)    provUpdate.wizards  = Number(d.wizards) || 0;
         if (d.spells)     provUpdate.good_spells = d.spells;
