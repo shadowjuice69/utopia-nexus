@@ -89,6 +89,26 @@ const parsed = parseThrone(text);
       }
     });
     result.data = { buildings };
+  } else if (url.includes("council_science") || url.includes("sciences")) {
+    result.type = "science";
+    const scienceData = {};
+    const scienceEffects = {};
+    text.split("\n").forEach(l => {
+      const tabs = l.split("\t");
+      if (tabs.length >= 2) {
+        const KNOWN = ["Alchemy","Tools","Housing","Production","Bookkeeping","Artisan","Strategy","Siege","Tactics","Valor","Heroism","Resilience","Crime","Channeling","Shielding","Cunning","Sorcery","Finesse","Arcana"];
+        const name = tabs[0].trim();
+        if (KNOWN.includes(name)) {
+          const books = parseInt(tabs[1].replace(/,/g,""), 10);
+          const effect = tabs[2] ? tabs[2].trim() : null;
+          if (!isNaN(books)) {
+            scienceData[name.toLowerCase()] = books;
+            if (effect) scienceEffects[name.toLowerCase()] = effect;
+          }
+        }
+      }
+    });
+    result.data = { science: scienceData, science_effects: scienceEffects };
   } else if (url.includes("som") || url.includes("military")) {
     result.type = "som";
     let offense = null, defense = null, generals = null;
@@ -158,6 +178,33 @@ async function saveIntel(parsed, prov) {
         if (provErr) logger.error(`[PROVINCE UPDATE ERROR] ${provErr.message}`);
         else logger.info(`[PROVINCE UPDATED] ${prov}`);
       }
+    } else if (parsed.type === "science") {
+      const sci = parsed.data.science || {};
+      const effects = parsed.data.science_effects || {};
+      const { error: sciErr } = await sb.from("intel_science").upsert({
+        province: prov,
+        kd_code: parsed.kd,
+        alchemy:     parseInt(sci.alchemy     || 0),
+        artisan:     parseInt(sci.artisan     || 0),
+        bookkeeping: parseInt(sci.bookkeeping || 0),
+        channeling:  parseInt(sci.channeling  || 0),
+        crime:       parseInt(sci.crime       || 0),
+        finesse:     parseInt(sci.finesse     || 0),
+        heroism:     parseInt(sci.heroism     || 0),
+        housing:     parseInt(sci.housing     || 0),
+        production:  parseInt(sci.production  || 0),
+        resilience:  parseInt(sci.resilience  || 0),
+        shielding:   parseInt(sci.shielding   || 0),
+        siege:       parseInt(sci.siege       || 0),
+        strategy:    parseInt(sci.strategy    || 0),
+        tactics:     parseInt(sci.tactics     || 0),
+        tools:       parseInt(sci.tools       || 0),
+        valor:       parseInt(sci.valor       || 0),
+        arcana:      parseInt(sci.arcana || 0) + parseInt(sci.cunning || 0) + parseInt(sci.sorcery || 0),
+        science_effects: Object.keys(effects).length > 0 ? effects : null,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "province" });
+      if (sciErr) console.error("[SCIENCE SAVE ERROR]", sciErr.message);
     } else if (parsed.type === "som") {
       await sb.from("intel_military").upsert({
         province: prov, kd_code: parsed.kd, ...parsed.data,
