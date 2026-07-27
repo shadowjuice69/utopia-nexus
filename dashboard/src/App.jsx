@@ -13,6 +13,7 @@ import OpsIntel from "./components/OpsIntel";
 import AttackLog from "./components/AttackLog";
 import ProvinceComparison from "./components/ProvinceComparison";
 import SpellTracker from "./components/SpellTracker";
+import CSVImport from "./components/CSVImport";
 import Login from "./components/Login";
 
 const TABS = [
@@ -28,6 +29,7 @@ const TABS = [
   { id: "attacks", label: "⚔️ Attacks" },
   { id: "compare", label: "📊 Compare" },
   { id: "spells", label: "✨ Spells" },
+  { id: "import", label: "📥 Import" },
 ];
 
 function App() {
@@ -63,6 +65,7 @@ function App() {
         {tab === "attacks" && <AttackLog />}
         {tab === "compare" && <ProvinceComparison />}
         {tab === "spells" && <SpellTracker />}
+        {tab === "import" && <CSVImport />}
       </main>
     </div>
   );
