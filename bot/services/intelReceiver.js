@@ -111,14 +111,20 @@ const parsed = parseThrone(text);
     result.data = { science: scienceData, science_effects: scienceEffects };
   } else if (url.includes("som") || url.includes("military")) {
     result.type = "som";
-    let offense = null, defense = null, generals = null;
+        let offense = null, defense = null, generals = null;
+    const troops = {};
     text.split("\n").forEach(l => {
       let m;
-      if ((m = l.match(/Offense[^\d]*([\d,]+)/i))) offense = parseInt(m[1].replace(/,/g,""),10);
-      if ((m = l.match(/Defense[^\d]*([\d,]+)/i))) defense = parseInt(m[1].replace(/,/g,""),10);
-      if ((m = l.match(/Generals?[^\d]*(\d)/i))) generals = parseInt(m[1],10);
+      if ((m = l.match(/Net Offensive Points at Home[\s\t]+([\d,]+)/i))) offense = parseInt(m[1].replace(/,/g,""),10);
+      if ((m = l.match(/Net Defensive Points at Home[\s\t]+([\d,]+)/i))) defense = parseInt(m[1].replace(/,/g,""),10);
+      if ((m = l.match(/we have (\d+) generals/i))) generals = parseInt(m[1],10);
+      const troopNames = ["Soldiers","Warriors","Axemen","Berserkers","War Horses","Thieves","Wizards"];
+      for (const name of troopNames) {
+        const re = new RegExp("^" + name + "\t([\d,]+)", "i");
+        if ((m = l.match(re))) troops[name.toLowerCase().replace(" ","_")] = parseInt(m[1].replace(/,/g,""),10);
+      }
     });
-    result.data = { offense, defense, generals };
+    result.data = { offense, defense, generals, troops };
   } else {
     result.type = "unknown";
     result.data = { text };
