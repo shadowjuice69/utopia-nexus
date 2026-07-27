@@ -100,6 +100,7 @@ function parseOpsMessage(msgObj) {
   const ops = [];
   const atks = [];
   const spells = [];
+  const incomingAtks = [];
 
   if (!msgObj || !msgObj.content) return { ops, atks, spells };
 
@@ -122,7 +123,8 @@ function parseOpsMessage(msgObj) {
   }
 
   // Parse KDNEWS incoming attacks
-  const incomingAtks = [];
+  const lines = msgObj.content.split("\n");
+
   for (const line of lines) {
     const kdnews = parseKdNewsLine(line);
     if (kdnews) {
