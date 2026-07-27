@@ -118,7 +118,7 @@ function parseThrone(text) {
     }
 
     // Buildings page parsing
-    const bldMatch = line.match(/^(Barren Land|Homes|Farms|Mills|Banks|Training Grounds|Armouries|Military Barracks|Forts|Castles|Hospitals|Guilds|Towers|Thieves' Dens|Watch Towers|Libraries|Stables|Dungeons)\t([\d,]+)\t([\d.]+)%/i);
+    const bldMatch = line.match(/^(Barren Land|Homes|Farms|Mills|Banks|Training Grounds|Armouries|Military Barracks|Forts|Castles|Hospitals|Guilds|Towers|Thieves' Dens|Watch Towers|Universities|Libraries|Stables|Dungeons)\t([\d,]+)\t([\d.]+)%/i);
     if (bldMatch) {
       if (!result.buildings) result.buildings = {};
       result.buildings[bldMatch[1].toLowerCase().replace(/\s+/g, "_")] = { qty: cleanNum(bldMatch[2]), pct: bldMatch[3] };
