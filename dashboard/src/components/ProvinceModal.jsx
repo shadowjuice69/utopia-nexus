@@ -30,7 +30,7 @@ function ProvinceModal({ province, onClose }) {
   const BUILDING_ICONS = {
     farms: "🌾", banks: "🏦", guilds: "🔮", towers: "🗼",
     forts: "🛡️", homes: "🏠", mills: "⚙️", hospitals: "🏥",
-    castles: "🏰", stables: "🐴", dungeons: "⛓️", libraries: "📚",
+    castles: "🏰", universities: "🎓", stables: "🐴", dungeons: "⛓️", libraries: "📚",
     armouries: "⚔️", training_grounds: "🎯", military_barracks: "🪖",
     "thieves'_dens": "🗡️", watch_towers: "👁️", barren_land: "🏜️"
   };
