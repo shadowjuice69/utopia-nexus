@@ -23,6 +23,10 @@ module.exports = {
 
   async removeAdmin(userId) {
     const db = database.getDb();
-    db.set("admins", (db.get("admins").value() || []).filter(id => id !== userId)).write();
+    const admins = db.get("admins").value() || [];
+
+    db.assign({
+      admins: admins.filter(id => id !== userId),
+    }).write();
   },
 };
