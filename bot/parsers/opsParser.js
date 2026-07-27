@@ -83,16 +83,23 @@ function parseAttackLine(line) {
 }
 
 function parseKdNewsLine(line) {
-  // Format: "NEW KDNEWS: 8 - The Raspberry Rod Stewart (1:2) invaded 23 - Ochyrocera Laracna (3:2) and captured 80 acres of land. [ochyrocera laracna]"
-  const m = line.match(/NEW KDNEWS:.*?-\s*(.+?)\s*\((\d+:\d+)\)\s*invaded\s*\d+\s*-\s*(.+?)\s*\((\d+:\d+)\)\s*and captured (\d+) acres/i);
+  // Handles:
+  // NEW KDNEWS: 1 - Attacker (2:11) invaded 23 - Target (3:2) and captured 43 acres of land.
+  // NEW KDNEWS: 6 - Attacker (4:2) ambushed armies from 4 - Target (3:2) and took 26 acres of land.
+
+  const m = line.match(
+    /NEW KDNEWS:.*?-\s*(.+?)\s*\((\d+:\d+)\)\s*(?:invaded\s*\d+\s*-\s*|ambushed armies from\s*\d+\s*-\s*)(.+?)\s*\((\d+:\d+)\)\s*(?:and captured|and took)\s*(\d+)\s*acres/i
+  );
+
   if (!m) return null;
+
   return {
     type: "incoming_attack",
     attackerProvince: m[1].trim(),
     attackerKingdom: m[2],
     targetProvince: m[3].trim(),
     targetKingdom: m[4],
-    acresCaptured: parseInt(m[5]),
+    acresCaptured: parseInt(m[5], 10),
   };
 }
 
