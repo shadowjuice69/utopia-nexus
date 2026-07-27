@@ -82,6 +82,20 @@ function parseAttackLine(line) {
   };
 }
 
+function parseKdNewsLine(line) {
+  // Format: "NEW KDNEWS: 8 - The Raspberry Rod Stewart (1:2) invaded 23 - Ochyrocera Laracna (3:2) and captured 80 acres of land. [ochyrocera laracna]"
+  const m = line.match(/NEW KDNEWS:.*?-\s*(.+?)\s*\((\d+:\d+)\)\s*invaded\s*\d+\s*-\s*(.+?)\s*\((\d+:\d+)\)\s*and captured (\d+) acres/i);
+  if (!m) return null;
+  return {
+    type: "incoming_attack",
+    attackerProvince: m[1].trim(),
+    attackerKingdom: m[2],
+    targetProvince: m[3].trim(),
+    targetKingdom: m[4],
+    acresCaptured: parseInt(m[5]),
+  };
+}
+
 function parseOpsMessage(msgObj) {
   const ops = [];
   const atks = [];
@@ -107,7 +121,18 @@ function parseOpsMessage(msgObj) {
     }
   }
 
-  return { ops, atks, spells };
+  // Parse KDNEWS incoming attacks
+  const incomingAtks = [];
+  for (const line of lines) {
+    const kdnews = parseKdNewsLine(line);
+    if (kdnews) {
+      kdnews.msgId = msgObj.id;
+      kdnews.timestamp = msgObj.timestamp;
+      incomingAtks.push(kdnews);
+    }
+  }
+
+  return { ops, atks, spells, incomingAtks };
 }
 
 module.exports = { parseOpLine, parseAttackLine, parseOpsMessage };

@@ -120,6 +120,7 @@ module.exports = {
 
     console.log(`[OPS PARSED] ${parsed.ops.length} ops, ${parsed.atks.length} attacks, ${parsed.spells.length} spells`);
     for (const attack of parsed.atks) await saveAttack(attack);
+          for (const attack of (parsed.incomingAtks || [])) await saveAttack({ ...attack, attack_type: "incoming" });
     for (const op of parsed.ops) await saveHostileOp(op);
     for (const spell of parsed.spells) await saveSpell(spell);
 
