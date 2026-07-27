@@ -206,10 +206,12 @@ async function saveIntel(parsed, prov) {
       }, { onConflict: "province" });
       if (sciErr) console.error("[SCIENCE SAVE ERROR]", sciErr.message);
     } else if (parsed.type === "som") {
-      await sb.from("intel_military").upsert({
+      console.log("[MIL DATA]", JSON.stringify(parsed.data).substring(0, 200));
+      const { error: milErr } = await sb.from("intel_military").upsert({
         province: prov, kd_code: parsed.kd, ...parsed.data,
         updated_at: new Date().toISOString()
       }, { onConflict: "province,kd_code" });
+      if (milErr) console.error("[MIL SAVE ERROR]", milErr.message);
     } else if (parsed.type === "survey") {
       console.log("[SURVEY DATA]", JSON.stringify(parsed.data).substring(0, 200));
       const { error: bldErr } = await sb.from("intel_buildings").upsert({
