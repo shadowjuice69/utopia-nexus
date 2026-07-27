@@ -247,7 +247,13 @@ function start() {
 
     if (req.method === "POST" && req.url === "/intel") {
       try {
-        const raw = await readBody(req);
+        let raw;
+          try {
+            raw = await readBody(req);
+          } catch(bodyErr) {
+            logger.error(`[INTEL RECEIVER] aborted: ${bodyErr.message}`);
+            res.writeHead(200); res.end(JSON.stringify({success:true})); return;
+          }
         const params = new URLSearchParams(raw);
         const key = params.get("key") || "";
         const data_simple = params.get("data_simple") || "";
