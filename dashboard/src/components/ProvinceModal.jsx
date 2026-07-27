@@ -1,3 +1,4 @@
+import { supabase } from "../services/supabase";
 import { useEffect, useState } from "react";
 import { getProvinceAttackStatus } from "../services/attackService";
 
@@ -24,7 +25,16 @@ function ProvinceModal({ province, onClose }) {
 
   if (!province) return null;
 
-  const buildings = province.buildings || {};
+  const [buildings, setBuildings] = useState(province.buildings || {});
+
+  useEffect(() => {
+    if (!province.name) return;
+    supabase.from("intel_buildings").select("buildings, updated_at")
+      .ilike("province", province.name).limit(1)
+      .then(({ data }) => {
+        if (data && data[0]?.buildings) setBuildings(data[0].buildings);
+      });
+  }, [province.name]);
   const science = province.science || {};
 
   const BUILDING_ICONS = {
