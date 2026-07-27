@@ -198,6 +198,37 @@ const commands = [
       },
       { name: "roster", description: "View all registered kingdom members", type: 1 },
       {
+        name: "admins",
+        description: "List current admins",
+        type: 1
+      },
+      {
+        name: "addadmin",
+        description: "Add an admin (Owner only)",
+        type: 1,
+        options: [
+          {
+            name: "user",
+            description: "User to make admin",
+            type: 6,
+            required: true
+          }
+        ]
+      },
+      {
+        name: "removeadmin",
+        description: "Remove an admin (Owner only)",
+        type: 1,
+        options: [
+          {
+            name: "user",
+            description: "User to remove",
+            type: 6,
+            required: true
+          }
+        ]
+      },
+      {
         name: "setkingdom",
         description: "Update kingdom name and code (Admin only)",
         type: 1,
