@@ -25,8 +25,9 @@ module.exports = {
     const db = database.getDb();
     const admins = db.get("admins").value() || [];
 
-    db.assign({
-      admins: admins.filter(id => id !== userId),
-    }).write();
+    db.set(
+      "admins",
+      admins.filter(id => id !== userId)
+    ).write();
   },
 };
