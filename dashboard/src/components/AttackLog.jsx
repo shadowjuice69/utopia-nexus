@@ -202,6 +202,10 @@ export default function AttackLog() {
                     <StatPill label="Peasants" value={parseInt(a.peasants) || 0} color="#4ade80" />
                     <StatPill label="Troops Lost" value={parseInt(a.troops_lost) || 0} color="#ef4444" />
                     <StatPill label="Off Sent" value={parseInt(a.off_sent || a.offense_sent) || 0} color="#94a3b8" />
+                    <StatPill label="Buildings" value={parseInt(a.buildings_survived) || 0} color="#22c55e" />
+                    <StatPill label="Credits" value={parseInt(a.training_credits) || 0} color="#eab308" />
+                    <StatPill label="New Peasants" value={parseInt(a.peasants_gained) || 0} color="#4ade80" />
+                    <StatPill label="Sent" value={parseInt(a.sent) || 0} color="#94a3b8" />
                   </div>
                 </div>
               );
