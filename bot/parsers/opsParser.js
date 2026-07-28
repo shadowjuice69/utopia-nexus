@@ -109,7 +109,7 @@ function parseOpsMessage(msgObj) {
   const spells = [];
   const incomingAtks = [];
 
-  if (!msgObj || !msgObj.content) return { ops, atks, spells };
+  if (!msgObj || !msgObj.content) return { ops, atks, spells, incomingAtks };
 
   for (const line of msgObj.content.split("\n")) {
     const attack = parseAttackLine(line);
