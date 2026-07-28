@@ -220,11 +220,23 @@ console.log("[THIEVERY DEBUG]", {
 
     // Try to find existing province or create new one
     if (supabase && parsed.name) {
-      const { data: existing } = await supabase
+      let existing = null;
+
+      // Match existing province by name + coordinates first
+      let lookup = supabase
         .from("provinces")
-        .select("id, name")
-        .ilike("name", parsed.name)
-        .limit(1);
+        .select("id, name, coordinates")
+        .ilike("name", parsed.name);
+
+      if (parsed.coordinates) {
+        lookup = lookup.eq("coordinates", parsed.coordinates);
+      }
+
+      const { data: found } = await lookup.limit(1);
+
+      if (found && found.length > 0) {
+        existing = found[0];
+      }
 
       const updateData = {
         name: parsed.name,
