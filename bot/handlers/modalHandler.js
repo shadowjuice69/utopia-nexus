@@ -66,11 +66,32 @@ module.exports = async function modalHandler(interaction) {
           play_role: user._reg_play_role,
           timezone,
           wave_times: waveTimes,
-          discord_id: interaction.user.id,
           updated_at: new Date().toISOString()
         }, { onConflict: "user_id" });
 
-      if (error) console.error("[REGISTER SUPABASE ERROR]", error.message);
+      if (error) {
+        console.error("[REGISTER SUPABASE ERROR]", error.message);
+        return interaction.reply({
+          content: "❌ Registration failed. Please try again or contact an admin.",
+          flags: MessageFlags.Ephemeral,
+        });
+      }
+
+      const { data: verify } = await supabase
+        .from("provinces")
+        .select("user_id, discord_id")
+        .eq("user_id", interaction.user.id)
+        .single();
+
+      if (!verify || verify.user_id !== interaction.user.id || verify.discord_id !== interaction.user.id) {
+        console.error("[REGISTER VERIFY FAILED]", verify);
+        return interaction.reply({
+          content: "❌ Registration verification failed. Please try again.",
+          flags: MessageFlags.Ephemeral,
+        });
+      }
+
+      console.log("[REGISTER VERIFIED]", interaction.user.id);
     }
 
     return interaction.reply({
