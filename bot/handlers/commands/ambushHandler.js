@@ -1,5 +1,6 @@
 const { EmbedBuilder } = require("discord.js");
 const { getKingdomInfo } = require("../../services/kingdomService");
+const supabaseService = require("../../services/supabase");
 
 // Age 116 WoL race unit values - defense values used in ambush
 const RACE_UNITS = {
@@ -26,6 +27,25 @@ module.exports = async function ambushHandler(interaction) {
   const offspecs = interaction.options.getInteger("offspecs") || 0;
 
   const units = RACE_UNITS[race];
+
+  let eliteBonus = 0;
+  let defSpecBonus = 0;
+
+  const supabase = supabaseService.getClient();
+
+  const { data: clericMods } = await supabase
+    .from("personality_modifiers")
+    .select("*")
+    .eq("personality_name", "The Cleric")
+    .eq("age_number", 116);
+
+  for (const mod of clericMods || []) {
+    if (mod.modifier_type === "elite_def_value") eliteBonus = Number(mod.value);
+    if (mod.modifier_type === "def_spec_strength") defSpecBonus = Number(mod.value);
+  }
+
+  const eliteDef = units.eliteDef + eliteBonus;
+  const defSpecDef = units.defSpecDef + defSpecBonus;
   if (!units) {
     return interaction.reply({
       content: `❌ Unknown race: ${race}. Valid races: ${RACE_CHOICES.join(", ")}`,
@@ -39,8 +59,8 @@ module.exports = async function ambushHandler(interaction) {
   // Soldiers defend at racial soldier OFFENSE value (3) — NOT defense
   // Horses do NOT defend in ambush
   const ambushDef =
-    (elites * units.eliteDef) +
-    (offspecs * units.defSpecDef) +
+    (elites * eliteDef) +
+    (offspecs * defSpecDef) +
     (soldiers * units.soldierOff);
 
   const minRawOff = Math.ceil(ambushDef * 0.80);
@@ -55,8 +75,8 @@ module.exports = async function ambushHandler(interaction) {
       {
         name: "🛡️ Enemy Army (Ambush Defense)",
         value: [
-          `Elites: **${elites.toLocaleString()}** × ${units.eliteDef} def = **${(elites * units.eliteDef).toLocaleString()}**`,
-          `Off Specs: **${offspecs.toLocaleString()}** × ${units.defSpecDef} (def spec value) = **${(offspecs * units.defSpecDef).toLocaleString()}**`,
+          `Elites: **${elites.toLocaleString()}** × ${eliteDef} def = **${(elites * eliteDef).toLocaleString()}**`,
+          `Off Specs: **${offspecs.toLocaleString()}** × ${defSpecDef} (def spec value) = **${(offspecs * defSpecDef).toLocaleString()}**`,
           `Soldiers: **${soldiers.toLocaleString()}** × 3 (soldier OFF value) = **${(soldiers * 3).toLocaleString()}**`,
           `⚠️ Horses: NOT counted in ambush defense`,
           `\n**Total Ambush Defense: ${ambushDef.toLocaleString()}**`,
