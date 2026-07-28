@@ -1,7 +1,7 @@
 const { EmbedBuilder } = require("discord.js");
 const { getKingdomInfo } = require("../../services/kingdomService");
 
-// Age 116 WoL race unit values - defense values used in ambush
+// Age 116 WoL race unit values
 const RACE_UNITS = {
   avian:    { eliteDef: 2,  defSpecDef: 10, soldierOff: 3 },
   darkelf:  { eliteDef: 2,  defSpecDef: 12, soldierOff: 3 },
@@ -19,7 +19,7 @@ const RACE_CHOICES = Object.keys(RACE_UNITS);
 
 module.exports = async function ambushHandler(interaction) {
   const kd = await getKingdomInfo();
-  console.log("[AMBUSH KD]", kd);
+
   const race = interaction.options.getString("race").toLowerCase();
   const elites = interaction.options.getInteger("elites") || 0;
   const defspecs = interaction.options.getInteger("defspecs") || 0;
@@ -28,10 +28,6 @@ module.exports = async function ambushHandler(interaction) {
 
   const units = RACE_UNITS[race];
 
-  
-  const eliteDef = units.eliteDef;
-  const defSpecDef = units.defSpecDef;
-
   if (!units) {
     return interaction.reply({
       content: `❌ Unknown race: ${race}. Valid races: ${RACE_CHOICES.join(", ")}`,
@@ -39,62 +35,40 @@ module.exports = async function ambushHandler(interaction) {
     });
   }
 
-  // Ambush defense formula:
-  // Elites defend at their Elite Defense value
-  // Off Specs defend at their RACE'S Def Spec value (not their offense value)
-  // Soldiers defend at racial soldier OFFENSE value (3) — NOT defense
-  // Horses do NOT defend in ambush
   const ambushDef =
-    (elites * eliteDef) +
-    (offspecs * defSpecDef) +
+    (elites * units.eliteDef) +
+    (offspecs * units.defSpecDef) +
     (soldiers * units.soldierOff);
 
   const minRawOff = Math.ceil(ambushDef * 0.80);
-  const safeOff = minRawOff + 100; // +100 flat buffer recommended
+  const safeOff = minRawOff + 100;
 
   const raceName = race.charAt(0).toUpperCase() + race.slice(1);
 
   const embed = new EmbedBuilder()
     .setTitle(`⚡ Ambush Calculator — ${raceName}`)
-    .setColor(0xf5c542)
     .addFields(
       {
-        name: "🛡️ Enemy Army (Ambush Defense)",
+        name: "🛡️ Ambush Defense",
         value: [
-          `Elites: **${elites.toLocaleString()}** × ${eliteDef} def = **${(elites * eliteDef).toLocaleString()}**`,
-          `Off Specs: **${offspecs.toLocaleString()}** × ${defSpecDef} (def spec value) = **${(offspecs * defSpecDef).toLocaleString()}**`,
-          `Soldiers: **${soldiers.toLocaleString()}** × 3 (soldier OFF value) = **${(soldiers * 3).toLocaleString()}**`,
-          `⚠️ Horses: NOT counted in ambush defense`,
-          `\n**Total Ambush Defense: ${ambushDef.toLocaleString()}**`,
-        ].join("\n"),
-        inline: false
+          `Elites: **${elites.toLocaleString()}** × ${units.eliteDef} = **${(elites * units.eliteDef).toLocaleString()}**`,
+          `Off Specs: **${offspecs.toLocaleString()}** × ${units.defSpecDef} = **${(offspecs * units.defSpecDef).toLocaleString()}**`,
+          `Soldiers: **${soldiers.toLocaleString()}** × ${units.soldierOff} = **${(soldiers * units.soldierOff).toLocaleString()}**`,
+          `\n**Total Ambush Defense: ${ambushDef.toLocaleString()}**`
+        ].join("\n")
       },
       {
-        name: "⚔️ Minimum Raw Offense Needed",
+        name: "⚔️ Required Offense",
         value: [
-          `Formula: ${ambushDef.toLocaleString()} × 0.80 = **${minRawOff.toLocaleString()}**`,
-          `With +100 safety buffer: **${safeOff.toLocaleString()}**`,
-        ].join("\n"),
-        inline: false
-      },
-      {
-        name: "📋 Ambush Rules (Age 116)",
-        value: [
-          "✅ Gains: 50% of enemy acres returned",
-          "✅ Unaffected by all gains modifiers",
-          "✅ Only 1 General counts for offense",
-          "⚠️ +15% Military Casualties for attacker",
-          "⚠️ Off Specs defend at DEF SPEC value, not their offense value",
-          "⚠️ Soldiers defend at OFFENSE value (3), not defense (0)",
-          "⚠️ Horses do NOT defend",
-          "⚠️ Cannot ambush if target used Anonymity or War Spoils",
-          "⚠️ Army can only be ambushed ONCE",
-          "💡 Aggression spell on YOUR province adds +2 to soldier offense value",
-        ].join("\n"),
-        inline: false
+          `80% minimum: **${minRawOff.toLocaleString()}**`,
+          `+100 buffer: **${safeOff.toLocaleString()}**`
+        ].join("\n")
       }
     )
     .setFooter({ text: kd.footer });
 
-  return interaction.reply({ embeds: [embed], ephemeral: true });
+  return interaction.reply({
+    embeds: [embed],
+    ephemeral: true
+  });
 };
