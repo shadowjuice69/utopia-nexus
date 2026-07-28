@@ -223,16 +223,11 @@ console.log("[THIEVERY DEBUG]", {
       let existing = null;
 
       // Match existing province by name + coordinates first
-      let lookup = supabase
+      const { data: found } = await supabase
         .from("provinces")
         .select("id, name, coordinates")
-        .ilike("name", parsed.name);
-
-      if (parsed.coordinates) {
-        lookup = lookup.eq("coordinates", parsed.coordinates);
-      }
-
-      const { data: found } = await lookup.limit(1);
+        .ilike("name", parsed.name)
+        .limit(1);
 
       if (found && found.length > 0) {
         existing = found[0];
