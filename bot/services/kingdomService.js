@@ -13,7 +13,12 @@ async function getKingdomInfo() {
   const { data } = await supabase
     .from("bot_settings")
     .select("key, value")
-    .in("key", ["kingdom_name", "kingdom_code", "current_age"]);
+    .in("key", [
+      "kingdom_name",
+      "kingdom_code",
+      "current_age",
+      "kingdom_personality"
+    ]);
 
   if (!data) return { name: "Judo", code: "4:9", age: "116" };
 
@@ -23,7 +28,8 @@ async function getKingdomInfo() {
   cache = {
     name: settings.kingdom_name || "Judo",
     code: settings.kingdom_code || "4:9",
-    age:  settings.current_age  || "116",
+    age: settings.current_age || "116",
+    personality: settings.kingdom_personality || "The Cleric",
     footer: `${settings.kingdom_name || "Judo"} Kingdom (${settings.kingdom_code || "4:9"}) • WoL Age ${settings.current_age || "116"} • Utopia Nexus`,
   };
   cacheTime = Date.now();
