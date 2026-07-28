@@ -58,6 +58,7 @@ module.exports = async function modalHandler(interaction) {
         .from("provinces")
         .upsert({
           user_id: interaction.user.id,
+          discord_id: interaction.user.id,
           name: user.province,
           coordinates: user.coordinates,
           race: user._reg_race,
