@@ -2,6 +2,7 @@ const http = require("http");
 const supabaseService = require("./supabase");
 const logger = require("./logger");
 const { parseThrone } = require("../parsers/throneParser");
+const { parseKingdom } = require("../parsers/kingdomParser");
 
 const INTEL_KEY = process.env.INTEL_KEY || "";
 const PORT = parseInt(process.env.PORT || "3000", 10);
@@ -18,10 +19,14 @@ function readBody(req) {
 
 function parseIntel(url, prov, text) {
   const result = { url, prov, updated: new Date().toISOString() };
+  console.log("[DEBUG URL CHECK]", JSON.stringify(url), url.includes("kingdom_details"));
   const kdMatch = url.match(/kd[=\/](\d+:\d+)/) || text.match(/\((\d+:\d+)\)/);
   result.kd = kdMatch ? kdMatch[1] : MY_KD;
 
-  if (url.includes("throne")) {
+  if (url.includes("kingdom_details") || text.includes("The kingdom of") || text.includes("Total Provinces") || text.includes("Total Networth")) {
+    result.type = "kingdom";
+    result.data = parseKingdom(text);
+  } else if (url.includes("throne")) {
     result.type = "throne";
     const lines = text.split("\n").map(s => s.trim()).filter(Boolean);
     const get = (label) => {
@@ -226,6 +231,22 @@ async function saveIntel(parsed, prov) {
       }, { onConflict: "province,kd_code" });
       if (bldErr) console.error("[BUILDINGS SAVE ERROR]", bldErr.message);
     }
+
+    } else if (parsed.type === "kingdom") {
+      const { error: kdErr } = await sb.from("kingdoms").upsert({
+        kd_id: parsed.data.kd_code,
+        kd_name: parsed.data.kingdom_name,
+        kd_type: "enemy",
+        is_active: true,
+        updated_at: new Date().toISOString()
+      }, { onConflict: "kd_id" });
+
+      if (kdErr) {
+        logger.error(`[KINGDOM SAVE ERROR] ${kdErr.message}`);
+      } else {
+        logger.info(`[KINGDOM SAVED] ${parsed.data.kingdom_name}`);
+      }
+
     logger.info(`[INTEL SAVED] ${parsed.type} for ${prov}`);
   } catch(e) {
     logger.error(`[INTEL ERROR] ${e.message}`);
