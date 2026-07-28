@@ -129,9 +129,9 @@ function parseNewsLog(text) {
           source: 'news_log',
         });
       }
-      // invaded format
-      const m3 = cleanLine.match(/^(?:\d+\s*-\s*)?(.+?)\s*\((\d+:\d+)\)\s*invaded\s*\d+\s*-\s*(.+?)\s*\((\d+:\d+)\)\s*and captured\s*(\d+)/i);
-      if (m3) {
+      // invaded/ambushed format: "Attacker (kd) invaded/ambushed N - Target (kd) and captured/took N acres"
+      const m3 = cleanLine.match(/^(?:\d+\s*-\s*)?(.+?)\s*\((\d+:\d+)\)\s*(?:invaded|ambushed armies from)\s*(?:\d+\s*-\s*)?(.+?)\s*\((\d+:\d+)\)\s*and (?:captured|took)\s*(\d+)/i);
+      if (m3 && !m2) {
         results.attacks.push({
           attacker_province: m3[1].trim(),
           attacker_kingdom: m3[2],
