@@ -106,7 +106,7 @@ module.exports = async function commandHandler(interaction) {
       const { data } = await supabase
         .from("provinces")
         .select("id")
-        .eq("user_id", interaction.user.id)
+        .or(`user_id.eq.${interaction.user.id},discord_id.eq.${interaction.user.id}`)
         .limit(1);
       if (!data || data.length === 0) {
         return interaction.reply({
