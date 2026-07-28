@@ -115,15 +115,30 @@ function parseNewsLog(text) {
     );
     if (!kdMatch) {
       // Try: "X (kd) captured N acres from Y (kd)"
-      const m2 = line.match(/(.+?)\s*\((\d+:\d+)\)\s*captured\s*(\d+)\s*acres.*?from.*?(.+?)\s*\((\d+:\d+)\)/i);
+      // Clean line — strip date prefix "February X of YRX\t"
+      const cleanLine = line.replace(/^.+?YR\d+\s*\t/, '').trim();
+      const m2 = cleanLine.match(/^\d+\s*-\s*(.+?)\s*\((\d+:\d+)\)\s*captured\s*(\d+)\s*acres.*?from\s*\d+\s*-\s*(.+?)\s*\((\d+:\d+)\)/i);
       if (m2) {
         results.attacks.push({
-          attacker_province: m2[1].replace(/^\d+\s*-\s*/, '').trim(),
+          attacker_province: m2[1].trim(),
           attacker_kingdom: m2[2],
           acres_captured: parseInt(m2[3]),
-          target_province: m2[4].replace(/^\d+\s*-\s*/, '').trim(),
+          target_province: m2[4].trim(),
           target_kingdom: m2[5],
           attack_type: 'outgoing',
+          source: 'news_log',
+        });
+      }
+      // invaded format
+      const m3 = cleanLine.match(/^(?:\d+\s*-\s*)?(.+?)\s*\((\d+:\d+)\)\s*invaded\s*\d+\s*-\s*(.+?)\s*\((\d+:\d+)\)\s*and captured\s*(\d+)/i);
+      if (m3) {
+        results.attacks.push({
+          attacker_province: m3[1].trim(),
+          attacker_kingdom: m3[2],
+          target_province: m3[3].trim(),
+          target_kingdom: m3[4],
+          acres_captured: parseInt(m3[5]),
+          attack_type: 'incoming',
           source: 'news_log',
         });
       }
