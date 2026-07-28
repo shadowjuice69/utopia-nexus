@@ -1,6 +1,5 @@
 const { EmbedBuilder } = require("discord.js");
 const { getKingdomInfo } = require("../../services/kingdomService");
-const { getMilitaryModifiers, applyDefenseModifiers } = require("../../services/militaryCalculatorService");
 
 // Age 116 WoL race unit values - defense values used in ambush
 const RACE_UNITS = {
@@ -20,6 +19,7 @@ const RACE_CHOICES = Object.keys(RACE_UNITS);
 
 module.exports = async function ambushHandler(interaction) {
   const kd = await getKingdomInfo();
+  console.log("[AMBUSH KD]", kd);
   const race = interaction.options.getString("race").toLowerCase();
   const elites = interaction.options.getInteger("elites") || 0;
   const defspecs = interaction.options.getInteger("defspecs") || 0;
@@ -29,19 +29,8 @@ module.exports = async function ambushHandler(interaction) {
   const units = RACE_UNITS[race];
 
   
-  const modifiers = await getMilitaryModifiers({
-    race,
-    personality: kd.personality,
-    age: 116
-  });
-
-  const modifiedUnits = applyDefenseModifiers(
-    units,
-    modifiers
-  );
-
-  const eliteDef = modifiedUnits.eliteDef;
-  const defSpecDef = modifiedUnits.defSpecDef;
+  const eliteDef = units.eliteDef;
+  const defSpecDef = units.defSpecDef;
 
   if (!units) {
     return interaction.reply({
