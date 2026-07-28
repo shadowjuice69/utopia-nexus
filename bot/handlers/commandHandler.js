@@ -96,7 +96,28 @@ module.exports = async function commandHandler(interaction) {
   }
 
   const handler = ALL_COMMANDS[subcommand];
-  if (handler) return handler(interaction);
+  if (!handler) return interaction.reply({ content: `❌ Unknown command: ${subcommand}`, ephemeral: true });
+
+  // Allow register and help without registration check
+  const openCommands = ["register", "help", "roster"];
+  if (!openCommands.includes(subcommand)) {
+    const supabase = require("../services/supabase").getClient();
+    if (supabase) {
+      const { data } = await supabase
+        .from("provinces")
+        .select("id")
+        .eq("user_id", interaction.user.id)
+        .limit(1);
+      if (!data || data.length === 0) {
+        return interaction.reply({
+          content: "❌ You need to register first. Use `/utopia register` to get started.",
+          ephemeral: true,
+        });
+      }
+    }
+  }
+
+  return handler(interaction);
 
   return interaction.reply({ content: `❌ Unknown command: ${subcommand}`, ephemeral: true });
 };
