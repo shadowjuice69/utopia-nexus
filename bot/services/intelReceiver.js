@@ -230,7 +230,6 @@ async function saveIntel(parsed, prov) {
         updated_at: new Date().toISOString()
       }, { onConflict: "province,kd_code" });
       if (bldErr) console.error("[BUILDINGS SAVE ERROR]", bldErr.message);
-    }
 
     } else if (parsed.type === "kingdom") {
       const { error: kdErr } = await sb.from("kingdoms").upsert({
@@ -246,6 +245,7 @@ async function saveIntel(parsed, prov) {
       } else {
         logger.info(`[KINGDOM SAVED] ${parsed.data.kingdom_name}`);
       }
+    }
 
     logger.info(`[INTEL SAVED] ${parsed.type} for ${prov}`);
   } catch(e) {
