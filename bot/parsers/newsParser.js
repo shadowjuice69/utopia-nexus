@@ -106,6 +106,40 @@ function parseNewsLog(text) {
     }
   }
 
+  // Parse kingdom news attack format
+  // "February 1 of YR0	4 - Daddy Long Legs (3:2) captured 50 acres of land from 5 - Chillas (5:2)."
+  // "February 1 of YR0	8 - The Raspberry Rod Stewart (1:2) invaded 23 - Target (3:2) and captured 80 acres"
+  for (const line of lines) {
+    const kdMatch = line.match(
+      /\d+\s*-\s*(.+?)\s*\((\d+:\d+)\)\s*(?:captured \d+ acres of land from \d+\s*-\s*(.+?)\s*\((\d+:\d+)\)|invaded \d+\s*-\s*(.+?)\s*\((\d+:\d+)\) and captured)\s*(\d+)?\s*acres?/i
+    );
+    if (!kdMatch) {
+      // Try: "X (kd) captured N acres from Y (kd)"
+      const m2 = line.match(/(.+?)\s*\((\d+:\d+)\)\s*captured\s*(\d+)\s*acres.*?from.*?(.+?)\s*\((\d+:\d+)\)/i);
+      if (m2) {
+        results.attacks.push({
+          attacker_province: m2[1].replace(/^\d+\s*-\s*/, '').trim(),
+          attacker_kingdom: m2[2],
+          acres_captured: parseInt(m2[3]),
+          target_province: m2[4].replace(/^\d+\s*-\s*/, '').trim(),
+          target_kingdom: m2[5],
+          attack_type: 'outgoing',
+          source: 'news_log',
+        });
+      }
+      continue;
+    }
+    results.attacks.push({
+      attacker_province: kdMatch[1].trim(),
+      attacker_kingdom: kdMatch[2],
+      target_province: (kdMatch[3] || kdMatch[5] || '').trim(),
+      target_kingdom: kdMatch[4] || kdMatch[6],
+      acres_captured: kdMatch[7] ? parseInt(kdMatch[7]) : null,
+      attack_type: 'outgoing',
+      source: 'news_log',
+    });
+  }
+
   return results;
 }
 
@@ -126,7 +160,7 @@ async function saveNewsIntel(parsed, submittedBy) {
     try {
       const { error } = await supabase.from("attacks").insert({
         timestamp: new Date().toISOString(),
-        attacker_province: "Freaking A",
+        attacker_province: atk.attacker_province || null,
         target_province: atk.target_province,
         target_kingdom: atk.target_kingdom,
         acres_captured: atk.acres_captured || 0,
