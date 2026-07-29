@@ -17,8 +17,8 @@ function parseThrone(text) {
     if (line.includes("Military Training Estimates") || line.includes("Science Book Recovery Schedule") || line.includes("Exploration/Construction Schedules")) break; // Stop parsing here
     if (line.includes("Money") && line.includes("Peasants") && line.includes("Food")) continue;
 
-    // Duration/spells line
-    if (line.startsWith('Duration:') || line.match(/^(Love and Peace|Inspire Army|Town Watch|Greater Protection|Minor Protection|Bloodlust|Fanaticism|Patriotism|Mist|Wrath|Salvation|Anonymity)/i)) {
+    // Duration/spells line - match any 'Spell Name ( X days )' format
+    if (line.startsWith('Duration:') || line.match(/^[A-Z][A-Za-z\s']+ \( \d+ days? \)/)) {
       result.good_spells = (result.good_spells ? result.good_spells + ' · ' : '') + line.replace(/^Duration:\s*/i, '').trim();
       continue;
     }
