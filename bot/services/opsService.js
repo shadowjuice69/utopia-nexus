@@ -101,7 +101,7 @@ async function saveAttack(atk) {
       attacker_province: atk.attackerProvince,
       target_province: atk.targetProvince,
       target_kingdom: atk.targetKingdom,
-      attack_type: atk.attackType,
+      attack_type: atk.attack_type || atk.attackType,
       acres_captured: atk.acresCaptured,
       offense_sent: atk.offenseSent,
       peasants: atk.peasants,
