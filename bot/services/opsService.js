@@ -74,10 +74,11 @@ async function saveSpell(spell) {
     const { error } = await supabase.from("spell_events").insert({
       message_id: spell.msgId,
       timestamp: new Date().toISOString(),
-      caster_province: spell.attackerProvince,
-      target_province: spell.targetProvince,
-      target_kingdom: spell.targetKingdom,
-      spell_name: spell.op,
+      caster_province: spell.attackerProvince || null,
+      caster_kingdom: spell.attackerKingdom || null,
+      target_province: spell.targetProvince || null,
+      target_kingdom: spell.targetKingdom || null,
+      spell_name: spell.op || spell.spell || spell.spellName || spell.name,
       category: spell.category,
       success: spell.success,
       result_value: spell.resultValue
