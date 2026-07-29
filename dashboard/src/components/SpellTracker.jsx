@@ -68,12 +68,15 @@ function parseSpells(raw) {
 
 export default function SpellTracker() {
   const [provinces, setProvinces] = useState([]);
+  const [castLog, setCastLog] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all"); // all | friendly | hostile
+  const [view, setView] = useState("buffs"); // buffs | castlog
 
   useEffect(() => {
     fetchProvinces();
-    const interval = setInterval(fetchProvinces, 60000);
+    fetchCastLog();
+    const interval = setInterval(() => { fetchProvinces(); fetchCastLog(); }, 30000);
     return () => clearInterval(interval);
   }, []);
 
@@ -85,6 +88,15 @@ export default function SpellTracker() {
       .order("updated_at", { ascending: false });
     setProvinces(data || []);
     setLoading(false);
+  }
+
+  async function fetchCastLog() {
+    const { data } = await supabase
+      .from("spell_events")
+      .select("*")
+      .order("timestamp", { ascending: false })
+      .limit(100);
+    setCastLog(data || []);
   }
 
   const filtered = provinces.filter(p => {
@@ -103,6 +115,21 @@ export default function SpellTracker() {
   }, {});
   const topSpells = Object.entries(spellCounts).sort((a, b) => b[1] - a[1]).slice(0, 5);
 
+  function timeAgo(ts) {
+    const diff = Date.now() - new Date(ts).getTime();
+    const mins = Math.floor(diff / 60000);
+    const hrs = Math.floor(mins / 60);
+    if (hrs > 0) return `${hrs}h ago`;
+    if (mins > 0) return `${mins}m ago`;
+    return "just now";
+  }
+
+  const filteredCastLog = castLog.filter(s => {
+    if (filter === "friendly") return !s.target_kingdom;
+    if (filter === "hostile") return !!s.target_kingdom;
+    return true;
+  });
+
   if (loading) return <div className="loading">⏳ Loading Spell Tracker...</div>;
 
   return (
@@ -110,9 +137,22 @@ export default function SpellTracker() {
       <div className="panel">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 8 }}>
           <h2 style={{ margin: 0 }}>✨ Spell Tracker</h2>
-          <span style={{ color: "#475569", fontSize: 12 }}>Updates when throne intel is pasted</span>
+          <div style={{ display: "flex", gap: 6 }}>
+            {["buffs", "castlog"].map(v => (
+              <button key={v} onClick={() => setView(v)} style={{
+                padding: "4px 12px", borderRadius: 6, fontSize: 12,
+                border: `1px solid ${view === v ? "#6366f1" : "rgba(255,255,255,0.1)"}`,
+                background: view === v ? "rgba(99,102,241,0.2)" : "transparent",
+                color: view === v ? "#a5b4fc" : "#94a3b8", cursor: "pointer",
+              }}>
+                {v === "buffs" ? "🛡️ Active Buffs" : "📜 Cast Log"}
+              </button>
+            ))}
+          </div>
         </div>
 
+        {view === "buffs" && <>
+        {view === "buffs" && (<>
         {/* Top spells summary */}
         {topSpells.length > 0 && (
           <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" }}>
@@ -196,6 +236,55 @@ export default function SpellTracker() {
             })}
           </div>
         )}
+        </>
+        }
+      </>
+      )}
+      {view === "castlog" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          {filteredCastLog.length === 0 ? (
+            <p style={{ color: "#475569", textAlign: "center", padding: 32 }}>
+              No spell casts recorded yet.
+            </p>
+          ) : (
+            filteredCastLog.map((s, i) => {
+              const isHostile = !!s.target_kingdom;
+              const color = s.success ? (isHostile ? "#ef4444" : "#4ade80") : "#475569";
+              return (
+                <div key={i} style={{
+                  background: "rgba(255,255,255,0.02)",
+                  border: "1px solid rgba(255,255,255,0.06)",
+                  borderLeft: `3px solid ${color}`,
+                  borderRadius: 8, padding: "10px 14px",
+                }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div>
+                      <span style={{ color, fontWeight: 600, fontSize: 13 }}>
+                        {SPELL_EMOJI[s.spell_name?.toLowerCase()] || "✨"} {s.spell_name}
+                      </span>
+                      <span style={{ color: s.success ? "#4ade80" : "#ef4444", fontSize: 11, marginLeft: 8 }}>
+                        {s.success ? "✅" : "❌"}
+                      </span>
+                    </div>
+                    <span style={{ color: "#475569", fontSize: 11 }}>{timeAgo(s.timestamp)}</span>
+                  </div>
+                  <div style={{ color: "#94a3b8", fontSize: 12, marginTop: 4 }}>
+                    <span style={{ color: "#e2e8f0" }}>{s.caster_province}</span>
+                    {s.target_province && (
+                      <>
+                        <span style={{ color: "#475569", margin: "0 6px" }}>→</span>
+                        <span style={{ color: "#38bdf8" }}>{s.target_province}</span>
+                        {s.target_kingdom && <span style={{ color: "#475569", fontSize: 11, marginLeft: 4 }}>({s.target_kingdom})</span>}
+                      </>
+                    )}
+                    {s.result_value && <span style={{ color: "#facc15", marginLeft: 8 }}>+{s.result_value}</span>}
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      )}
       </div>
     </div>
   );
