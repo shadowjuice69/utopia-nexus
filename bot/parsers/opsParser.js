@@ -25,8 +25,7 @@ function classifyOp(op) {
 }
 
 function parseOpLine(line) {
-  line = cleanEmoji(line.trim());
-  const match = line.match(/^(.*?)\s+<<([^|]+?)\s*\|\s*(.*?)\s+\((\d+:\d+)\)>>\s*\|?\s*(.*)$/s);
+  const match = line.match(/^(.*?)\s+<<__(.+?)__\s+\*\*\|\s*(.*?)\s+\((\d+:\d+)\)\*\*>>\s*(.*)$/s);
   if (!match) return null;
 
   const attackerProvince = match[1].replace(/\s+\[[^\]]+\]/, "").replace(/\s+\S+#$/, "").trim();
