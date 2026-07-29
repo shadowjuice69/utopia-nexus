@@ -26,7 +26,7 @@ function classifyOp(op) {
 
 function parseOpLine(line) {
   line = cleanEmoji(line.trim());
-  const match = line.match(/^(.*?)\s+<<__(.+?)__\s+\*\*\|\s*(.*?)\s+\((\d+:\d+)\)\*\*>>\s*(.*)$/s);
+  const match = line.match(/^(.*?)\s+<<([^|]+?)\s*\|\s*(.*?)\s+\((\d+:\d+)\)>>\s*\|?\s*(.*)$/s);
   if (!match) return null;
 
   const attackerProvince = match[1].replace(/\s+\[[^\]]+\]/, "").replace(/\s+\S+#$/, "").trim();
@@ -34,7 +34,7 @@ function parseOpLine(line) {
   const targetProvince = match[3].trim();
   const targetKingdom = match[4];
   const resultText = match[5];
-  const result = resultText.match(/\*\*([\d,]+)\*\*/);
+  const result = resultText.match(/^(\d[\d,]*)/);
   const sent = resultText.match(/(\d+)\s+sent/);
   const thiefLoss = resultText.match(/-\s*(\d+)\s+thieves/);
   const wizardLoss = resultText.match(/-\s*(\d+)\s+wizards/);
