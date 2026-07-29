@@ -69,6 +69,7 @@ function parseSpells(raw) {
 export default function SpellTracker() {
   const [provinces, setProvinces] = useState([]);
   const [castLog, setCastLog] = useState([]);
+  const [spells, setSpells] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all"); // all | friendly | hostile
   const [view, setView] = useState("buffs"); // buffs | castlog
@@ -76,7 +77,8 @@ export default function SpellTracker() {
   useEffect(() => {
     fetchProvinces();
     fetchCastLog();
-    const interval = setInterval(() => { fetchProvinces(); fetchCastLog(); }, 30000);
+    fetchSpells();
+    const interval = setInterval(() => { fetchProvinces(); fetchCastLog(); fetchSpells(); }, 30000);
     return () => clearInterval(interval);
   }, []);
 
@@ -99,6 +101,16 @@ export default function SpellTracker() {
     setCastLog(data || []);
   }
 
+  async function fetchSpells() {
+    const { data } = await supabase
+      .from("spell_events")
+      .select("*")
+      .order("timestamp", { ascending: false })
+      .limit(100);
+
+    setSpells(data || []);
+  }
+
   const filtered = provinces.filter(p => {
     const spells = parseSpells(p.good_spells);
     if (spells.length === 0 && filter !== "all") return false;
@@ -108,7 +120,10 @@ export default function SpellTracker() {
   });
 
   // Summary
-  const allSpells = provinces.flatMap(p => parseSpells(p.good_spells));
+  const allSpells = spells.map(s => ({
+    normalized: s.spell_name.toLowerCase().replaceAll("_", " "),
+    name: s.spell_name
+  }));
   const spellCounts = allSpells.reduce((acc, s) => {
     acc[s.normalized] = (acc[s.normalized] || 0) + 1;
     return acc;
@@ -135,156 +150,79 @@ export default function SpellTracker() {
   return (
     <div className="intel-panel">
       <div className="panel">
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 8 }}>
-          <h2 style={{ margin: 0 }}>✨ Spell Tracker</h2>
-          <div style={{ display: "flex", gap: 6 }}>
-            {["buffs", "castlog"].map(v => (
-              <button key={v} onClick={() => setView(v)} style={{
-                padding: "4px 12px", borderRadius: 6, fontSize: 12,
-                border: `1px solid ${view === v ? "#6366f1" : "rgba(255,255,255,0.1)"}`,
-                background: view === v ? "rgba(99,102,241,0.2)" : "transparent",
-                color: view === v ? "#a5b4fc" : "#94a3b8", cursor: "pointer",
-              }}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+          <h2 style={{margin:0}}>✨ Spell Tracker</h2>
+          <div style={{display:"flex",gap:6}}>
+            {["buffs","castlog"].map(v => (
+              <button key={v} onClick={() => setView(v)}>
                 {v === "buffs" ? "🛡️ Active Buffs" : "📜 Cast Log"}
               </button>
             ))}
           </div>
         </div>
 
-        {view === "buffs" && <>
-        {view === "buffs" && (<>
-        {/* Top spells summary */}
-        {topSpells.length > 0 && (
-          <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" }}>
-            {topSpells.map(([name, count]) => (
-              <div key={name} style={{
-                background: "rgba(99,102,241,0.1)", border: "1px solid rgba(99,102,241,0.2)",
-                borderRadius: 20, padding: "4px 12px", fontSize: 12, color: "#a5b4fc",
-              }}>
-                {SPELL_EMOJI[name] || "✨"} {name} ×{count}
+        {view === "buffs" && (
+          <>
+            {topSpells.length > 0 && (
+              <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:16}}>
+                {topSpells.map(([name,count]) => (
+                  <div key={name}>
+                    {SPELL_EMOJI[name] || "✨"} {name} ×{count}
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            )}
+
+            <div style={{marginBottom:12}}>
+              {["all","friendly","hostile"].map(f => (
+                <button key={f} onClick={() => setFilter(f)}>
+                  {f === "friendly" ? "🛡️ Friendly" :
+                   f === "hostile" ? "💀 Hostile" : "All"}
+                </button>
+              ))}
+            </div>
+
+            {filtered.length === 0 ? (
+              <p>No spell data yet.</p>
+            ) : (
+              filtered.map(p => {
+                const spells = parseSpells(p.good_spells);
+                return (
+                  <div key={p.id} style={{marginBottom:8}}>
+                    <b>{p.name}</b>
+                    <div>
+                      {spells.map((s,i) => (
+                        <span key={i} style={{marginRight:8}}>
+                          {SPELL_EMOJI[s.normalized] || "✨"} {s.name}
+                          {s.days ? ` (${s.days}d)` : ""}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </>
         )}
 
-        {/* Filters */}
-        <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-          {["all", "friendly", "hostile"].map(f => (
-            <button key={f} onClick={() => setFilter(f)} style={{
-              padding: "4px 12px", borderRadius: 6,
-              border: `1px solid ${filter === f ? "#6366f1" : "rgba(255,255,255,0.1)"}`,
-              background: filter === f ? "rgba(99,102,241,0.2)" : "transparent",
-              color: filter === f ? "#a5b4fc" : "#94a3b8",
-              cursor: "pointer", fontSize: 12, textTransform: "capitalize",
-            }}>
-              {f === "friendly" ? "🛡️ Friendly" : f === "hostile" ? "💀 Hostile" : "All"}
-            </button>
-          ))}
-        </div>
-
-        {/* Province spell cards */}
-        {filtered.length === 0 ? (
-          <p style={{ color: "#475569", textAlign: "center", padding: 32 }}>
-            No spell data yet. Paste throne intel via /utopia intel.
-          </p>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {filtered.map(p => {
-              const spells = parseSpells(p.good_spells);
-              const updated = new Date(p.updated_at);
-              const ageHrs = Math.floor((Date.now() - updated) / 3600000);
-              return (
-                <div key={p.id} style={{
-                  background: "rgba(255,255,255,0.02)",
-                  border: "1px solid rgba(255,255,255,0.06)",
-                  borderRadius: 8, padding: "12px 14px",
-                }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                    <div>
-                      <span style={{ color: "#e2e8f0", fontWeight: 600 }}>{p.name}</span>
-                      {p.race && <span style={{ color: "#475569", fontSize: 12, marginLeft: 8 }}>{p.race}</span>}
-                      {p.kd_code && <span style={{ color: "#374151", fontSize: 11, marginLeft: 6 }}>({p.kd_code})</span>}
-                    </div>
-                    <span style={{ color: ageHrs > 24 ? "#ef4444" : "#475569", fontSize: 11 }}>
-                      {ageHrs > 0 ? `${ageHrs}h ago` : "just now"}
-                      {ageHrs > 24 && " ⚠️"}
-                    </span>
-                  </div>
-
-                  {spells.length === 0 ? (
-                    <span style={{ color: "#374151", fontSize: 12 }}>No active spells</span>
-                  ) : (
-                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                      {spells.map((s, i) => {
-                        const isHostile = HOSTILE_SPELLS.has(s.normalized);
-                        const isFriendly = FRIENDLY_SPELLS.has(s.normalized);
-                        const color = isHostile ? "#ef4444" : isFriendly ? "#4ade80" : "#94a3b8";
-                        return (
-                          <div key={i} style={{
-                            background: `${color}15`, border: `1px solid ${color}40`,
-                            borderRadius: 6, padding: "4px 10px", fontSize: 12, color,
-                          }}>
-                            {SPELL_EMOJI[s.normalized] || "✨"} {s.name}
-                            {s.days && <span style={{ color: `${color}99`, marginLeft: 4 }}>({s.days}d)</span>}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
+        {view === "castlog" && (
+          <>
+            {filteredCastLog.length === 0 ? (
+              <p>No spell casts recorded yet.</p>
+            ) : (
+              filteredCastLog.map((s,i) => (
+                <div key={i} style={{marginBottom:8}}>
+                  {SPELL_EMOJI[s.spell_name?.toLowerCase()] || "✨"} {s.spell_name}
+                  {" "}
+                  {s.success ? "✅" : "❌"}
+                  {" "}
+                  {s.caster_province}
+                  {s.target_province ? ` → ${s.target_province}` : ""}
                 </div>
-              );
-            })}
-          </div>
+              ))
+            )}
+          </>
         )}
-        </>
-        }
-      </>
-      )}
-      {view === "castlog" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          {filteredCastLog.length === 0 ? (
-            <p style={{ color: "#475569", textAlign: "center", padding: 32 }}>
-              No spell casts recorded yet.
-            </p>
-          ) : (
-            filteredCastLog.map((s, i) => {
-              const isHostile = !!s.target_kingdom;
-              const color = s.success ? (isHostile ? "#ef4444" : "#4ade80") : "#475569";
-              return (
-                <div key={i} style={{
-                  background: "rgba(255,255,255,0.02)",
-                  border: "1px solid rgba(255,255,255,0.06)",
-                  borderLeft: `3px solid ${color}`,
-                  borderRadius: 8, padding: "10px 14px",
-                }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <div>
-                      <span style={{ color, fontWeight: 600, fontSize: 13 }}>
-                        {SPELL_EMOJI[s.spell_name?.toLowerCase()] || "✨"} {s.spell_name}
-                      </span>
-                      <span style={{ color: s.success ? "#4ade80" : "#ef4444", fontSize: 11, marginLeft: 8 }}>
-                        {s.success ? "✅" : "❌"}
-                      </span>
-                    </div>
-                    <span style={{ color: "#475569", fontSize: 11 }}>{timeAgo(s.timestamp)}</span>
-                  </div>
-                  <div style={{ color: "#94a3b8", fontSize: 12, marginTop: 4 }}>
-                    <span style={{ color: "#e2e8f0" }}>{s.caster_province}</span>
-                    {s.target_province && (
-                      <>
-                        <span style={{ color: "#475569", margin: "0 6px" }}>→</span>
-                        <span style={{ color: "#38bdf8" }}>{s.target_province}</span>
-                        {s.target_kingdom && <span style={{ color: "#475569", fontSize: 11, marginLeft: 4 }}>({s.target_kingdom})</span>}
-                      </>
-                    )}
-                    {s.result_value && <span style={{ color: "#facc15", marginLeft: 8 }}>+{s.result_value}</span>}
-                  </div>
-                </div>
-              );
-            })
-          )}
-        </div>
-      )}
       </div>
     </div>
   );

@@ -30,7 +30,11 @@ async function saveNewsSpell(spell) {
     success: spell.success,
     result_value: spell.duration_days,
     category: "news",
-    raw_text: spell.raw_text
+
+    caster_province: spell.caster_province || null,
+    target_province: spell.target_province || null,
+    caster_kingdom: spell.caster_kingdom || null,
+    target_kingdom: spell.target_kingdom || null
   });
 
   if (error) logger.error(`[NEWS SPELL ERROR] ${error.message}`);
