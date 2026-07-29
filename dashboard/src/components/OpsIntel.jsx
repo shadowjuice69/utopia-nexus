@@ -165,7 +165,7 @@ export default function OpsIntel() {
             </button>
           ))}
           <div style={{ width: 1, background: "rgba(255,255,255,0.1)" }} />
-          {["all", "thievery", "sorcery"].map(f => (
+          {["all", "thievery"].map(f => (
             <button key={f} onClick={() => setFilter(f)} style={{
               padding: "4px 10px", borderRadius: 6,
               border: `1px solid ${filter === f ? CATEGORY_COLOR[f] || "#6366f1" : "rgba(255,255,255,0.1)"}`,
