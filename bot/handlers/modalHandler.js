@@ -54,20 +54,51 @@ module.exports = async function modalHandler(interaction) {
     await db.write();
 
     if (supabase) {
-      const { error } = await supabase
+      // Try to find existing CSV-imported row by name (no user_id yet)
+      const { data: existing } = await supabase
         .from("provinces")
-        .upsert({
-          user_id: interaction.user.id,
-          discord_id: interaction.user.id,
-          name: user.province,
-          coordinates: user.coordinates,
-          race: user._reg_race,
-          personality: user._reg_personality,
-          play_role: user._reg_play_role,
-          timezone,
-          wave_times: waveTimes,
-          updated_at: new Date().toISOString()
-        }, { onConflict: "user_id" });
+        .select("id, name, user_id")
+        .ilike("name", user.province.trim())
+        .is("user_id", null)
+        .limit(1);
+
+      let error;
+      if (existing && existing.length > 0) {
+        console.log("[REGISTER] Found existing row by name, updating:", existing[0].id);
+        const result = await supabase
+          .from("provinces")
+          .update({
+            user_id: interaction.user.id,
+            discord_id: interaction.user.id,
+            name: user.province,
+            coordinates: user.coordinates,
+            race: user._reg_race,
+            personality: user._reg_personality,
+            play_role: user._reg_play_role,
+            timezone,
+            wave_times: waveTimes,
+            updated_at: new Date().toISOString()
+          })
+          .eq("id", existing[0].id);
+        error = result.error;
+      } else {
+        console.log("[REGISTER] No existing row found, upserting by user_id");
+        const result = await supabase
+          .from("provinces")
+          .upsert({
+            user_id: interaction.user.id,
+            discord_id: interaction.user.id,
+            name: user.province,
+            coordinates: user.coordinates,
+            race: user._reg_race,
+            personality: user._reg_personality,
+            play_role: user._reg_play_role,
+            timezone,
+            wave_times: waveTimes,
+            updated_at: new Date().toISOString()
+          }, { onConflict: "user_id" });
+        error = result.error;
+      }
 
       if (error) {
         console.error("[REGISTER SUPABASE ERROR]", error.message);
