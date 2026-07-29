@@ -1,6 +1,6 @@
 function cleanEmoji(line) {
   return line
-    .replace(/^:[^:]+::[^:]+:\s*/g, "")
+    .replace(/^(:[^:]+:\s*)+/g, "")
     .replace(/^[\p{Emoji}\uFE0F\u200D]+/gu, "")
     .trim();
 }
