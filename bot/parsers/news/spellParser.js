@@ -58,7 +58,9 @@ function parseSpells(lines) {
       text.includes("magic shield") ||
       text.includes("mist shrouds")
     ) {
-      results.push(parseSpell(text, line.date));
+      const spell = parseSpell(text, line.date);
+      console.log("[SPELL RAW]", text);
+      results.push(spell);
     }
   }
 
