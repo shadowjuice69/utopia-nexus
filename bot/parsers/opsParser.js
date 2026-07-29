@@ -118,6 +118,7 @@ function parseSelfSpellLine(line) {
     .replace(/:[^:\s]+:/g, "")
     .replace(/\s+\[[^\]]+\]/, "")
     .replace(/\s+\S+#$/, "")
+    .replace(/\s+([a-z]+(?:[-\s][a-z]+)*)$/i, "")
     .trim();
 
   const spell = match[2].toLowerCase().trim();
