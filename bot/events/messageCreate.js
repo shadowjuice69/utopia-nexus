@@ -97,8 +97,10 @@ module.exports = {
 
     const isOpsChannel = config.opsChannelIds.includes(message.channel.id);
     const isAttackChannel = config.attackChannelIds.includes(message.channel.id);
+    const isSelfOpsChannel = config.selfOpsChannelIds.includes(message.channel.id);
+    const isBotSpamChannel = message.channel.id === config.botSpamChannelId;
 
-    if (!isOpsChannel && !isAttackChannel) return;
+    if (!isOpsChannel && !isAttackChannel && !isSelfOpsChannel && !isBotSpamChannel) return;
 
     if (message.author.bot) {
       if (!UTOPIABOT_IDS.has(message.author.id)) return;
@@ -122,6 +124,7 @@ module.exports = {
           for (const attack of (parsed.incomingAtks || [])) await saveAttack({ ...attack, attack_type: "incoming" });
     for (const op of parsed.ops) await saveHostileOp(op);
     for (const spell of parsed.spells) await saveSpell(spell);
+    for (const spell of (parsed.selfSpells || [])) await saveSpell({ ...spell, op: spell.spell });
 
     await saveOpsMessage({ msgId: message.id, message: message.content });
 

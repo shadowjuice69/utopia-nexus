@@ -102,11 +102,37 @@ function parseKdNewsLine(line) {
   };
 }
 
+
+function parseSelfSpellLine(line) {
+  line = cleanEmoji(line.trim());
+  // Format: Province slug# <<spell_name>> result | % guilds (BE (m.X))
+  // or:     Province slug# <<spell_name>> FAIL | % guilds (BE (m.X))
+  const match = line.match(/^(.*?)\s+<<([^>]+)>>\s*(FAIL|\d+)?\s*\|?\s*(.*)$/s);
+  if (!match) return null;
+
+  const casterProvince = match[1].replace(/\s+\S+#$/, "").trim();
+  const spell = match[2].toLowerCase().trim();
+  const resultRaw = match[3] || "";
+  const success = resultRaw !== "FAIL";
+  const resultValue = success && resultRaw ? parseInt(resultRaw) : null;
+
+  return {
+    type: "self_spell",
+    category: "sorcery",
+    spell,
+    casterProvince,
+    targetProvince: null,
+    targetKingdom: null,
+    success,
+    resultValue,
+  };
+}
 function parseOpsMessage(msgObj) {
   const ops = [];
   const atks = [];
   const spells = [];
   const incomingAtks = [];
+  const selfSpells = [];
 
   if (!msgObj || !msgObj.content) return { ops, atks, spells, incomingAtks };
 
@@ -125,6 +151,14 @@ function parseOpsMessage(msgObj) {
       op.timestamp = msgObj.timestamp;
       if (op.category === "sorcery") spells.push(op);
       else ops.push(op);
+      continue;
+    }
+
+    const selfSpell = parseSelfSpellLine(line);
+    if (selfSpell) {
+      selfSpell.msgId = msgObj.id;
+      selfSpell.timestamp = msgObj.timestamp;
+      selfSpells.push(selfSpell);
     }
   }
 
@@ -140,7 +174,7 @@ function parseOpsMessage(msgObj) {
     }
   }
 
-  return { ops, atks, spells, incomingAtks };
+  return { ops, atks, spells, incomingAtks, selfSpells };
 }
 
-module.exports = { parseOpLine, parseAttackLine, parseOpsMessage };
+module.exports = { parseOpLine, parseAttackLine, parseSelfSpellLine, parseOpsMessage };
