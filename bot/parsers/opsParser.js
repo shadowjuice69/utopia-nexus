@@ -28,7 +28,11 @@ function parseOpLine(line) {
   const match = line.match(/^(.*?)\s+<<__(.+?)__\s+\*\*\|\s*(.*?)\s+\((\d+:\d+)\)\*\*>>\s*(.*)$/s);
   if (!match) return null;
 
-  const attackerProvince = match[1].replace(/\s+\[[^\]]+\]/, "").replace(/\s+\S+#$/, "").trim();
+  const attackerProvince = match[1]
+  .replace(/:[^:\s]+:/g, "")
+  .replace(/\s+\[[^\]]+\]/, "")
+  .replace(/\s+\S+#$/, "")
+  .trim();
   const op = match[2].toLowerCase().trim();
   const targetProvince = match[3].trim();
   const targetKingdom = match[4];
