@@ -64,7 +64,8 @@ export default function AttackLog() {
 
   function isOutgoing(attack) {
     if (attack.attack_type === "incoming") return false;
-    return attack.kd_code === OUR_KD || attack.target_kingdom !== OUR_KD;
+    if (attack.attack_type === "traditional" || attack.attack_type === "ambush") return true;
+    return attack.kd_code === OUR_KD;
   }
 
   const filtered = attacks.filter(a => {
