@@ -63,7 +63,8 @@ export default function AttackLog() {
   }
 
   function isOutgoing(attack) {
-    return attack.kd_code === OUR_KD || attack.attacker_province;
+    if (attack.attack_type === "incoming") return false;
+    return attack.kd_code === OUR_KD || attack.target_kingdom !== OUR_KD;
   }
 
   const filtered = attacks.filter(a => {
