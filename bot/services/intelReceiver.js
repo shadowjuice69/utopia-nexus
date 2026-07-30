@@ -3,6 +3,7 @@ const supabaseService = require("./supabase");
 const logger = require("./logger");
 const { parseThrone } = require("../parsers/throneParser");
 const { parseKingdom } = require("../parsers/kingdomParser");
+const { parseNews } = require("../parsers/newsParser");
 
 const INTEL_KEY = process.env.INTEL_KEY || "";
 const PORT = parseInt(process.env.PORT || "3000", 10);
@@ -133,6 +134,9 @@ const parsed = parseThrone(text);
       }
     });
     result.data = { offense, defense, generals, troops };
+  } else if (url.includes("province_news") || url.includes("province_logs") || url.includes("kd_news") || url.includes("kingdom_news")) {
+    result.type = "news";
+    result.data = { events: parseNews(text, prov) };
   } else {
     result.type = "unknown";
     result.data = { text };
@@ -250,6 +254,16 @@ async function saveIntel(parsed, prov) {
       }
     }
 
+    if (parsed.type === "news") {
+      const events = parsed.data.events || [];
+      if (events.length > 0) {
+        const { error: newsErr } = await sb.from("news_events").insert(
+          events.map(e => ({ ...e, kd_code: parsed.kd }))
+        );
+        if (newsErr) logger.error(`[NEWS SAVE ERROR] ${newsErr.message}`);
+        else logger.info(`[NEWS SAVED] ${events.length} events for ${prov}`);
+      }
+    }
     logger.info(`[INTEL SAVED] ${parsed.type} for ${prov}`);
   } catch(e) {
     logger.error(`[INTEL ERROR] ${e.message}`);
@@ -287,7 +301,7 @@ function start() {
         if (INTEL_KEY && key !== INTEL_KEY) {
           res.writeHead(403); res.end("forbidden"); return;
         }
-        if (!prov || !data_simple) {
+        if (!data_simple) {
           res.writeHead(400); res.end("missing data"); return;
         }
 
