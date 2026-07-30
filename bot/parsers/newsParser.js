@@ -8,7 +8,16 @@ function parseNewsLine(line) {
 
   // Outgoing attack - traditional march (captured acres)
   m = text.match(/Your forces arrive at (.+?) \((\d+:\d+)\).+?taken (\d+) acres/);
-  if (m) return { date, event_type: "outgoing_attack", defender_name: m[1], defender_kd: m[2], acres: parseInt(m[3]) };
+  if (m) {
+    const ev = { date, event_type: "outgoing_attack", defender_name: m[1], defender_kd: m[2], acres: parseInt(m[3]) };
+    const cm = text.match(/gained (\d[\d,]*) specialist training credits/);
+    if (cm) ev.credits_gained = parseInt(cm[1].replace(/,/g,""));
+    const pm = text.match(/(\d[\d,]*) peasants settled/);
+    if (pm) ev.peasants_settled = parseInt(pm[1].replace(/,/g,""));
+    const bm = text.match(/(\d[\d,]*) acres of buildings survived/);
+    if (bm) ev.buildings_survived = parseInt(bm[1].replace(/,/g,""));
+    return ev;
+  }
 
   // Outgoing attack - recapture/ambush (recaptured acres)
   m = text.match(/Your forces arrive at (.+?) \((\d+:\d+)\).+?recaptured (\d+) acres/);
