@@ -32,6 +32,7 @@ function parseOpLine(line) {
   .replace(/:[^:\s]+:/g, "")
   .replace(/\s+\[[^\]]+\]/, "")
   .replace(/\s+\S+#$/, "")
+  .replace(/\s+[a-z][\w\s-]*$/, "")
   .trim();
   const op = match[2].toLowerCase().trim();
   const targetProvince = match[3].trim();

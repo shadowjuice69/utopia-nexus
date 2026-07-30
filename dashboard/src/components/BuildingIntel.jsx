@@ -21,10 +21,9 @@ export default function BuildingIntel() {
 
   async function fetchProvinces() {
     const { data } = await supabase
-      .from("provinces")
+      .from("intel_buildings")
       .select("*")
-      .not("buildings", "is", null)
-      .order("nw", { ascending: false });
+      .order("updated_at", { ascending: false });
     setProvinces(data || []);
     setLoading(false);
   }
@@ -54,13 +53,12 @@ export default function BuildingIntel() {
               <div
                 key={p.id}
                 className="province-row"
-                onClick={() => setSelected(p)}
+                onClick={() => setSelected({ ...p, name: p.province })}
               >
                 <div className="province-main">
-                  <span className="province-name" style={{ color: "#38bdf8" }}>{p.name}</span>
-                  <span className="province-combo">{p.race || "?"}</span>
-                  <span className="province-nw">{p.nw ? `${parseInt(p.nw).toLocaleString()} NW` : "No NW"}</span>
-                  <span className="province-acres">{p.acres ? `${parseInt(p.acres).toLocaleString()} acres` : ""}</span>
+                  <span className="province-name" style={{ color: "#38bdf8" }}>{p.province}</span>
+                  <span className="province-combo" style={{color:"#64748b",fontSize:12,marginLeft:8}}>{p.kd_code}</span>
+                  <span className="province-nw" style={{color:"#64748b",fontSize:12,marginLeft:8}}>Updated {new Date(p.updated_at).toLocaleDateString()}</span>
                 </div>
 
                 {/* Building bar preview */}

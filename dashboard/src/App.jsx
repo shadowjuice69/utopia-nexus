@@ -14,6 +14,8 @@ import AttackLog from "./components/AttackLog";
 import ProvinceComparison from "./components/ProvinceComparison";
 import SpellTracker from "./components/SpellTracker";
 import CSVImport from "./components/CSVImport";
+import NewsPanel from "./components/NewsPanel";
+import EnemyIntel from "./components/EnemyIntel";
 import Login from "./components/Login";
 
 const TABS = [
@@ -29,6 +31,8 @@ const TABS = [
   { id: "attacks", label: "⚔️ Attacks" },
   { id: "compare", label: "📊 Compare" },
   { id: "spells", label: "✨ Spells" },
+  { id: "news", label: "📰 News" },
+  { id: "enemy", label: "🎯 Enemy Intel" },
   { id: "import", label: "📥 Import" },
 ];
 
@@ -65,6 +69,8 @@ function App() {
         {tab === "attacks" && <AttackLog />}
         {tab === "compare" && <ProvinceComparison />}
         {tab === "spells" && <SpellTracker />}
+        {tab === "news" && <NewsPanel />}
+        {tab === "enemy" && <EnemyIntel />}
         {tab === "import" && <CSVImport />}
       </main>
     </div>

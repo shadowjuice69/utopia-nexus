@@ -54,51 +54,20 @@ module.exports = async function modalHandler(interaction) {
     await db.write();
 
     if (supabase) {
-      // Try to find existing CSV-imported row by name (no user_id yet)
-      const { data: existing } = await supabase
+      const { error } = await supabase
         .from("provinces")
-        .select("id, name, user_id")
-        .ilike("name", user.province.trim())
-        .is("user_id", null)
-        .limit(1);
-
-      let error;
-      if (existing && existing.length > 0) {
-        console.log("[REGISTER] Found existing row by name, updating:", existing[0].id);
-        const result = await supabase
-          .from("provinces")
-          .update({
-            user_id: interaction.user.id,
-            discord_id: interaction.user.id,
-            name: user.province,
-            coordinates: user.coordinates,
-            race: user._reg_race,
-            personality: user._reg_personality,
-            play_role: user._reg_play_role,
-            timezone,
-            wave_times: waveTimes,
-            updated_at: new Date().toISOString()
-          })
-          .eq("id", existing[0].id);
-        error = result.error;
-      } else {
-        console.log("[REGISTER] No existing row found, upserting by user_id");
-        const result = await supabase
-          .from("provinces")
-          .upsert({
-            user_id: interaction.user.id,
-            discord_id: interaction.user.id,
-            name: user.province,
-            coordinates: user.coordinates,
-            race: user._reg_race,
-            personality: user._reg_personality,
-            play_role: user._reg_play_role,
-            timezone,
-            wave_times: waveTimes,
-            updated_at: new Date().toISOString()
-          }, { onConflict: "user_id" });
-        error = result.error;
-      }
+        .upsert({
+          user_id: interaction.user.id,
+          discord_id: interaction.user.id,
+          name: user.province,
+          coordinates: user.coordinates,
+          race: user._reg_race,
+          personality: user._reg_personality,
+          play_role: user._reg_play_role,
+          timezone,
+          wave_times: waveTimes,
+          updated_at: new Date().toISOString()
+        }, { onConflict: "user_id" });
 
       if (error) {
         console.error("[REGISTER SUPABASE ERROR]", error.message);
@@ -161,73 +130,6 @@ module.exports = async function modalHandler(interaction) {
         `✅ **News log processed**\n\n🗡️ Spy reports: ${result.spyCount}\n⚔️ Attacks: ${result.attackCount}\n💾 Saved: ${result.saved}`
       );
     }
-    // Detect science page and handle separately
-    const isSciencePage = text.includes("Economy -") || text.includes("Alchemy") && text.includes("Tools") && text.includes("Production");
-    if (isSciencePage && supabase) {
-      // Look up user's registered province
-      const { data: userRow } = await supabase
-        .from("provinces")
-        .select("name, kd_code")
-        .eq("user_id", interaction.user.id)
-        .limit(1);
-      const provinceName = userRow?.[0]?.name || "Unknown";
-      const kdCode = userRow?.[0]?.kd_code || "unknown";
-
-      // Parse science from text
-      const scienceData = {};
-      const scienceEffects = {};
-      const KNOWN = ["Alchemy","Tools","Housing","Production","Bookkeeping","Artisan","Strategy","Siege","Tactics","Valor","Heroism","Resilience","Crime","Channeling","Shielding","Cunning","Sorcery","Finesse","Arcana"];
-      for (const line of text.split("\n")) {
-        const tabs = line.split("\t");
-        if (tabs.length >= 2 && KNOWN.includes(tabs[0].trim())) {
-          const books = parseInt(tabs[1].replace(/,/g,""), 10);
-          const effect = tabs[2] ? tabs[2].trim() : null;
-          if (!isNaN(books)) {
-            scienceData[tabs[0].trim().toLowerCase()] = books;
-            if (effect) scienceEffects[tabs[0].trim().toLowerCase()] = effect;
-          }
-        }
-        // Also handle "Name  1234  +X.X% Effect" space-separated format
-        const m = line.match(/^(Alchemy|Tools|Housing|Production|Bookkeeping|Artisan|Strategy|Siege|Tactics|Valor|Heroism|Resilience|Crime|Channeling|Shielding|Cunning|Sorcery|Finesse|Arcana)\s+([\d,]+)\s+([+\-][\d.]+%.*)?$/);
-        if (m && !scienceData[m[1].toLowerCase()]) {
-          scienceData[m[1].toLowerCase()] = parseInt(m[2].replace(/,/g,""), 10);
-          if (m[3]) scienceEffects[m[1].toLowerCase()] = m[3].trim();
-        }
-      }
-
-      const sci = scienceData;
-      const { error: sciErr } = await supabase.from("intel_science").upsert({
-        province: provinceName,
-        kd_code: kdCode,
-        alchemy:     parseInt(sci.alchemy     || 0),
-        artisan:     parseInt(sci.artisan     || 0),
-        bookkeeping: parseInt(sci.bookkeeping || 0),
-        channeling:  parseInt(sci.channeling  || 0),
-        crime:       parseInt(sci.crime       || 0),
-        finesse:     parseInt(sci.finesse     || 0),
-        heroism:     parseInt(sci.heroism     || 0),
-        housing:     parseInt(sci.housing     || 0),
-        production:  parseInt(sci.production  || 0),
-        resilience:  parseInt(sci.resilience  || 0),
-        shielding:   parseInt(sci.shielding   || 0),
-        siege:       parseInt(sci.siege       || 0),
-        strategy:    parseInt(sci.strategy    || 0),
-        tactics:     parseInt(sci.tactics     || 0),
-        tools:       parseInt(sci.tools       || 0),
-        valor:       parseInt(sci.valor       || 0),
-        arcana:      parseInt(sci.arcana || 0) + parseInt(sci.cunning || 0) + parseInt(sci.sorcery || 0),
-        science_effects: Object.keys(scienceEffects).length > 0 ? scienceEffects : null,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: "province" });
-
-      if (sciErr) {
-        console.error("[SCIENCE MODAL SAVE ERROR]", sciErr.message);
-        return interaction.editReply(`❌ Science save failed: ${sciErr.message}`);
-      }
-      const totalBooks = Object.values(scienceData).reduce((a,b) => a + (parseInt(b)||0), 0);
-      return interaction.editReply(`✅ **Science intel saved for ${provinceName}**\n\n📚 ${totalBooks.toLocaleString()} total books across ${Object.keys(scienceData).filter(k => scienceData[k] > 0).length} sciences`);
-    }
-
     const parsed = parseThrone(text);
 
 console.log("[THIEVERY DEBUG]", {
