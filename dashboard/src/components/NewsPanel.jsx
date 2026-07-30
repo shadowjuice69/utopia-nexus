@@ -119,12 +119,13 @@ export default function NewsPanel() {
     const { data: settings } = await supabase.from("bot_settings").select("value").eq("key", "kingdom_code").single();
     if (settings?.value) setMyKd(settings.value);
 
-    const { data } = await supabase
-      .from("news_events")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .limit(500);
-    if (data) setEvents(data);
+    const [kdRes, provNewsRes, provLogRes] = await Promise.all([
+      supabase.from("news_events").select("*").in("event_type", [...KD_TYPES]).order("created_at", { ascending: false }).limit(500),
+      supabase.from("news_events").select("*").in("event_type", [...PROV_NEWS_TYPES]).order("created_at", { ascending: false }).limit(500),
+      supabase.from("news_events").select("*").in("event_type", [...PROV_LOG_TYPES]).order("created_at", { ascending: false }).limit(500),
+    ]);
+    const combined = [...(kdRes.data||[]), ...(provNewsRes.data||[]), ...(provLogRes.data||[])];
+    setEvents(combined);
     setLoading(false);
   }
 
