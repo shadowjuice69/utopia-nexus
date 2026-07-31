@@ -120,20 +120,54 @@ const parsed = parseThrone(text);
     result.data = { science: scienceData, science_effects: scienceEffects };
   } else if (url.includes("som") || url.includes("military")) {
     result.type = "som";
-        let offense = null, defense = null, generals = null;
+    let offense = null, defense = null, generals = null;
     const troops = {};
+    const armies = []; // deployed armies with return times
+    let inArmyTable = false;
+    const TROOP_NAMES = ["Soldiers","Warriors","Axemen","Berserkers","War Horses","Thieves","Wizards"];
+
     text.split("\n").forEach(l => {
       let m;
-      if ((m = l.match(/Net Offensive Points at Home[\s\t]+([\d,]+)/i))) offense = parseInt(m[1].replace(/,/g,""),10);
-      if ((m = l.match(/Net Defensive Points at Home[\s\t]+([\d,]+)/i))) defense = parseInt(m[1].replace(/,/g,""),10);
+      if ((m = l.match(/Net Offensive Points at Home[\s\t]+(\d[\d,]*)/i))) offense = parseInt(m[1].replace(/,/g,""),10);
+      if ((m = l.match(/Net Defensive Points at Home[\s\t]+(\d[\d,]*)/i))) defense = parseInt(m[1].replace(/,/g,""),10);
       if ((m = l.match(/we have (\d+) generals/i))) generals = parseInt(m[1],10);
-      const troopNames = ["Soldiers","Warriors","Axemen","Berserkers","War Horses","Thieves","Wizards"];
-      for (const name of troopNames) {
-        const re = new RegExp("^" + name + "\t([\d,]+)", "i");
-        if ((m = l.match(re))) troops[name.toLowerCase().replace(" ","_")] = parseInt(m[1].replace(/,/g,""),10);
+
+      // Detect army table header: "Standing Army  Army #1 (X days left)..."
+      if (l.includes("Standing Army") && l.includes("days left")) {
+        inArmyTable = true;
+        // Parse return times from header
+        const armyMatches = [...l.matchAll(/Army #\d+\s*\(([\d.]+) days left\)/gi)];
+        armyMatches.forEach(am => armies.push({ return_days: parseFloat(am[1]), troops: {} }));
+        return;
+      }
+
+      if (inArmyTable) {
+        if (l.includes("Military Training") || l.includes("Science Book")) { inArmyTable = false; return; }
+        // Parse troop row: "Warriors  768  1,666  971"
+        for (const name of TROOP_NAMES) {
+          if (l.trim().startsWith(name)) {
+            const cols = l.split(/\t+|\s{2,}/).map(c => c.trim()).filter(Boolean);
+            if (cols.length >= 2) {
+              const key = name.toLowerCase().replace(" ","_");
+              const home = parseInt((cols[1]||"0").replace(/,/g,"").replace("-","0")) || 0;
+              troops[key] = home;
+              // Store per-army troop counts
+              armies.forEach((army, i) => {
+                const val = parseInt((cols[i+2]||"0").replace(/,/g,"").replace("-","0")) || 0;
+                army.troops[key] = val;
+              });
+            }
+            break;
+          }
+        }
+        // Generals row
+        if (l.trim().startsWith("Generals")) {
+          const cols = l.split(/\t+|\s{2,}/).map(c => c.trim()).filter(Boolean);
+          if (!generals && cols[1]) generals = parseInt(cols[1]) || null;
+        }
       }
     });
-    result.data = { offense, defense, generals, troops };
+    result.data = { offense, defense, generals, troops, armies };
   } else if (url.includes("province_news") || url.includes("province_logs") || url.includes("kd_news") || url.includes("kingdom_news")) {
     result.type = "news";
     result.data = { events: parseNews(text, prov) };
@@ -227,6 +261,7 @@ async function saveIntel(parsed, prov) {
       console.log("[MIL DATA]", JSON.stringify(parsed.data).substring(0, 200));
       const { error: milErr } = await sb.from("intel_military").upsert({
         province: prov, kd_code: parsed.kd, ...parsed.data,
+        armies: parsed.data.armies || [],
         updated_at: new Date().toISOString()
       }, { onConflict: "province,kd_code" });
       if (milErr) console.error("[MIL SAVE ERROR]", milErr.message);
