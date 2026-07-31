@@ -117,7 +117,8 @@ async function getKingdomContext(supabase, kd) {
     for (const w of waves) lines.push(`  • Wave ${w.wave_number}: ${w.province_name} (tick ${w.tick})`);
   }
 
-  return lines.length > 0 ? lines.join("\n") : null;
+  const full = lines.join("\n");
+  return full.length > 3000 ? full.slice(0, 3000) + "\n...[truncated]" : full;
 }
 
 async function askGroq(question, wikiContext, kingdomContext) {
@@ -133,7 +134,10 @@ ${kingdomContext ? `KINGDOM CONTEXT:\n${kingdomContext}\n` : ''}
 Answer the question using the context above. Be specific and actionable.`;
 
   try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
     const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      signal: controller.signal,
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -145,9 +149,10 @@ Answer the question using the context above. Be specific and actionable.`;
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt }
         ],
-        max_tokens: 800
+        max_tokens: 600
       })
     });
+    clearTimeout(timeout);
     const result = await response.json();
     return result.choices?.[0]?.message?.content || null;
   } catch (err) {
