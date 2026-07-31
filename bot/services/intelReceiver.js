@@ -3,6 +3,7 @@ const supabaseService = require("./supabase");
 const logger = require("./logger");
 const { parseThrone } = require("../parsers/throneParser");
 const { parseKingdom } = require("../parsers/kingdomParser");
+const { parseState } = require("../parsers/stateParser");
 const { parseNews } = require("../parsers/newsParser");
 
 const INTEL_KEY = process.env.INTEL_KEY || "";
@@ -173,6 +174,9 @@ const parsed = parseThrone(text);
       }
     });
     result.data = { offense, defense, generals, troops, armies };
+  } else if (url.includes("council_state") || url.includes("province_state")) {
+    result.type = "state";
+    result.data = parseState(text);
   } else if (url.includes("province_news") || url.includes("province_logs") || url.includes("kd_news") || url.includes("kingdom_news")) {
     result.type = "news";
     result.data = { events: parseNews(text, prov) };
@@ -294,6 +298,14 @@ async function saveIntel(parsed, prov) {
       }
     }
 
+    if (parsed.type === "state") {
+      const { error: stateErr } = await sb.from("intel_state").upsert({
+        province: prov, kd_code: parsed.kd, ...parsed.data,
+        updated_at: new Date().toISOString()
+      }, { onConflict: "province,kd_code" });
+      if (stateErr) logger.error(`[STATE SAVE ERROR] ${stateErr.message}`);
+      else logger.info(`[STATE SAVED] ${prov}`);
+    }
     if (parsed.type === "news") {
       const events = parsed.data.events || [];
       if (events.length > 0) {
