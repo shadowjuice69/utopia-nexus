@@ -137,11 +137,13 @@ const parsed = parseThrone(text);
         inArmyTable = true;
         return;
       }
-      // Parse return times from "(X days left)" lines near army table start
-      if (inArmyTable && armies.length === 0) {
+      // Parse return times from "(X days left)" lines - keep collecting until we hit a troop row
+      if (inArmyTable) {
         const armyMatches = [...l.matchAll(/\(([\d.]+) days left\)/gi)];
-        armyMatches.forEach(am => armies.push({ return_days: parseFloat(am[1]), troops: {} }));
-        return;
+        if (armyMatches.length > 0) {
+          armyMatches.forEach(am => armies.push({ return_days: parseFloat(am[1]), troops: {} }));
+          return;
+        }
       }
 
       if (inArmyTable) {
