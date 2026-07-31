@@ -110,6 +110,72 @@ function MemberModal({ member, onClose }) {
           Last updated: {member.updated_at ? new Date(member.updated_at).toUTCString().slice(0, 25) : "Unknown"}
         </div>
       </div>
+      {state && (
+        <div className="panel">
+          <h2>📊 Province State <span style={{ color: "#475569", fontSize: 12, fontWeight: 400 }}>— {state.updated_at ? Math.round((Date.now()-new Date(state.updated_at))/3600000)+"h ago" : "?"}</span></h2>
+
+          <div className="stats-row" style={{ marginBottom: 12 }}>
+            <div className="stat-card"><span className="stat-label">Honor</span><strong className="stat-value" style={{ color: "#facc15" }}>{(state.honor||0).toLocaleString()}</strong></div>
+            <div className="stat-card"><span className="stat-label">Land Rank</span><strong className="stat-value" style={{ color: "#38bdf8", fontSize: 14 }}>{state.land_rank || "?"}</strong></div>
+            <div className="stat-card"><span className="stat-label">NW Rank</span><strong className="stat-value" style={{ color: "#a78bfa", fontSize: 14 }}>{state.nw_rank || "?"}</strong></div>
+            <div className="stat-card"><span className="stat-label">MAP</span><strong className="stat-value" style={{ color: "#4ade80", fontSize: 14 }}>{state.map || "?"}</strong></div>
+          </div>
+
+          <div className="stats-row" style={{ marginBottom: 12 }}>
+            <div className="stat-card"><span className="stat-label">Daily Income</span><strong className="stat-value" style={{ color: "#4ade80" }}>{(state.daily_income||0).toLocaleString()}</strong></div>
+            <div className="stat-card"><span className="stat-label">Daily Wages</span><strong className="stat-value" style={{ color: "#f87171" }}>{(state.daily_wages||0).toLocaleString()}</strong></div>
+            <div className="stat-card"><span className="stat-label">Net Yesterday</span><strong className="stat-value" style={{ color: state.net_yesterday > 0 ? "#4ade80" : "#f87171" }}>{state.net_yesterday ? state.net_yesterday.toLocaleString() : "?"}</strong></div>
+            <div className="stat-card"><span className="stat-label">Net This Month</span><strong className="stat-value" style={{ color: state.net_month > 0 ? "#4ade80" : "#f87171" }}>{state.net_month ? state.net_month.toLocaleString() : "?"}</strong></div>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 12 }}>
+            {[
+              { label: "Population", value: state.total_pop, sub: `Max: ${state.max_pop||"?"}`, color: "#38bdf8" },
+              { label: "Army", value: state.army, color: "#f87171" },
+              { label: "Thieves", value: state.thieves, color: "#facc15" },
+              { label: "Wizards", value: state.wizards, color: "#a78bfa" },
+              { label: "Peasants", value: state.peasants, color: "#4ade80" },
+              { label: "Employment", value: state.employment_pct, color: "#38bdf8" },
+            ].map((s,i) => (
+              <div key={i} style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 6, padding: "8px 12px" }}>
+                <div style={{ color: "#64748b", fontSize: 11 }}>{s.label}</div>
+                <div style={{ color: s.color, fontWeight: 600, fontSize: 15 }}>{s.value ? s.value.toLocaleString() : "?"}</div>
+                {s.sub && <div style={{ color: "#475569", fontSize: 11 }}>{s.sub}</div>}
+              </div>
+            ))}
+          </div>
+
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+              <thead>
+                <tr style={{ color: "#64748b", textTransform: "uppercase", fontSize: 11 }}>
+                  {["Trend","Yesterday","This Month"].map(h => (
+                    <th key={h} style={{ padding: "6px 10px", textAlign: "left", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  { label: "Income", y: state.income_yesterday, m: state.income_month },
+                  { label: "Wages", y: state.wages_yesterday, m: state.wages_month },
+                  { label: "Net Gold", y: state.net_yesterday, m: state.net_month },
+                  { label: "Food Grown", y: state.food_grown_yesterday, m: state.food_grown_month },
+                  { label: "Food Net", y: state.food_net_yesterday, m: state.food_net_month },
+                  { label: "Runes Produced", y: state.runes_produced_yesterday, m: state.runes_produced_month },
+                  { label: "Runes Net", y: state.runes_net_yesterday, m: state.runes_net_month },
+                ].map((row, i) => (
+                  <tr key={i} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                    <td style={{ padding: "6px 10px", color: "#94a3b8" }}>{row.label}</td>
+                    <td style={{ padding: "6px 10px", color: row.y > 0 ? "#4ade80" : row.y < 0 ? "#f87171" : "#64748b" }}>{row.y ? row.y.toLocaleString() : "—"}</td>
+                    <td style={{ padding: "6px 10px", color: row.m > 0 ? "#4ade80" : row.m < 0 ? "#f87171" : "#64748b" }}>{row.m ? row.m.toLocaleString() : "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
@@ -119,6 +185,7 @@ export default function KingdomOverview() {
   const [loading, setLoading] = useState(true);
   const [kdCode, setKdCode] = useState("3:2");
   const [selected, setSelected] = useState(null);
+  const [state, setState] = useState(null);
 
   useEffect(() => {
     fetchData();
@@ -132,6 +199,13 @@ export default function KingdomOverview() {
       .select("*")
       .order("nw", { ascending: false });
     setMembers(data || []);
+
+    const { data: stateData } = await supabase
+      .from("intel_state")
+      .select("*")
+      .eq("province", "Daddy Long Legs")
+      .single();
+    setState(stateData || null);
     setLoading(false);
   }
 
@@ -270,6 +344,72 @@ export default function KingdomOverview() {
           </table>
         </div>
       </div>
+      {state && (
+        <div className="panel">
+          <h2>📊 Province State <span style={{ color: "#475569", fontSize: 12, fontWeight: 400 }}>— {state.updated_at ? Math.round((Date.now()-new Date(state.updated_at))/3600000)+"h ago" : "?"}</span></h2>
+
+          <div className="stats-row" style={{ marginBottom: 12 }}>
+            <div className="stat-card"><span className="stat-label">Honor</span><strong className="stat-value" style={{ color: "#facc15" }}>{(state.honor||0).toLocaleString()}</strong></div>
+            <div className="stat-card"><span className="stat-label">Land Rank</span><strong className="stat-value" style={{ color: "#38bdf8", fontSize: 14 }}>{state.land_rank || "?"}</strong></div>
+            <div className="stat-card"><span className="stat-label">NW Rank</span><strong className="stat-value" style={{ color: "#a78bfa", fontSize: 14 }}>{state.nw_rank || "?"}</strong></div>
+            <div className="stat-card"><span className="stat-label">MAP</span><strong className="stat-value" style={{ color: "#4ade80", fontSize: 14 }}>{state.map || "?"}</strong></div>
+          </div>
+
+          <div className="stats-row" style={{ marginBottom: 12 }}>
+            <div className="stat-card"><span className="stat-label">Daily Income</span><strong className="stat-value" style={{ color: "#4ade80" }}>{(state.daily_income||0).toLocaleString()}</strong></div>
+            <div className="stat-card"><span className="stat-label">Daily Wages</span><strong className="stat-value" style={{ color: "#f87171" }}>{(state.daily_wages||0).toLocaleString()}</strong></div>
+            <div className="stat-card"><span className="stat-label">Net Yesterday</span><strong className="stat-value" style={{ color: state.net_yesterday > 0 ? "#4ade80" : "#f87171" }}>{state.net_yesterday ? state.net_yesterday.toLocaleString() : "?"}</strong></div>
+            <div className="stat-card"><span className="stat-label">Net This Month</span><strong className="stat-value" style={{ color: state.net_month > 0 ? "#4ade80" : "#f87171" }}>{state.net_month ? state.net_month.toLocaleString() : "?"}</strong></div>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 12 }}>
+            {[
+              { label: "Population", value: state.total_pop, sub: `Max: ${state.max_pop||"?"}`, color: "#38bdf8" },
+              { label: "Army", value: state.army, color: "#f87171" },
+              { label: "Thieves", value: state.thieves, color: "#facc15" },
+              { label: "Wizards", value: state.wizards, color: "#a78bfa" },
+              { label: "Peasants", value: state.peasants, color: "#4ade80" },
+              { label: "Employment", value: state.employment_pct, color: "#38bdf8" },
+            ].map((s,i) => (
+              <div key={i} style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 6, padding: "8px 12px" }}>
+                <div style={{ color: "#64748b", fontSize: 11 }}>{s.label}</div>
+                <div style={{ color: s.color, fontWeight: 600, fontSize: 15 }}>{s.value ? s.value.toLocaleString() : "?"}</div>
+                {s.sub && <div style={{ color: "#475569", fontSize: 11 }}>{s.sub}</div>}
+              </div>
+            ))}
+          </div>
+
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+              <thead>
+                <tr style={{ color: "#64748b", textTransform: "uppercase", fontSize: 11 }}>
+                  {["Trend","Yesterday","This Month"].map(h => (
+                    <th key={h} style={{ padding: "6px 10px", textAlign: "left", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  { label: "Income", y: state.income_yesterday, m: state.income_month },
+                  { label: "Wages", y: state.wages_yesterday, m: state.wages_month },
+                  { label: "Net Gold", y: state.net_yesterday, m: state.net_month },
+                  { label: "Food Grown", y: state.food_grown_yesterday, m: state.food_grown_month },
+                  { label: "Food Net", y: state.food_net_yesterday, m: state.food_net_month },
+                  { label: "Runes Produced", y: state.runes_produced_yesterday, m: state.runes_produced_month },
+                  { label: "Runes Net", y: state.runes_net_yesterday, m: state.runes_net_month },
+                ].map((row, i) => (
+                  <tr key={i} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                    <td style={{ padding: "6px 10px", color: "#94a3b8" }}>{row.label}</td>
+                    <td style={{ padding: "6px 10px", color: row.y > 0 ? "#4ade80" : row.y < 0 ? "#f87171" : "#64748b" }}>{row.y ? row.y.toLocaleString() : "—"}</td>
+                    <td style={{ padding: "6px 10px", color: row.m > 0 ? "#4ade80" : row.m < 0 ? "#f87171" : "#64748b" }}>{row.m ? row.m.toLocaleString() : "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
