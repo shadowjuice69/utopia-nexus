@@ -43,30 +43,39 @@ function parseState(text) {
       continue;
     }
 
-    // Highlights
+    // Highlights - can appear in tab columns or own lines
     if (line.includes("Current Networth")) {
-      const m = line.match(/Current Networth\s+([\d,]+)/);
+      const m = line.match(/Current Networth[\s\t]+([\d,]+)/);
       if (m) result.networth = cleanNum(m[1]);
     }
     if (line.includes("Current Land")) {
-      const m = line.match(/Current Land\s+([\d,]+)/);
+      const m = line.match(/Current Land[\s\t]+([\d,]+)/);
       if (m) result.land = cleanNum(m[1]);
     }
     if (line.includes("Current Honor")) {
-      const m = line.match(/Current Honor\s+([\d,]+)/);
+      const m = line.match(/Current Honor[\s\t]+([\d,]+)/);
       if (m) result.honor = cleanNum(m[1]);
     }
     if (line.includes("Land Rank")) {
-      const m = line.match(/Land Rank\s+([\d,]+ of [\d,]+)/);
+      const m = line.match(/Land Rank[\s\t]+(\d[\d,]* of \d[\d,]*)/);
       if (m) result.land_rank = m[1];
     }
     if (line.includes("Networth Rank")) {
-      const m = line.match(/Networth Rank\s+([\d,]+ of [\d,]+)/);
+      const m = line.match(/Networth Rank[\s\t]+(\d[\d,]* of \d[\d,]*)/);
       if (m) result.nw_rank = m[1];
     }
     if (line.includes("Multi-Attack Protection")) {
-      const m = line.match(/Multi-Attack Protection\s+(.+)/);
+      const m = line.match(/Multi-Attack Protection[\s\t]+(.+)/);
       if (m) result.map = m[1].trim();
+    }
+    // Daily income/wages in tab columns
+    if (line.includes("Daily Income")) {
+      const m = line.match(/Daily Income[\s\t]+([\d,]+)/);
+      if (m) result.daily_income = cleanNum(m[1]);
+    }
+    if (line.includes("Daily Wages")) {
+      const m = line.match(/Daily Wages[\s\t]+([\d,]+)/);
+      if (m) result.daily_wages = cleanNum(m[1]);
     }
 
     // Trends - tab separated: Label | yesterday | this month | last month
