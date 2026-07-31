@@ -132,11 +132,14 @@ const parsed = parseThrone(text);
       if ((m = l.match(/Net Defensive Points at Home[\s\t]+(\d[\d,]*)/i))) defense = parseInt(m[1].replace(/,/g,""),10);
       if ((m = l.match(/we have (\d+) generals/i))) generals = parseInt(m[1],10);
 
-      // Detect army table header: "Standing Army  Army #1 (X days left)..."
-      if (l.includes("Standing Army") && l.includes("days left")) {
+      // Detect army table header - "Standing Army" line
+      if (l.includes("Standing Army")) {
         inArmyTable = true;
-        // Parse return times from header
-        const armyMatches = [...l.matchAll(/Army #\d+\s*\(([\d.]+) days left\)/gi)];
+        return;
+      }
+      // Parse return times from "(X days left)" lines near army table start
+      if (inArmyTable && armies.length === 0) {
+        const armyMatches = [...l.matchAll(/\(([\d.]+) days left\)/gi)];
         armyMatches.forEach(am => armies.push({ return_days: parseFloat(am[1]), troops: {} }));
         return;
       }
