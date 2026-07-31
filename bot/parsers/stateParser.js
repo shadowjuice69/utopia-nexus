@@ -15,31 +15,37 @@ function parseState(text) {
     // Population rows
     if (cols[0] === "Peasants" && cols[1] && cols[2] === "Peasants") {
       result.peasants = cleanNum(c(1));
-      result.unemployed = cleanNum(c(4));
+      result.unemployed = cleanNum(c(3));
+      if (c(4) === "Current Networth") result.networth = cleanNum(c(5));
       continue;
     }
     if (cols[0] === "Army") {
       result.army = cleanNum(c(1));
-      result.unfilled_jobs = cleanNum(c(4));
+      result.unfilled_jobs = cleanNum(c(3));
+      if (c(4) === "Current Land") result.land = cleanNum(c(5));
       continue;
     }
     if (cols[0] === "Thieves") {
       result.thieves = cleanNum(c(1));
-      result.employment_pct = c(4);
+      result.employment_pct = c(3);
+      if (c(4) === "Current Honor") result.honor = cleanNum(c(5));
       continue;
     }
     if (cols[0] === "Wizards") {
       result.wizards = cleanNum(c(1));
-      result.daily_income = cleanNum(c(4));
+      if (c(4) === "Land Rank") result.land_rank = c(5);
       continue;
     }
     if (cols[0] === "Total") {
       result.total_pop = cleanNum(c(1));
-      result.daily_wages = cleanNum(c(4));
+      result.daily_income = cleanNum(c(3));
+      if (c(4) === "Networth Rank") result.nw_rank = c(5);
       continue;
     }
     if (cols[0] === "Max Population") {
       result.max_pop = cleanNum(c(1));
+      result.daily_wages = cleanNum(c(3));
+      if (c(4) === "Multi-Attack Protection") result.map = c(5);
       continue;
     }
 
@@ -47,6 +53,8 @@ function parseState(text) {
     if (line.includes("Current Networth")) {
       const m = line.match(/Current Networth[\s\t]+([\d,]+)/);
       if (m) result.networth = cleanNum(m[1]);
+      const m2 = line.match(/Current Networth[\s\t]+([\d,]+)\s*gold/);
+      if (m2) result.networth = cleanNum(m2[1]);
     }
     if (line.includes("Current Land")) {
       const m = line.match(/Current Land[\s\t]+([\d,]+)/);
