@@ -9,59 +9,115 @@ function truncate(str, max) {
   return str.length > max ? str.slice(0, max - 3) + '...' : str;
 }
 
-async function getKingdomContext(supabase) {
+async function getKingdomContext(supabase, kd) {
   if (!supabase) return null;
   const lines = [];
 
-  // Provinces
+  // Kingdom settings
+  const { data: settings } = await supabase.from("bot_settings").select("key, value");
+  const kdName = settings?.find(s => s.key === "kingdom_name")?.value || "Judo";
+  const kdCode = settings?.find(s => s.key === "kingdom_code")?.value || "3:2";
+  lines.push(`KINGDOM: ${kdName} (${kdCode})`);
+
+  // Provinces with full stats
   const { data: provs } = await supabase
     .from("provinces")
-    .select("name, race, personality, play_role, coordinates")
-    .order("name").limit(30);
+    .select("name, race, personality, play_role, nw, acres, off, def, be, o_tpa, o_wpa, good_spells, updated_at")
+    .order("nw", { ascending: false }).limit(30);
   if (provs && provs.length > 0) {
-    lines.push(`KINGDOM: ${kd.name} (${kd.code}) — ${provs.length} provinces`);
+    lines.push(`\nKINGDOM MEMBERS (${provs.length}):`);
     for (const p of provs) {
-      lines.push(`  • ${p.name} — ${p.race || '?'} ${p.personality || ''} (${p.play_role || '?'}) ${p.coordinates || ''}`);
+      let line = `  • ${p.name} — ${p.race || '?'} ${p.personality || ''} (${p.play_role || '?'})`;
+      if (p.nw) line += ` NW:${p.nw}`;
+      if (p.acres) line += ` Acres:${p.acres}`;
+      if (p.off) line += ` Off:${p.off}`;
+      if (p.def) line += ` Def:${p.def}`;
+      if (p.be) line += ` BE:${p.be}%`;
+      lines.push(line);
     }
+  }
+
+  // My province full intel
+  const { data: myState } = await supabase.from("intel_state").select("*").eq("province", "Daddy Long Legs").single();
+  if (myState) {
+    lines.push(`\nMY PROVINCE STATE:`);
+    lines.push(`  NW:${myState.networth} Land:${myState.land} Honor:${myState.honor} Rank:${myState.nw_rank} MAP:${myState.map}`);
+    lines.push(`  Daily Income:${myState.daily_income} Wages:${myState.daily_wages} Net Yesterday:${myState.net_yesterday}`);
+    lines.push(`  Population: Army:${myState.army} Thieves:${myState.thieves} Wizards:${myState.wizards} Peasants:${myState.peasants}/${myState.max_pop}`);
+    lines.push(`  Food Net/day:${myState.food_net_yesterday} Runes Net/day:${myState.runes_net_yesterday}`);
+  }
+
+  // My military
+  const { data: myMil } = await supabase.from("intel_military").select("*").eq("province", "Daddy Long Legs").single();
+  if (myMil) {
+    lines.push(`\nMY MILITARY:`);
+    lines.push(`  Off Points:${myMil.offense} Def Points:${myMil.defense} Generals:${myMil.generals}`);
+    if (myMil.troops) lines.push(`  Troops at home: ${JSON.stringify(myMil.troops)}`);
+    if (myMil.armies && myMil.armies.length > 0) {
+      for (const [i, army] of myMil.armies.entries()) {
+        lines.push(`  Army #${i+1}: returns in ${army.return_days} game days — ${JSON.stringify(army.troops)}`);
+      }
+    }
+  }
+
+  // Enemy intel
+  const { data: enemies } = await supabase.from("intel_throne")
+    .select("province, race, kd_code, networth, land, offense, defense, be, spells, updated_at")
+    .order("updated_at", { ascending: false }).limit(20);
+  if (enemies && enemies.length > 0) {
+    lines.push(`\nENEMY INTEL (${enemies.length} provinces):`);
+    for (const e of enemies) {
+      let line = `  • ${e.province} (${e.kd_code}) — ${e.race || '?'}`;
+      if (e.networth) line += ` NW:${e.networth}`;
+      if (e.land) line += ` Land:${e.land}`;
+      if (e.offense) line += ` Off:${e.offense}`;
+      if (e.defense) line += ` Def:${e.defense}`;
+      lines.push(line);
+    }
+  }
+
+  // Recent attack summary
+  const { data: attacks } = await supabase.from("news_events")
+    .select("event_type, date, defender_name, defender_kd, attacker_name, attacker_kd, acres, troops_sent, credits_gained")
+    .in("event_type", ["outgoing_attack","outgoing_ambush","incoming_attack","incoming_ambush"])
+    .order("created_at", { ascending: false }).limit(20);
+  if (attacks && attacks.length > 0) {
+    const outgoing = attacks.filter(a => a.event_type.startsWith("outgoing"));
+    const incoming = attacks.filter(a => a.event_type.startsWith("incoming"));
+    lines.push(`\nATTACK HISTORY:`);
+    lines.push(`  Outgoing: ${outgoing.length} attacks, ${outgoing.reduce((s,a)=>s+(a.acres||0),0)} acres gained, ${outgoing.reduce((s,a)=>s+(a.credits_gained||0),0)} credits`);
+    lines.push(`  Incoming: ${incoming.length} attacks, ${incoming.reduce((s,a)=>s+(a.acres||0),0)} acres lost`);
+    for (const a of outgoing.slice(0,5)) {
+      lines.push(`  • ${a.date}: attacked ${a.defender_name} (${a.defender_kd}) +${a.acres} acres`);
+    }
+  }
+
+  // Recent hostile ops
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const { data: ops } = await supabase.from("hostile_ops")
+    .select("op_type, target, caster_kd, timestamp")
+    .gte("timestamp", since).order("timestamp", { ascending: false }).limit(10);
+  if (ops && ops.length > 0) {
+    lines.push(`\nRECENT HOSTILE OPS (24h):`);
+    for (const op of ops) lines.push(`  • ${op.op_type} on ${op.target} from ${op.caster_kd}`);
   }
 
   // Active war
-  const { data: wars } = await supabase
-    .from("wars")
-    .select("enemy_kd, status, started_at")
-    .eq("status", "active").limit(1);
+  const { data: wars } = await supabase.from("wars")
+    .select("enemy_kd, status, started_at").eq("status", "active").limit(1);
   if (wars && wars.length > 0) {
-    lines.push(`ACTIVE WAR: vs ${wars[0].enemy_kd} (started ${wars[0].started_at})`);
+    lines.push(`\nACTIVE WAR: vs ${wars[0].enemy_kd} (started ${wars[0].started_at})`);
   }
 
-  // Recent hostile ops (last 24h)
-  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-  const { data: ops } = await supabase
-    .from("hostile_ops")
-    .select("op_type, target, caster_kd, timestamp")
-    .gte("timestamp", since)
-    .order("timestamp", { ascending: false })
-    .limit(10);
-  if (ops && ops.length > 0) {
-    lines.push(`RECENT HOSTILE OPS (24h):`);
-    for (const op of ops) {
-      lines.push(`  • ${op.op_type} on ${op.target} from ${op.caster_kd}`);
-    }
-  }
-
-  // Wave schedule
-  const { data: waves } = await supabase
-    .from("wave_assignments")
-    .select("province_name, wave_number, tick")
-    .order("wave_number").limit(15);
+  // Wave assignments
+  const { data: waves } = await supabase.from("wave_assignments")
+    .select("province_name, wave_number, tick").order("wave_number").limit(15);
   if (waves && waves.length > 0) {
-    lines.push(`WAVE ASSIGNMENTS:`);
-    for (const w of waves) {
-      lines.push(`  • Wave ${w.wave_number}: ${w.province_name} (tick ${w.tick})`);
-    }
+    lines.push(`\nWAVE ASSIGNMENTS:`);
+    for (const w of waves) lines.push(`  • Wave ${w.wave_number}: ${w.province_name} (tick ${w.tick})`);
   }
 
-  return lines.length > 0 ? lines.join('\n') : null;
+  return lines.length > 0 ? lines.join("\n") : null;
 }
 
 async function askGroq(question, wikiContext, kingdomContext) {
@@ -120,7 +176,7 @@ module.exports = async function askHandler(interaction) {
   const [wikiResults, rulesSnippet, kingdomContext] = await Promise.all([
     wikiService.searchWiki(question),
     wikiService.searchRules(question),
-    getKingdomContext(supabase),
+    getKingdomContext(supabase, kd),
   ]);
 
   // Build wiki context string
