@@ -121,7 +121,7 @@ async function getKingdomContext(supabase, kd) {
   return full.length > 3000 ? full.slice(0, 3000) + "\n...[truncated]" : full;
 }
 
-async function askGroq(question, wikiContext, kingdomContext) {
+async function askGroq(question, wikiContext, kingdomContext, kd) {
   const systemPrompt = `You are Nexus, the Utopia kingdom advisor for ${kd.name} (${kd.code}) on World of Legends Age ${kd.age}. You have deep knowledge of Utopia game mechanics, strategy, and the specific context of this kingdom.
 
 Be concise, tactical, and use Utopia terminology. IMPORTANT: Only reference spells, ops, races, personalities, and mechanics that actually exist in Utopia Age 116. Never invent spell or op names. If unsure whether something exists, say so. Answer in 3-5 sentences max unless a detailed breakdown is needed. Always consider the kingdom's specific race/personality makeup when giving advice.`;
@@ -240,7 +240,7 @@ module.exports = async function askHandler(interaction) {
   }
 
   // Get AI answer
-  const aiAnswer = await askGroq(question, wikiContext, kingdomContext);
+  const aiAnswer = await askGroq(question, wikiContext, kingdomContext, kd);
 
   if (!aiAnswer && !wikiContext) {
     return interaction.editReply({
