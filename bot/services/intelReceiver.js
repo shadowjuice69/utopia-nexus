@@ -180,6 +180,16 @@ const parsed = parseThrone(text);
   } else if (url.includes("province_news") || url.includes("province_logs") || url.includes("kd_news") || url.includes("kingdom_news")) {
     result.type = "news";
     result.data = { events: parseNews(text, prov) };
+  } else if (url.includes("intel.utopia.site") || text.includes('"source":"intel-site"') || prov === "intel-site") {
+    result.type = "intel-site";
+    try {
+      const parsed = JSON.parse(text);
+      result.data = parsed;
+      result.tab = parsed.tab || "overview";
+      result.kd = parsed.kd || result.kd;
+    } catch(e) {
+      result.data = { raw: text };
+    }
   } else {
     result.type = "unknown";
     result.data = { text };
@@ -314,6 +324,39 @@ async function saveIntel(parsed, prov) {
         );
         if (newsErr) logger.error(`[NEWS SAVE ERROR] ${newsErr.message}`);
         else logger.info(`[NEWS SAVED] ${events.length} events for ${prov}`);
+      }
+    }
+    if (parsed.type === "intel-site") {
+      const sb = supabaseService.getClient();
+      if (sb && parsed.data && parsed.data.rows && parsed.data.rows.length > 0) {
+        const tab = parsed.tab || "overview";
+        const kd = parsed.kd || "unknown";
+        const rows = parsed.data.rows;
+
+        if (tab === "overview" || tab === "unknown") {
+          for (const row of rows) {
+            if (!row.name || row.name.trim() === "") continue;
+            const province = row.name.trim();
+            const upsertData = {
+              province,
+              kd_code: kd,
+              updated_at: new Date().toISOString()
+            };
+            if (row.combo) upsertData.combo = row.combo;
+            if (row.acres || row.acr) upsertData.land = parseInt((row.acres || row.acr || "0").replace(/[^0-9]/g, "")) || null;
+            if (row.nw) upsertData.networth = parseInt((row.nw || "0").replace(/[^0-9]/g, "")) || null;
+            if (row.off) upsertData.offense = parseInt((row.off || "0").replace(/[^0-9]/g, "")) || null;
+            if (row.def) upsertData.defense = parseInt((row.def || "0").replace(/[^0-9]/g, "")) || null;
+            if (row.be) upsertData.be = parseInt((row.be || "0").replace(/[^0-9]/g, "")) || null;
+            if (row.honor || row.hon) upsertData.honor = row.honor || row.hon;
+            if (row.rtpa) upsertData.tpa = parseFloat(row.rtpa) || null;
+            if (row.rwpa) upsertData.wpa = parseFloat(row.rwpa) || null;
+            if (row.good_spells || row.goodspel) upsertData.spells = row.good_spells || row.goodspel;
+            const { error: itErr } = await sb.from("intel_throne").upsert(upsertData, { onConflict: "province,kd_code" });
+            if (itErr) logger.error(`[INTEL-SITE SAVE ERROR] ${province}: ${itErr.message}`);
+            else logger.info(`[INTEL-SITE SAVED] ${province} (${kd})`);
+          }
+        }
       }
     }
     logger.info(`[INTEL SAVED] ${parsed.type} for ${prov}`);

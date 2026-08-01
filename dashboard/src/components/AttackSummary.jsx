@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { LineChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { supabase } from "../services/supabase";
 
 const MY_KD = "3:2";
@@ -82,6 +83,7 @@ export default function AttackSummary() {
   const [loading, setLoading] = useState(true);
   const [myKd, setMyKd] = useState(MY_KD);
   const [view, setView] = useState("overview");
+  const [attacks, setAttacks] = useState([]);
 
   useEffect(() => {
     fetchAll();
@@ -92,6 +94,12 @@ export default function AttackSummary() {
   async function fetchAll() {
     const { data: settings } = await supabase.from("bot_settings").select("value").eq("key","kingdom_code").single();
     if (settings?.value) setMyKd(settings.value);
+
+    const { data: atkData } = await supabase
+      .from("attacks")
+      .select("attacker_province, target_kingdom, attack_type, acres_captured, timestamp")
+      .order("timestamp", { ascending: true });
+    setAttacks(atkData || []);
 
     const [outRes, inRes, kdRes] = await Promise.all([
       supabase.from("news_events").select("*").in("event_type", OUTGOING).order("date", { ascending: false }),
@@ -175,6 +183,67 @@ export default function AttackSummary() {
             <StatCard label="KD Attacks In" value={kdIncoming.length} color="#f87171" sub={`-${kdAcresLost} acres`} />
             <StatCard label="Net Acres (KD)" value={kdAcresGained - kdAcresLost} color={kdAcresGained >= kdAcresLost ? "#4ade80" : "#f87171"} />
           </div>
+
+          {/* Land Graph */}
+          {attacks.length > 0 && (() => {
+            const outAtks = attacks.filter(a => a.attack_type !== "incoming");
+            const inAtks = attacks.filter(a => a.attack_type === "incoming");
+
+            // Get all enemy kingdoms
+            const kdSet = new Set(outAtks.map(a => a.target_kingdom).filter(Boolean));
+            const kds = [...kdSet];
+
+            // Build timeline by hour buckets
+            const buckets = {};
+            for (const a of outAtks) {
+              const d = new Date(a.timestamp);
+              const key = d.toISOString().slice(0, 13); // hour bucket
+              if (!buckets[key]) buckets[key] = { time: key };
+              const kd = a.target_kingdom || "Unknown";
+              buckets[key][kd] = (buckets[key][kd] || 0) + (a.acres_captured || 0);
+            }
+            for (const a of inAtks) {
+              const d = new Date(a.timestamp);
+              const key = d.toISOString().slice(0, 13);
+              if (!buckets[key]) buckets[key] = { time: key };
+              buckets[key]["Incoming"] = (buckets[key]["Incoming"] || 0) - (a.acres_captured || 0);
+            }
+
+            // Sort and cumulate
+            const sorted = Object.values(buckets).sort((a, b) => a.time.localeCompare(b.time));
+            const cumulative = {};
+            const chartData = sorted.map(b => {
+              const point = { time: b.time.slice(5, 13).replace("T", " ") };
+              for (const kd of [...kds, "Incoming"]) {
+                cumulative[kd] = (cumulative[kd] || 0) + (b[kd] || 0);
+                point[kd] = cumulative[kd];
+              }
+              return point;
+            });
+
+            const KD_COLORS = ["#38bdf8","#4ade80","#f87171","#a78bfa","#fbbf24","#fb923c","#34d399","#e879f9"];
+
+            return (
+              <div className="panel" style={{ marginTop: 12 }}>
+                <h2>📈 Cumulative Land Change</h2>
+                <ResponsiveContainer width="100%" height={280}>
+                  <LineChart data={chartData}>
+                    <XAxis dataKey="time" tick={{ fontSize: 10, fill: "#475569" }} />
+                    <YAxis tick={{ fontSize: 10, fill: "#475569" }} />
+                    <Tooltip
+                      contentStyle={{ background: "#0f172a", border: "1px solid #38bdf8", borderRadius: 8, fontSize: 12 }}
+                      labelStyle={{ color: "#94a3b8" }}
+                    />
+                    <Legend wrapperStyle={{ fontSize: 12 }} />
+                    {kds.map((kd, i) => (
+                      <Line key={kd} type="monotone" dataKey={kd} stroke={KD_COLORS[i % KD_COLORS.length]} strokeWidth={2} dot={false} />
+                    ))}
+                    <Line key="Incoming" type="monotone" dataKey="Incoming" stroke="#f87171" strokeWidth={2} strokeDasharray="4 2" dot={false} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            );
+          })()}
 
           <div className="panel" style={{ padding: 0, marginTop: 12 }}>
             <SectionHeader title="Per-Target Breakdown" />
