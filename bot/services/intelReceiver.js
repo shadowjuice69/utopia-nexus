@@ -355,11 +355,12 @@ async function saveIntel(parsed, prov) {
             // Look for a line followed by combo (Un/Ta, El/He, etc) and honor (Lord, Lady, Knight, etc)
             const nextLine = lines[i+1] || "";
             const nextNextLine = lines[i+2] || "";
-            const isCombo = /^[A-Z][a-z]+\/[A-Z][a-z]+$/.test(nextLine);
+            const isCombo = /^[A-Z][a-z]{1,2}\/[A-Z][a-z]{1,2}$/.test(nextLine);
+              const thisLineIsCombo = /^[A-Z][a-z]{1,2}\/[A-Z][a-z]{1,2}$/.test(line);
             const isHonor = ["Lord","Lady","Knight","King","Queen","Noble","Squire","Prince","Princess","Duke","Duchess","Baron","Baroness","Emperor","Empress"].includes(nextLine) ||
                             ["Lord","Lady","Knight","King","Queen","Noble","Squire","Prince","Princess","Duke","Duchess","Baron","Baroness","Emperor","Empress"].includes(nextNextLine);
 
-            if (isCombo || (line.length > 2 && line.length < 50 && /^[A-Z]/.test(line) && isHonor)) {
+            if (!thisLineIsCombo && (isCombo || (line.length > 2 && line.length < 50 && /^[A-Z]/.test(line) && isHonor))) {
               provinces.push({ name: line, combo: nextLine });
             }
             i++;
