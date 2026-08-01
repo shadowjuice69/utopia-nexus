@@ -92,19 +92,53 @@ function formatSummary(s) {
   lines.push("");
 
   // Attack type breakdown
-  lines.push("**⚔️ Attack Types:**");
+  lines.push("**⚔️ Attack Types (Outgoing):**");
   for (const [type, count] of Object.entries(s.typeBreakdown)) {
     lines.push(`  ${type}: ${count}`);
   }
   lines.push(`  Bounces: ${s.bounces.length}`);
   lines.push("");
 
-  // Per enemy kingdom
+  // Per enemy kingdom outgoing
   lines.push("**🎯 By Enemy Kingdom:**");
   const enemyEntries = Object.entries(s.byEnemy).sort((a, b) => b[1].acres - a[1].acres);
   for (const [kd, data] of enemyEntries) {
     const uniques = data.provinces.size;
     lines.push(`  **${kd}** — ${data.attacks} attacks, +${data.acres} acres, ${uniques} uniques hit`);
+  }
+  lines.push("");
+
+  // Incoming breakdown by kingdom
+  lines.push("**🛡️ Incoming Attacks:**");
+  if (s.incoming.length === 0) {
+    lines.push("  None recorded");
+  } else {
+    const byIncomingKd = {};
+    for (const a of s.incoming) {
+      const kd = a.target_kingdom || "Unknown";
+      if (!byIncomingKd[kd]) byIncomingKd[kd] = { count: 0, acres: 0, targets: {} };
+      byIncomingKd[kd].count++;
+      byIncomingKd[kd].acres += a.acres_captured || 0;
+      const t = a.target_province || "Unknown";
+      byIncomingKd[kd].targets[t] = (byIncomingKd[kd].targets[t] || 0) + (a.acres_captured || 0);
+    }
+    for (const [kd, data] of Object.entries(byIncomingKd).sort((a, b) => b[1].acres - a[1].acres)) {
+      lines.push(`  **${kd}** — ${data.count} hits, -${data.acres} acres`);
+    }
+    lines.push("");
+
+    // Per-province incoming
+    lines.push("**🏰 Members Hit:**");
+    const byTarget = {};
+    for (const a of s.incoming) {
+      const t = a.target_province || "Unknown";
+      if (!byTarget[t]) byTarget[t] = { hits: 0, acres: 0 };
+      byTarget[t].hits++;
+      byTarget[t].acres += a.acres_captured || 0;
+    }
+    for (const [name, data] of Object.entries(byTarget).sort((a, b) => b[1].acres - a[1].acres)) {
+      lines.push(`  ${name}: ${data.hits} hits, -${data.acres} acres`);
+    }
   }
   lines.push("");
 
