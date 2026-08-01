@@ -328,35 +328,77 @@ async function saveIntel(parsed, prov) {
     }
     if (parsed.type === "intel-site") {
       const sb = supabaseService.getClient();
-      if (sb && parsed.data && parsed.data.rows && parsed.data.rows.length > 0) {
+      if (!sb) return;
+      try {
+        const siteData = parsed.data;
         const tab = parsed.tab || "overview";
         const kd = parsed.kd || "unknown";
-        const rows = parsed.data.rows;
 
-        if (tab === "overview" || tab === "unknown") {
-          for (const row of rows) {
-            if (!row.name || row.name.trim() === "") continue;
-            const province = row.name.trim();
-            const upsertData = {
-              province,
+        // Check if we got raw text (table not parsed) vs structured rows
+        const isRaw = siteData && siteData.rows && siteData.rows[0] && siteData.rows[0].raw;
+
+        if (isRaw) {
+          // Parse raw page text
+          const rawText = siteData.rows[0].raw;
+          const lines = rawText.split("\n").map(l => l.trim()).filter(Boolean);
+
+          // Known province names pattern - look for lines with numbers after them
+          // Format: "Province Name  Combo  Honor  Acres  NW..."
+          const provinces = [];
+          let i = 0;
+          while (i < lines.length) {
+            const line = lines[i];
+            // Skip navigation/header lines
+            if (["KINGDOM","ENEMY","RECENT","KD STATS","OPS","USERS","NEWS","OVERVIEW","WAR","MILITARY","SURVEY","SCIENCE","RESOURCES","ALL","ARMIES","GAINS"].includes(line.toUpperCase())) {
+              i++; continue;
+            }
+            // Look for a line followed by combo (Un/Ta, El/He, etc) and honor (Lord, Lady, Knight, etc)
+            const nextLine = lines[i+1] || "";
+            const nextNextLine = lines[i+2] || "";
+            const isCombo = /^[A-Z][a-z]+\/[A-Z][a-z]+$/.test(nextLine);
+            const isHonor = ["Lord","Lady","Knight","King","Queen","Noble","Squire","Prince","Princess","Duke","Duchess","Baron","Baroness","Emperor","Empress"].includes(nextLine) ||
+                            ["Lord","Lady","Knight","King","Queen","Noble","Squire","Prince","Princess","Duke","Duchess","Baron","Baroness","Emperor","Empress"].includes(nextNextLine);
+
+            if (isCombo || (line.length > 2 && line.length < 50 && /^[A-Z]/.test(line) && isHonor)) {
+              provinces.push({ name: line, combo: nextLine });
+            }
+            i++;
+          }
+
+          logger.info(`[INTEL-SITE] Parsed ${provinces.length} provinces from raw text for ${kd}`);
+
+          for (const prov of provinces) {
+            if (!prov.name) continue;
+            const { error: itErr } = await sb.from("intel_throne").upsert({
+              province: prov.name,
               kd_code: kd,
               updated_at: new Date().toISOString()
-            };
+            }, { onConflict: "province,kd_code" });
+            if (itErr) logger.error(`[INTEL-SITE RAW SAVE ERROR] ${prov.name}: ${itErr.message}`);
+            else logger.info(`[INTEL-SITE RAW SAVED] ${prov.name} (${kd})`);
+          }
+        } else if (siteData && siteData.rows && siteData.rows.length > 0) {
+          // Structured rows
+          for (const row of siteData.rows) {
+            if (!row.name || !row.name.trim()) continue;
+            const province = row.name.trim();
+            const upsertData = { province, kd_code: kd, updated_at: new Date().toISOString() };
             if (row.combo) upsertData.combo = row.combo;
-            if (row.acres || row.acr) upsertData.land = parseInt((row.acres || row.acr || "0").replace(/[^0-9]/g, "")) || null;
-            if (row.nw) upsertData.networth = parseInt((row.nw || "0").replace(/[^0-9]/g, "")) || null;
-            if (row.off) upsertData.offense = parseInt((row.off || "0").replace(/[^0-9]/g, "")) || null;
-            if (row.def) upsertData.defense = parseInt((row.def || "0").replace(/[^0-9]/g, "")) || null;
-            if (row.be) upsertData.be = parseInt((row.be || "0").replace(/[^0-9]/g, "")) || null;
+            if (row.acres) upsertData.land = parseInt((row.acres||"0").replace(/[^0-9]/g,"")) || null;
+            if (row.nw) upsertData.networth = parseInt((row.nw||"0").replace(/[^0-9]/g,"")) || null;
+            if (row.off) upsertData.offense = parseInt((row.off||"0").replace(/[^0-9]/g,"")) || null;
+            if (row.def) upsertData.defense = parseInt((row.def||"0").replace(/[^0-9]/g,"")) || null;
+            if (row.be) upsertData.be = parseInt((row.be||"0").replace(/[^0-9]/g,"")) || null;
             if (row.honor || row.hon) upsertData.honor = row.honor || row.hon;
             if (row.rtpa) upsertData.tpa = parseFloat(row.rtpa) || null;
             if (row.rwpa) upsertData.wpa = parseFloat(row.rwpa) || null;
-            if (row.good_spells || row.goodspel) upsertData.spells = row.good_spells || row.goodspel;
             const { error: itErr } = await sb.from("intel_throne").upsert(upsertData, { onConflict: "province,kd_code" });
             if (itErr) logger.error(`[INTEL-SITE SAVE ERROR] ${province}: ${itErr.message}`);
             else logger.info(`[INTEL-SITE SAVED] ${province} (${kd})`);
           }
         }
+      } catch(siteErr) {
+        logger.error(`[INTEL-SITE ERROR] ${siteErr.message}`);
       }
     }
     logger.info(`[INTEL SAVED] ${parsed.type} for ${prov}`);
