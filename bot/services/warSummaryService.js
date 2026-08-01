@@ -123,7 +123,8 @@ function formatSummary(s) {
       byIncomingKd[kd].targets[t] = (byIncomingKd[kd].targets[t] || 0) + (a.acres_captured || 0);
     }
     for (const [kd, data] of Object.entries(byIncomingKd).sort((a, b) => b[1].acres - a[1].acres)) {
-      lines.push(`  **${kd}** — ${data.count} hits, -${data.acres} acres`);
+      const kdLabel = kd === "3:2" ? "Our Kingdom" : kd;
+      lines.push(`  **${kdLabel}** — ${data.count} hits, -${data.acres} acres`);
     }
     lines.push("");
 
