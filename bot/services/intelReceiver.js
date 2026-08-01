@@ -360,7 +360,8 @@ async function saveIntel(parsed, prov) {
             const isHonor = ["Lord","Lady","Knight","King","Queen","Noble","Squire","Prince","Princess","Duke","Duchess","Baron","Baroness","Emperor","Empress"].includes(nextLine) ||
                             ["Lord","Lady","Knight","King","Queen","Noble","Squire","Prince","Princess","Duke","Duchess","Baron","Baroness","Emperor","Empress"].includes(nextNextLine);
 
-            if (!thisLineIsCombo && (isCombo || (line.length > 2 && line.length < 50 && /^[A-Z]/.test(line) && isHonor))) {
+            const isKdCode = /^\d+:\d+$/.test(line);
+              if (!thisLineIsCombo && !isKdCode && (isCombo || (line.length > 2 && line.length < 50 && /^[A-Z]/.test(line) && isHonor))) {
               provinces.push({ name: line, combo: nextLine });
             }
             i++;
