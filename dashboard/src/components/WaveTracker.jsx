@@ -89,9 +89,11 @@ export default function WaveTracker() {
   const [viewTick, setViewTick] = useState(getCurrentTick());
   const [loading, setLoading] = useState(true);
   const [now, setNow] = useState(new Date());
+  const [armies, setArmies] = useState([]);
 
   useEffect(() => {
     fetchMembers();
+    fetchArmies();
     const tickInterval = setInterval(() => {
       setCurrentTick(getCurrentTick());
       setNow(new Date());
@@ -107,6 +109,14 @@ export default function WaveTracker() {
       .not("timezone", "is", null);
     setMembers(data || []);
     setLoading(false);
+  }
+
+  async function fetchArmies() {
+    const { data } = await supabase
+      .from("intel_military")
+      .select("province, armies, updated_at")
+      .eq("kd_code", "3:2");
+    setArmies((data || []).filter(d => d.armies && d.armies.length > 0));
   }
 
   const availableAtTick = (tick) =>
@@ -148,6 +158,36 @@ export default function WaveTracker() {
           </div>
         </div>
       </div>
+
+      {armies.length > 0 && (
+        <div className="panel">
+          <h2>🪖 Armies Out ({armies.length} provinces)</h2>
+          <div className="armies-list">
+            {armies.map(a => (
+              <div key={a.province} className="army-row">
+                <div className="army-province">{a.province}</div>
+                <div className="army-details">
+                  {(a.armies || []).map((arm, i) => {
+                    const urgent = arm.return_days < 1;
+                    const troopSummary = Object.entries(arm.troops || {})
+                      .filter(([, v]) => v > 0)
+                      .map(([k, v]) => v.toLocaleString() + " " + k.replace("_", " "))
+                      .join(", ");
+                    return (
+                      <div key={i} className="army-entry" style={{ borderLeftColor: urgent ? "#f87171" : "#38bdf8" }}>
+                        <span className="army-return" style={{ color: urgent ? "#f87171" : "#4ade80" }}>
+                          {arm.return_days.toFixed(1)}d left
+                        </span>
+                        <span className="army-troops">{troopSummary || "unknown troops"}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Tick Selector */}
       <div className="panel">

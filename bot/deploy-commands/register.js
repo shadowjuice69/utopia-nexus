@@ -196,6 +196,7 @@ const commands = [
         description: "AI analysis of current war situation",
         type: 1
       },
+      { name: "war-summary", description: "Full war stats summary", type: 1 },
       { name: "roster", description: "View all registered kingdom members", type: 1 },
       {
         name: "admins",

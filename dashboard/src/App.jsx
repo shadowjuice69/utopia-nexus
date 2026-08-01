@@ -19,23 +19,53 @@ import AttackSummary from "./components/AttackSummary";
 import EnemyIntel from "./components/EnemyIntel";
 import Login from "./components/Login";
 
-const TABS = [
-  { id: "kingdom", label: "🏰 Kingdom" },
-  { id: "war", label: "⚔️ War Room" },
-  { id: "intel", label: "🔍 Intel" },
-  { id: "waves", label: "🌊 Waves" },
-  { id: "alerts", label: "🔔 Alerts" },
-  { id: "calc", label: "🧮 Calculator" },
-  { id: "buildings", label: "🏗️ Buildings" },
-  { id: "science", label: "🔬 Science" },
-  { id: "ops", label: "🗡️ Ops" },
-  { id: "attacks", label: "⚔️ Attacks" },
-  { id: "compare", label: "📊 Compare" },
-  { id: "spells", label: "✨ Spells" },
-  { id: "news", label: "📰 News" },
-  { id: "attacks-summary", label: "⚔️ Attack Summary" },
-  { id: "enemy", label: "🎯 Enemy Intel" },
-  { id: "import", label: "📥 Import" },
+const NAV = [
+  {
+    group: "Attack",
+    color: "#f87171",
+    tabs: [
+      { id: "attacks", label: "Attack Log" },
+      { id: "attacks-summary", label: "Summary" },
+      { id: "waves", label: "Waves" },
+      { id: "calc", label: "Calculator" },
+    ],
+  },
+  {
+    group: "Ops",
+    color: "#a78bfa",
+    tabs: [
+      { id: "ops", label: "Hostile Ops" },
+      { id: "spells", label: "Spells" },
+      { id: "alerts", label: "Alerts" },
+    ],
+  },
+  {
+    group: "Kingdom",
+    color: "#38bdf8",
+    tabs: [
+      { id: "kingdom", label: "Overview" },
+      { id: "war", label: "War Room" },
+      { id: "news", label: "News" },
+      { id: "import", label: "Import" },
+    ],
+  },
+  {
+    group: "Intel",
+    color: "#4ade80",
+    tabs: [
+      { id: "intel", label: "Provinces" },
+      { id: "enemy", label: "Enemy" },
+      { id: "compare", label: "Compare" },
+    ],
+  },
+  {
+    group: "Province",
+    color: "#fbbf24",
+    tabs: [
+      { id: "buildings", label: "Buildings" },
+      { id: "science", label: "Science" },
+    ],
+  },
 ];
 
 function App() {
@@ -44,18 +74,30 @@ function App() {
 
   if (!authed) return <Login onLogin={() => setAuthed(true)} />;
 
+  const activeGroup = NAV.find(g => g.tabs.some(t => t.id === tab));
+
   return (
     <div className="nexus">
       <Header />
-      <nav className="tab-bar">
-        {TABS.map(t => (
-          <button
-            key={t.id}
-            className={`tab-btn ${tab === t.id ? "active" : ""}`}
-            onClick={() => setTab(t.id)}
-          >
-            {t.label}
-          </button>
+      <nav className="nav-groups">
+        {NAV.map(group => (
+          <div key={group.group} className={`nav-group ${activeGroup?.group === group.group ? "nav-group-active" : ""}`}>
+            <div className="nav-group-label" style={{ color: group.color }}>
+              {group.group}
+            </div>
+            <div className="nav-group-tabs">
+              {group.tabs.map(t => (
+                <button
+                  key={t.id}
+                  className={`tab-btn ${tab === t.id ? "active" : ""}`}
+                  style={tab === t.id ? { borderColor: group.color, color: group.color, boxShadow: `0 0 12px ${group.color}33` } : {}}
+                  onClick={() => setTab(t.id)}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          </div>
         ))}
       </nav>
       <main className="dashboard-grid">
@@ -65,7 +107,7 @@ function App() {
         {tab === "waves" && <WaveTracker />}
         {tab === "alerts" && <AlertPanel />}
         {tab === "calc" && <AttackCalc />}
-{tab === "buildings" && <BuildingIntel />}
+        {tab === "buildings" && <BuildingIntel />}
         {tab === "science" && <ScienceIntel />}
         {tab === "ops" && <OpsIntel />}
         {tab === "attacks" && <AttackLog />}
