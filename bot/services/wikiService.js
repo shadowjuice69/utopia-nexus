@@ -47,7 +47,24 @@ async function searchRules(question) {
     .split(/\\s+/)
     .filter(w => !stopWords.includes(w));
 
+
   q = words.join(" ");
+
+  const { data: exactSpells } = await supabase
+    .from("spell_rules")
+    .select("spell_name, rule_name, value, description")
+    .ilike("spell_name", `%${q}%`)
+    .eq("active", true);
+
+  if (exactSpells && exactSpells.length > 0) {
+    lines.push(`🔮 **Spell Rules (Age 116)**`);
+    for (const row of exactSpells) {
+      lines.push(`• **${row.spell_name}** — ${row.rule_name}: ${row.value}`);
+      if (row.description) lines.push(`  ${row.description}`);
+    }
+    lines.push('');
+  }
+
   const lines = [];
 
   const { data: raceData } = await supabase
