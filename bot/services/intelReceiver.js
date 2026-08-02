@@ -386,7 +386,7 @@ async function saveIntel(parsed, prov) {
               if (row.honor) upsertData.honor = row.honor;
               if (row.rtpa) upsertData.tpa = parseFloat(row.rtpa) || null;
               if (row.rwpa) upsertData.wpa = parseFloat(row.rwpa) || null;
-              if (row.map) upsertData.map = parseNum(row.map);
+              if (row.map) upsertData.map = Math.round(parseNum(row.map) || 0);
               if (row.peons) upsertData.peasants = parseNum(row.peons);
               if (row.goodspells) upsertData.good_spells = row.goodspells;
 
