@@ -378,17 +378,18 @@ async function saveIntel(parsed, prov) {
                 updated_at: new Date().toISOString()
               };
               if (row.combo) upsertData.combo = row.combo;
-              if (row.acres) upsertData.land = parseNum(row.acres);
-              if (row.nw) upsertData.networth = parseNum(row.nw);
-              if (row.off) upsertData.offense = parseNum(row.off);
-              if (row.def) upsertData.defense = parseNum(row.def);
-              if (row.be) upsertData.be = parseNum(row.be);
               if (row.honor) upsertData.honor = row.honor;
+              if (row.acres) upsertData.land = parseNum(row.acres);
+              if (row.nw) upsertData.networth = String(parseNum(row.nw) || row.nw);
+              if (row.off) upsertData.offense = String(parseNum(row.off) || row.off);
+              if (row.def) upsertData.defense = String(parseNum(row.def) || row.def);
+              if (row.be) upsertData.be = String(parseFloat(row.be) || row.be);
               if (row.rtpa) upsertData.tpa = parseFloat(row.rtpa) || null;
               if (row.rwpa) upsertData.wpa = parseFloat(row.rwpa) || null;
               if (row.map) upsertData.map = Math.round(parseNum(row.map) || 0);
+              if (row["pop%"]) upsertData.be = row["pop%"];
               if (row.peons) upsertData.peasants = parseNum(row.peons);
-              if (row.goodspells) upsertData.good_spells = row.goodspells;
+              if (row.goodspells || row["goodspells"]) upsertData.good_spells = row.goodspells || row["goodspells"];
 
               const { error: csvErr } = await sb.from("intel_throne").upsert(upsertData, { onConflict: "province,kd_code" });
               if (csvErr) logger.error(`[CSV SAVE ERROR] ${row.name}: ${csvErr.message}`);
