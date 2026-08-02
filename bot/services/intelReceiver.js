@@ -336,12 +336,12 @@ async function saveIntel(parsed, prov) {
         const kd = parsed.kd || "unknown";
 
         // Check if this is CSV data
-        logger.info(`[INTEL-SITE DEBUG] source=${parsed.source} text_start=${text.substring(0,30)} siteData_type=${typeof siteData}`);
-        const isCSV = parsed.source === "intel-site-csv" || text.startsWith("#,Name") || text.startsWith("%23");
+        const csvRaw = parsed.data && parsed.data.rows && parsed.data.rows[0] && parsed.data.rows[0].raw ? parsed.data.rows[0].raw : null;
+        const isCSV = parsed.source === "intel-site-csv" || (csvRaw && csvRaw.startsWith("#,Name"));
+        logger.info(`[INTEL-SITE DEBUG] source=${parsed.source} isCSV=${isCSV} csvRaw_start=${csvRaw ? csvRaw.substring(0,30) : "null"}`);
         if (isCSV) {
           // Parse CSV directly from the raw text field
-          const csvText = typeof text === "string" && text.startsWith("#,Name") ? text
-          : (siteData && siteData.rows && siteData.rows[0] && siteData.rows[0].raw ? siteData.rows[0].raw : text);
+          const csvText = csvRaw || (siteData && siteData.rows && siteData.rows[0] ? siteData.rows[0].raw : "");
 
           const csvLines = csvText.split("\n").map(l => l.trim()).filter(Boolean);
           if (csvLines.length > 1) {
