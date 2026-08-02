@@ -182,14 +182,22 @@ const parsed = parseThrone(text);
     result.data = { events: parseNews(text, prov) };
   } else if (url.includes("intel.utopia.site") || text.includes('"source":"intel-site-csv"') || text.includes('"source":"intel-site"') || prov === "intel-site") {
     result.type = "intel-site";
-    result.source = "intel-site";
-    try {
-      const parsed = JSON.parse(text);
-      result.data = parsed;
-      result.tab = parsed.tab || "overview";
-      result.kd = parsed.kd || result.kd;
-    } catch(e) {
-      result.data = { raw: text };
+    // Check if raw CSV (starts with #,Name)
+    const isRawCSV = text.trimStart().startsWith("#,Name") || text.trimStart().startsWith("#%2C") || url.includes("source=intel-site-csv");
+    if (isRawCSV) {
+      result.source = "intel-site-csv";
+      result.data = { rows: [{ raw: text }] };
+      result.tab = "overview";
+    } else {
+      result.source = "intel-site";
+      try {
+        const parsed = JSON.parse(text);
+        result.data = parsed;
+        result.tab = parsed.tab || "overview";
+        result.kd = parsed.kd || result.kd;
+      } catch(e) {
+        result.data = { rows: [{ raw: text }] };
+      }
     }
   } else {
     result.type = "unknown";
