@@ -180,7 +180,7 @@ const parsed = parseThrone(text);
   } else if (url.includes("province_news") || url.includes("province_logs") || url.includes("kd_news") || url.includes("kingdom_news")) {
     result.type = "news";
     result.data = { events: parseNews(text, prov) };
-  } else if (url.includes("intel.utopia.site") || text.includes('"source":"intel-site"') || prov === "intel-site") {
+  } else if (url.includes("intel.utopia.site") || text.includes('"source":"intel-site-csv"') || text.includes('"source":"intel-site"') || prov === "intel-site") {
     result.type = "intel-site";
     try {
       const parsed = JSON.parse(text);
@@ -333,6 +333,58 @@ async function saveIntel(parsed, prov) {
         const siteData = parsed.data;
         const tab = parsed.tab || "overview";
         const kd = parsed.kd || "unknown";
+
+        // Check if this is CSV data
+        const isCSV = typeof text === "string" && text.includes("source=intel-site-csv");
+        if (isCSV) {
+          // Parse CSV directly from the raw text field
+          const csvText = siteData && siteData.rows && siteData.rows[0] && siteData.rows[0].raw
+            ? siteData.rows[0].raw
+            : text;
+
+          const csvLines = csvText.split("\n").map(l => l.trim()).filter(Boolean);
+          if (csvLines.length > 1) {
+            const headers = csvLines[0].split(",").map(h => h.trim().toLowerCase().replace(/[^a-z0-9]/g, "_"));
+            for (let ci = 1; ci < csvLines.length; ci++) {
+              const vals = csvLines[ci].split(",");
+              if (vals.length < 3) continue;
+              const row = {};
+              headers.forEach((h, idx) => { row[h] = (vals[idx] || "").trim(); });
+              if (!row.name) continue;
+
+              const parseNum = (v) => {
+                if (!v) return null;
+                v = v.replace(/[^0-9.km]/gi, "");
+                if (v.endsWith("k")) return Math.round(parseFloat(v) * 1000);
+                if (v.endsWith("m")) return Math.round(parseFloat(v) * 1000000);
+                return parseFloat(v) || null;
+              };
+
+              const upsertData = {
+                province: row.name,
+                kd_code: kd,
+                updated_at: new Date().toISOString()
+              };
+              if (row.combo) upsertData.combo = row.combo;
+              if (row.acres) upsertData.land = parseNum(row.acres);
+              if (row.nw) upsertData.networth = parseNum(row.nw);
+              if (row.off) upsertData.offense = parseNum(row.off);
+              if (row.def) upsertData.defense = parseNum(row.def);
+              if (row.be) upsertData.be = parseNum(row.be);
+              if (row.honor) upsertData.honor = row.honor;
+              if (row.rtpa) upsertData.tpa = parseFloat(row.rtpa) || null;
+              if (row.rwpa) upsertData.wpa = parseFloat(row.rwpa) || null;
+              if (row.map) upsertData.map = parseNum(row.map);
+              if (row.peons) upsertData.peasants = parseNum(row.peons);
+              if (row.goodspells) upsertData.good_spells = row.goodspells;
+
+              const { error: csvErr } = await sb.from("intel_throne").upsert(upsertData, { onConflict: "province,kd_code" });
+              if (csvErr) logger.error(`[CSV SAVE ERROR] ${row.name}: ${csvErr.message}`);
+              else logger.info(`[CSV SAVED] ${row.name} (${kd})`);
+            }
+          }
+          return;
+        }
 
         // Check if we got raw text (table not parsed) vs structured rows
         const isRaw = siteData && siteData.rows && siteData.rows[0] && siteData.rows[0].raw;
