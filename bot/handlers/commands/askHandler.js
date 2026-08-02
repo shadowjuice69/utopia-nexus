@@ -184,6 +184,10 @@ module.exports = async function askHandler(interaction) {
     getKingdomContext(supabase, kd),
   ]);
 
+  console.log("=== NEXUS RULES DEBUG ===");
+  console.log(rulesSnippet);
+  console.log("=========================");
+
   // Build wiki context string
   let wikiContext = '';
   if (wikiResults && wikiResults.length > 0) {
