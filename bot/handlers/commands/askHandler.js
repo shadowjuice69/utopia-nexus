@@ -2,6 +2,7 @@ const { EmbedBuilder } = require("discord.js");
 const { getKingdomInfo } = require("../../services/kingdomService");
 const wikiService = require("../../services/wikiService");
 const supabaseService = require("../../services/supabase");
+const { askOpenRouter } = require("../../services/openrouterService");
 
 const MAX_LENGTH = 1900;
 function truncate(str, max) {
@@ -240,7 +241,25 @@ module.exports = async function askHandler(interaction) {
   }
 
   // Get AI answer
-  const aiAnswer = await askGroq(question, wikiContext, kingdomContext, kd);
+  let aiAnswer = await askGroq(question, wikiContext, kingdomContext, kd);
+
+  if (!aiAnswer) {
+    console.log("[ASK] Groq failed, trying OpenRouter...");
+    aiAnswer = await askOpenRouter(
+      `You are Nexus, a Utopia kingdom advisor.
+
+QUESTION:
+${question}
+
+WIKI CONTEXT:
+${wikiContext}
+
+KINGDOM CONTEXT:
+${kingdomContext}
+
+Give a concise tactical answer using only real Utopia mechanics.`
+    );
+  }
 
   if (!aiAnswer && !wikiContext) {
     return interaction.editReply({
