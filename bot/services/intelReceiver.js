@@ -182,6 +182,7 @@ const parsed = parseThrone(text);
     result.data = { events: parseNews(text, prov) };
   } else if (url.includes("intel.utopia.site") || text.includes('"source":"intel-site-csv"') || text.includes('"source":"intel-site"') || prov === "intel-site") {
     result.type = "intel-site";
+    result.source = params ? params.get("source") : "intel-site";
     try {
       const parsed = JSON.parse(text);
       result.data = parsed;
@@ -335,13 +336,11 @@ async function saveIntel(parsed, prov) {
         const kd = parsed.kd || "unknown";
 
         // Check if this is CSV data
-        const source = params ? params.get("source") : "";
-        const isCSV = source === "intel-site-csv" || (typeof text === "string" && text.startsWith("#,Name"));
+        const isCSV = parsed.source === "intel-site-csv" || (typeof parsed.data === "string" && parsed.data.startsWith("#")) || (parsed.data && parsed.data.rows && parsed.data.rows[0] && parsed.data.rows[0].raw && parsed.data.rows[0].raw.startsWith("#,Name"));
         if (isCSV) {
           // Parse CSV directly from the raw text field
-          const csvText = siteData && siteData.rows && siteData.rows[0] && siteData.rows[0].raw
-            ? siteData.rows[0].raw
-            : text;
+          const csvText = typeof text === "string" && text.startsWith("#,Name") ? text
+          : (siteData && siteData.rows && siteData.rows[0] && siteData.rows[0].raw ? siteData.rows[0].raw : text);
 
           const csvLines = csvText.split("\n").map(l => l.trim()).filter(Boolean);
           if (csvLines.length > 1) {
