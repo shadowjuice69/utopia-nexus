@@ -56,6 +56,8 @@ async function searchRules(question) {
     .ilike("spell_name", `%${q}%`)
     .eq("active", true);
 
+  console.log("[SPELL SEARCH]", q, exactSpells);
+
   if (exactSpells && exactSpells.length > 0) {
     lines.push(`🔮 **Spell Rules (Age 116)**`);
     for (const row of exactSpells) {
