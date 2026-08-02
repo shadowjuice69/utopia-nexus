@@ -34,7 +34,20 @@ async function searchWiki(question) {
 async function searchRules(question) {
   const supabase = supabaseService.getClient();
   if (!supabase) return null;
-  const q = question.toLowerCase().trim();
+  let q = question.toLowerCase().trim();
+
+  const stopWords = [
+    "what","does","do","is","are","the","a","an",
+    "should","i","use","in","during","war","age",
+    "how","why","can","my","with","wiki","data"
+  ];
+
+  const words = q
+    .replace(/[^\\w\\s']/g, "")
+    .split(/\\s+/)
+    .filter(w => !stopWords.includes(w));
+
+  q = words.join(" ");
   const lines = [];
 
   const { data: raceData } = await supabase
