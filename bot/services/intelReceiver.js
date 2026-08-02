@@ -351,11 +351,31 @@ async function saveIntel(parsed, prov) {
           // Parse CSV directly from the raw text field
           const csvText = csvRaw || (siteData && siteData.rows && siteData.rows[0] ? siteData.rows[0].raw : "");
 
+          // Proper CSV parser that handles quoted fields
+          function parseCSVLine(line) {
+            const result = [];
+            let current = "";
+            let inQuotes = false;
+            for (let i = 0; i < line.length; i++) {
+              const ch = line[i];
+              if (ch === '"') {
+                inQuotes = !inQuotes;
+              } else if (ch === "," && !inQuotes) {
+                result.push(current.trim());
+                current = "";
+              } else {
+                current += ch;
+              }
+            }
+            result.push(current.trim());
+            return result;
+          }
+
           const csvLines = csvText.split("\n").map(l => l.trim()).filter(Boolean);
           if (csvLines.length > 1) {
-            const headers = csvLines[0].split(",").map(h => h.trim().toLowerCase().replace(/[^a-z0-9]/g, "_"));
+            const headers = parseCSVLine(csvLines[0]).map(h => h.toLowerCase().replace(/[^a-z0-9%]/g, "_").replace(/_+/g, "_"));
             for (let ci = 1; ci < csvLines.length; ci++) {
-              const vals = csvLines[ci].split(",");
+              const vals = parseCSVLine(csvLines[ci]);
               if (vals.length < 3) continue;
               const row = {};
               headers.forEach((h, idx) => { row[h] = (vals[idx] || "").trim(); });
