@@ -335,7 +335,8 @@ async function saveIntel(parsed, prov) {
         const kd = parsed.kd || "unknown";
 
         // Check if this is CSV data
-        const isCSV = typeof text === "string" && text.includes("source=intel-site-csv");
+        const source = params ? params.get("source") : "";
+        const isCSV = source === "intel-site-csv" || (typeof text === "string" && text.startsWith("#,Name"));
         if (isCSV) {
           // Parse CSV directly from the raw text field
           const csvText = siteData && siteData.rows && siteData.rows[0] && siteData.rows[0].raw
