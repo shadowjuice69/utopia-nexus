@@ -61,12 +61,12 @@ async function analyzeWar() {
     `${o.attacker_province} → ${o.target_province}: ${o.operation} [${o.success ? "SUCCESS" : "FAIL"}]`
   ).join("\n");
 
-  const militarySummary = intelMilitary.map(m =>
-    JSON.stringify(m)
+  const militarySummary = intelMilitary.slice(0, 10).map(m =>
+    `${m.province} (${m.kd_code}) Off:${m.offense} Def:${m.defense} Armies:${(m.armies||[]).length}`
   ).join("\n");
 
-  const throneSummary = intelThrone.map(t =>
-    JSON.stringify(t)
+  const throneSummary = intelThrone.slice(0, 10).map(t =>
+    `${t.province} (${t.kd_code}) ${t.race||'?'} NW:${t.networth} Land:${t.land} Off:${t.offense} Def:${t.defense} TPA:${t.tpa}`
   ).join("\n");
 
   const allyOpsSummary = allyOps.map(o =>
