@@ -186,6 +186,8 @@ module.exports = async function askHandler(interaction) {
 
   console.log("=== NEXUS RULES DEBUG ===");
   console.log(rulesSnippet);
+  console.log("=== NEXUS WIKI DEBUG ===");
+  console.log(wikiResults);
   console.log("=========================");
 
   // Build wiki context string
