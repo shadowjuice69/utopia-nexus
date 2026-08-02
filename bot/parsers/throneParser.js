@@ -7,7 +7,10 @@ function cleanNum(str) {
 
 function parseThrone(text) {
   const result = {};
-  const isGenesis = text.includes('YR0') || text.includes('Genesis - Contact') || text.includes('Age of the Savage') || (text.includes('ospa') && !text.includes('World of Legends')) || (text.includes('dspa') && !text.includes('World of Legends'));
+  const isGenesis =
+    text.includes('Genesis - Contact') ||
+    text.includes('Age of the Savage') ||
+    text.includes('YR0');
 
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
 
