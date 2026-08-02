@@ -50,11 +50,21 @@ async function searchRules(question) {
 
   q = words.join(" ");
 
-  const { data: exactSpells } = await supabase
-    .from("spell_rules")
-    .select("spell_name, rule_name, value, description")
-    .ilike("spell_name", `%${q}%`)
-    .eq("active", true);
+  // Search each word individually to handle apostrophes and partial matches
+  const searchWords = words.filter(w => w.length > 2);
+  let exactSpells = [];
+  for (const word of searchWords) {
+    const { data: wordResults } = await supabase
+      .from("spell_rules")
+      .select("spell_name, rule_name, value, description")
+      .ilike("spell_name", `%${word}%`)
+      .eq("active", true);
+    if (wordResults && wordResults.length > 0) {
+      exactSpells = [...exactSpells, ...wordResults];
+    }
+  }
+  // Deduplicate
+  exactSpells = exactSpells.filter((v, i, a) => a.findIndex(t => t.spell_name === v.spell_name && t.rule_name === v.rule_name) === i);
 
   console.log("[SPELL SEARCH]", q, exactSpells);
 
