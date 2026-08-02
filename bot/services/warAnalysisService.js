@@ -95,10 +95,22 @@ ENEMY THRONE: ${throneSummary||"None"}
 Analyze: 1)What happened 2)Who is winning 3)Enemy weaknesses 4)Actions. Be concise.`;
 
   try {
-    const { askOpenRouter } = require("./openrouterService");
-    const answer = await askOpenRouter(prompt);
-    if (answer) return answer;
-    return "OpenRouter did not return a response.";
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${process.env.GROQ_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: "llama-3.3-70b-versatile",
+        messages: [{ role: "user", content: prompt }],
+        max_tokens: 800
+      })
+    });
+    const result = await response.json();
+    if (result.choices?.[0]?.message?.content) return result.choices[0].message.content;
+    if (result.error) return `Error: ${result.error.message}`;
+    return null;
   } catch (err) {
     logger.error(`[WAR ANALYSIS ERROR] ${err.message}`);
     return null;
