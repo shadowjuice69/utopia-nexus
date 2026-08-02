@@ -363,10 +363,13 @@ async function saveIntel(parsed, prov) {
 
               const parseNum = (v) => {
                 if (!v) return null;
-                v = v.replace(/[^0-9.km]/gi, "");
-                if (v.endsWith("k")) return Math.round(parseFloat(v) * 1000);
-                if (v.endsWith("m")) return Math.round(parseFloat(v) * 1000000);
-                return parseFloat(v) || null;
+                const s = v.toString().trim().replace(/,/g, "");
+                const km = s.match(/^([\d.]+)([km]?)$/i);
+                if (!km) return parseFloat(s) || null;
+                const num = parseFloat(km[1]);
+                if (km[2].toLowerCase() === "k") return Math.round(num * 1000);
+                if (km[2].toLowerCase() === "m") return Math.round(num * 1000000);
+                return num || null;
               };
 
               const upsertData = {
