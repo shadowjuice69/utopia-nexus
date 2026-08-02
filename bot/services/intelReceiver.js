@@ -521,6 +521,7 @@ function start() {
         const data_simple = params.get("data_simple") || "";
         const url = params.get("url") || "";
         const prov = params.get("prov") || "";
+        const kdParam = params.get("kd") || "";
 
         if (INTEL_KEY && key !== INTEL_KEY) {
           res.writeHead(403); res.end("forbidden"); return;
@@ -534,6 +535,7 @@ function start() {
         console.log("[INTEL KEY]", key);
         console.log("[INTEL DATA SNIPPET]", data_simple.substring(0, 100));
         const parsed = parseIntel(url, prov, data_simple);
+        if (kdParam) parsed.kd = kdParam;
         console.log("[INTEL TYPE]", parsed.type);
         await saveIntel(parsed, prov);
         res.writeHead(200); res.end("ok");
