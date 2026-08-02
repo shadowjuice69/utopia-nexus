@@ -1,3 +1,4 @@
+const { getNexusPrompt } = require("./nexusPrompt");
 const axios = require("axios");
 
 async function askOpenRouter(prompt) {
