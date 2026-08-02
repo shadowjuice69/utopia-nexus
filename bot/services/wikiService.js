@@ -128,6 +128,9 @@ async function searchRules(question) {
     lines.push('');
   }
 
+  console.log("[SEARCH RULES QUERY]", q);
+  console.log("[SEARCH RULES RESULTS]", lines);
+
   return lines.length > 0 ? lines.join('\n') : null;
 }
 
