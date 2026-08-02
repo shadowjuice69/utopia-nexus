@@ -3,7 +3,20 @@ const supabaseService = require("./supabase");
 async function searchWiki(question) {
   const supabase = supabaseService.getClient();
   if (!supabase) return null;
-  const searchTerm = question.toLowerCase().trim();
+  let searchTerm = question.toLowerCase().trim();
+
+  const stopWords = [
+    "what","does","do","is","are","the","a","an",
+    "should","i","use","in","during","war","age",
+    "how","why","can","my","with"
+  ];
+
+  const words = searchTerm
+    .replace(/[^\\w\\s']/g, "")
+    .split(/\\s+/)
+    .filter(w => !stopWords.includes(w));
+
+  searchTerm = words.join(" ");
   const { data: exactMatch } = await supabase
     .from("wiki_entries").select("*").ilike("title", searchTerm).limit(1);
   if (exactMatch && exactMatch.length > 0) return exactMatch;
