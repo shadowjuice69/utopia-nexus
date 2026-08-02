@@ -182,7 +182,7 @@ const parsed = parseThrone(text);
     result.data = { events: parseNews(text, prov) };
   } else if (url.includes("intel.utopia.site") || text.includes('"source":"intel-site-csv"') || text.includes('"source":"intel-site"') || prov === "intel-site") {
     result.type = "intel-site";
-    result.source = params ? params.get("source") : "intel-site";
+    result.source = "intel-site";
     try {
       const parsed = JSON.parse(text);
       result.data = parsed;
