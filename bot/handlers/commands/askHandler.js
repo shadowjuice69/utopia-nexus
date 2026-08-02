@@ -131,7 +131,12 @@ async function askGroq(question, wikiContext, kingdomContext, kd) {
 ${wikiContext ? `WIKI/RULES CONTEXT:\n${wikiContext}\n` : ''}
 ${kingdomContext ? `KINGDOM CONTEXT:\n${kingdomContext}\n` : ''}
 
-Answer the question using the context above. Be specific and actionable.`;
+Answer the question using the context above.
+Priority rules:
+- Structured game rule databases (spell_rules, race_rules, personality_rules, science_rules) are authoritative.
+- If wiki_entries conflicts with structured rules, always use the structured rules.
+- Use wiki_entries for additional explanation and strategy only.
+Be specific and actionable.`;
 
   try {
     const controller = new AbortController();
