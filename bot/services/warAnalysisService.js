@@ -53,12 +53,12 @@ async function analyzeWar() {
     return "No war activity found in the last 72 hours.";
   }
 
-  const attackSummary = attacks.map(a =>
-    `${a.attacker_province} → ${a.target_province} (${a.attack_type}, ${a.acres_captured || 0} acres)`
+  const attackSummary = attacks.slice(0, 15).map(a =>
+    `${a.attacker_province}→${a.target_province} ${a.attack_type} ${a.acres_captured||0}ac`
   ).join("\n");
 
-  const opsSummary = hostileOps.map(o =>
-    `${o.attacker_province} → ${o.target_province}: ${o.operation} [${o.success ? "SUCCESS" : "FAIL"}]`
+  const opsSummary = hostileOps.slice(0, 15).map(o =>
+    `${o.attacker_province}→${o.target_province} ${o.operation} [${o.success?"OK":"FAIL"}]`
   ).join("\n");
 
   const militarySummary = intelMilitary.slice(0, 10).map(m =>
@@ -80,30 +80,19 @@ for (const op of intelOps) {
   if (analysis) opsThreats.push(analysis);
 }
 
-const prompt = `You are a Utopia war strategist analyzing an active war for kingdom ${kd.name} (${kd.code} WoL).
+const prompt = `Utopia war strategist for ${kd.name} (${kd.code}).
 
-ATTACKS (${attacks.length} total):
-${attackSummary || "None"}
+ATTACKS(${attacks.length}): ${attackSummary||"None"}
 
-HOSTILE OPS (${hostileOps.length} total):
-${opsSummary || "None"}
+OPS(${hostileOps.length}): ${opsSummary||"None"}
 
-ALLY OPS INTELLIGENCE (${allyOps.length} total):
-${allyOpsSummary || "None"}\n\nHOSTILE THREAT ANALYSIS:\n${JSON.stringify(opsThreats, null, 2) || "None"}
+ALLY OPS(${allyOps.length}): ${allyOpsSummary||"None"}
 
-ENEMY MILITARY INTEL:
-${militarySummary || "None available"}
+ENEMY MIL: ${militarySummary||"None"}
 
-ENEMY THRONE INTEL:
-${throneSummary || "None available"}
+ENEMY THRONE: ${throneSummary||"None"}
 
-Analyze this war:
-1. WHAT HAPPENED
-2. WHO IS WINNING
-3. ENEMY WEAKNESSES
-4. RECOMMENDED ACTIONS
-
-Keep it concise and tactical. Use Utopia terminology.`;
+Analyze: 1)What happened 2)Who is winning 3)Enemy weaknesses 4)Actions. Be concise.`;
 
   try {
     const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
