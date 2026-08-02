@@ -336,7 +336,8 @@ async function saveIntel(parsed, prov) {
         const kd = parsed.kd || "unknown";
 
         // Check if this is CSV data
-        const isCSV = parsed.source === "intel-site-csv" || (typeof parsed.data === "string" && parsed.data.startsWith("#")) || (parsed.data && parsed.data.rows && parsed.data.rows[0] && parsed.data.rows[0].raw && parsed.data.rows[0].raw.startsWith("#,Name"));
+        logger.info(`[INTEL-SITE DEBUG] source=${parsed.source} text_start=${text.substring(0,30)} siteData_type=${typeof siteData}`);
+        const isCSV = parsed.source === "intel-site-csv" || text.startsWith("#,Name") || text.startsWith("%23");
         if (isCSV) {
           // Parse CSV directly from the raw text field
           const csvText = typeof text === "string" && text.startsWith("#,Name") ? text
