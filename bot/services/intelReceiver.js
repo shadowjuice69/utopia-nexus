@@ -5,6 +5,7 @@ const { parseThrone } = require("../parsers/throneParser");
 const { parseKingdom } = require("../parsers/kingdomParser");
 const { parseState } = require("../parsers/stateParser");
 const { parseNews } = require("../parsers/newsParser");
+const { parseArmies } = require("../parsers/armiesParser");
 
 const INTEL_KEY = process.env.INTEL_KEY || "";
 const PORT = parseInt(process.env.PORT || "3000", 10);
@@ -415,6 +416,24 @@ async function saveIntel(parsed, prov) {
               if (csvErr) logger.error(`[CSV SAVE ERROR] ${row.name}: ${csvErr.message}`);
               else logger.info(`[CSV SAVED] ${row.name} (${kd})`);
             }
+          }
+          return;
+        }
+
+        // ARMIES TAB handler
+        if (tab === "armies") {
+          const rawText = siteData && siteData.rows && siteData.rows[0] ? siteData.rows[0].raw : text;
+          const armyProvs = parseArmies(rawText || text);
+          logger.info(`[ARMIES] Parsed ${armyProvs.length} provinces from armies tab for ${kd}`);
+          for (const prov of armyProvs) {
+            const { error: armyErr } = await sb.from("provinces").update({
+              ambush: prov.ambush,
+              off: prov.raw_off ? String(prov.raw_off) : undefined,
+              def: prov.raw_def ? String(prov.raw_def) : undefined,
+              updated_at: new Date().toISOString()
+            }).eq("name", prov.name).eq("kd_code", kd);
+            if (armyErr) logger.error(`[ARMIES SAVE ERROR] ${prov.name}: ${armyErr.message}`);
+            else logger.info(`[ARMIES SAVED] ${prov.name} ambush=${prov.ambush}`);
           }
           return;
         }
