@@ -1,7 +1,8 @@
 /**
- * Parse the ARMIES tab raw text from intel.utopia.site
- * Each data row looks like:
- * [slot] [kd#] [Name] [TimeRem] [Acres] [Ambush] [Gen] [Solds] [OSpec] [Elites] [Horses] [RawOff] [ModOff] [RawDef] [ModDef] [SomA]
+ * Parse the ARMIES tab data from intel.utopia.site
+ * Each cell comes as its own line in this order:
+ * id_a | # | Name | TimeRem | Acres | Ambush | Gen | Solds | OSpec | Elites | Horses | RawOff | ModOff | RawDef | ModDef | SomA
+ * 16 values per row
  */
 
 function parseK(val) {
@@ -15,92 +16,71 @@ function parseK(val) {
   return Math.round(n) || null;
 }
 
-function parseTimeRem(val) {
-  // "29m 23s" => minutes float, "1h 51m" => hours float
-  if (!val) return null;
-  const hm = val.match(/(\d+)h\s*(\d+)m/);
-  if (hm) return parseFloat(hm[1]) + parseFloat(hm[2]) / 60;
-  const m = val.match(/(\d+)m/);
-  if (m) return parseFloat(m[1]) / 60;
-  return null;
-}
-
 function parseArmies(text) {
   const lines = text.split("\n").map(l => l.trim()).filter(Boolean);
 
   // Skip header/nav lines
   const SKIP = new Set(["KINGDOM","ENEMY","RECENT","KD STATS","OPS","USERS","NEWS",
     "OVERVIEW","WAR","MILITARY","SURVEY","SCIENCE","RESOURCES","ALL","ARMIES","GAINS",
-    "OPS","WAR","GEN","ENEMY","WOL","SLOW KD"]);
+    "GEN","WOL","SLOW KD","ID_A","#","NAME","TIMEREM","TIMEREMAINING","ACRES","AMBUSH",
+    "SOLDS","OSPEC","ELITES","HORSES","RAWOFF","MODOFF","RAWDEF","MODDEF","SOMA"]);
 
-  // Find the header row containing "Ambush"
-  let headerIdx = -1;
+  // Find start — line after the header row (contains "Ambush")
+  // The header appears as individual words on separate lines
+  // Find index of "Ambush" line
+  let startIdx = -1;
   for (let i = 0; i < lines.length; i++) {
-    if (lines[i].toLowerCase().includes("ambush")) { headerIdx = i; break; }
+    if (lines[i] === "Ambush" || lines[i] === "AMBUSH") {
+      // Skip forward past remaining header words (Gen, Solds, OSpec, etc)
+      // Data starts when we hit a short number (the id_a like "2_1" or "1_1")
+      for (let j = i + 1; j < lines.length; j++) {
+        if (/^\d+_\d+$/.test(lines[j]) || /^\d+$/.test(lines[j])) {
+          startIdx = j;
+          break;
+        }
+      }
+      break;
+    }
   }
 
+  if (startIdx === -1) return [];
+
+  // Each row is 16 values: id_a, kd#, name, timerem, acres, ambush, gen, solds, ospec, elites, horses, rawoff, modoff, rawdef, moddef, soma
+  const COLS = 16;
   const provinces = {};
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    if (SKIP.has(line.toUpperCase())) continue;
-    if (i <= headerIdx) continue;
+  let i = startIdx;
+  while (i + COLS <= lines.length) {
+    const chunk = lines.slice(i, i + COLS);
 
-    // Each army row: split by 2+ spaces or tabs
-    const cols = line.split(/\t|\s{2,}/).map(c => c.trim()).filter(Boolean);
+    const idA    = chunk[0];  // e.g. "2_1"
+    const kdNum  = chunk[1];  // e.g. "2"
+    const name   = chunk[2];
+    const timeRem = chunk[3];
+    const acres  = parseK(chunk[4]);
+    const ambush = parseK(chunk[5]);
+    const gen    = parseInt(chunk[6]) || null;
+    const solds  = parseK(chunk[7]);
+    const ospec  = parseK(chunk[8]);
+    const elites = parseK(chunk[9]);
+    const horses = parseK(chunk[10]);
+    const rawOff = parseK(chunk[11]);
+    const modOff = parseK(chunk[12]);
+    const rawDef = parseK(chunk[13]);
+    const modDef = parseK(chunk[14]);
 
-    // Must have at least 10 cols and col[0] should be a small number (slot) or kd#
-    // Pattern: slot(1-3) kd#(1-20) Name TimeRem Acres Ambush Gen Solds OSpec Elites Horses RawOff ModOff RawDef ModDef
-    if (cols.length < 10) continue;
-
-    // First col is slot (1-3), second is kd# (integer)
-    if (!/^\d+$/.test(cols[0])) continue;
-    if (!/^\d+$/.test(cols[1])) continue;
-
-    const kd   = parseInt(cols[1]);
-    const name = cols[2];
-    const timeRem = parseTimeRem(cols[3]);
-    const acres  = parseK(cols[4]);
-    const ambush = parseK(cols[5]);
-    const gen    = parseInt(cols[6]) || null;
-    const solds  = parseK(cols[7]);
-    const ospec  = parseK(cols[8]);
-    const elites = parseK(cols[9]);
-    const horses = parseK(cols[10]) || null;
-    const rawOff = parseK(cols[11]);
-    const modOff = parseK(cols[12]);
-    const rawDef = parseK(cols[13]);
-    const modDef = parseK(cols[14]);
-
-    if (!name || !ambush) continue;
+    // Validate: idA should be like "2_1", name shouldn't be a number
+    if (!/^\d+_\d+$/.test(idA) && !/^\d+$/.test(idA)) { i++; continue; }
+    if (!name || /^\d+$/.test(name)) { i++; continue; }
+    if (!ambush) { i += COLS; continue; }
 
     if (!provinces[name]) {
-      provinces[name] = {
-        name,
-        kd_slot: kd,
-        acres,
-        ambush,          // max ambush across armies = this province's ambush number
-        generals: gen,
-        raw_off: rawOff,
-        mod_off: modOff,
-        raw_def: rawDef,
-        mod_def: modDef,
-        armies: []
-      };
+      provinces[name] = { name, ambush, acres, raw_off: rawOff, raw_def: rawDef, mod_off: modOff, mod_def: modDef, armies: [] };
     }
-
-    // Update ambush to max seen (army with most troops out = hardest to ambush)
     if (ambush > provinces[name].ambush) provinces[name].ambush = ambush;
+    provinces[name].armies.push({ time_rem: timeRem, soldiers: solds, off_specs: ospec, elites, horses, raw_off: rawOff });
 
-    provinces[name].armies.push({
-      time_rem_hours: timeRem,
-      soldiers: solds,
-      off_specs: ospec,
-      elites,
-      horses,
-      raw_off: rawOff,
-      mod_off: modOff
-    });
+    i += COLS;
   }
 
   return Object.values(provinces);
