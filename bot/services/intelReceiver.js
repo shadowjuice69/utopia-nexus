@@ -425,15 +425,16 @@ async function saveIntel(parsed, prov) {
           const rawText = siteData && siteData.rows && siteData.rows[0] ? siteData.rows[0].raw : text;
           const armyProvs = parseArmies(rawText || text);
           logger.info(`[ARMIES] Parsed ${armyProvs.length} provinces from armies tab for ${kd}`);
-          for (const prov of armyProvs) {
-            const { error: armyErr } = await sb.from("provinces").update({
-              ambush: prov.ambush,
-              off: prov.raw_off ? String(prov.raw_off) : undefined,
-              def: prov.raw_def ? String(prov.raw_def) : undefined,
+          for (const ap of armyProvs) {
+            // Upsert ambush into intel_throne (works with any kd including unknown)
+            const { error: armyErr } = await sb.from("intel_throne").upsert({
+              province: ap.name,
+              kd_code: kd,
+              ambush: ap.ambush,
               updated_at: new Date().toISOString()
-            }).eq("name", prov.name).eq("kd_code", kd);
-            if (armyErr) logger.error(`[ARMIES SAVE ERROR] ${prov.name}: ${armyErr.message}`);
-            else logger.info(`[ARMIES SAVED] ${prov.name} ambush=${prov.ambush}`);
+            }, { onConflict: "province,kd_code" });
+            if (armyErr) logger.error(`[ARMIES SAVE ERROR] ${ap.name}: ${armyErr.message}`);
+            else logger.info(`[ARMIES SAVED] ${ap.name} ambush=${ap.ambush}`);
           }
           return;
         }
