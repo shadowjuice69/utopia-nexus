@@ -423,6 +423,7 @@ async function saveIntel(parsed, prov) {
         // ARMIES TAB handler
         if (tab === "armies") {
           const rawText = siteData && siteData.rows && siteData.rows[0] ? siteData.rows[0].raw : text;
+          logger.info(`[ARMIES RAW] ${(rawText || text).substring(0, 500)}`);
           const armyProvs = parseArmies(rawText || text);
           logger.info(`[ARMIES] Parsed ${armyProvs.length} provinces from armies tab for ${kd}`);
           for (const ap of armyProvs) {
