@@ -374,6 +374,7 @@ async function saveIntel(parsed, prov) {
           const csvLines = csvText.split("\n").map(l => l.trim()).filter(Boolean);
           if (csvLines.length > 1) {
             const headers = parseCSVLine(csvLines[0]).map(h => h.toLowerCase().replace(/[^a-z0-9%]/g, "_").replace(/_+/g, "_"));
+            logger.info(`[CSV HEADERS] ${JSON.stringify(headers)}`);
             for (let ci = 1; ci < csvLines.length; ci++) {
               const vals = parseCSVLine(csvLines[ci]);
               if (vals.length < 3) continue;
