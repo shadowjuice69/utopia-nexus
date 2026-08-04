@@ -469,46 +469,147 @@ async function saveIntel(parsed, prov) {
         const isRaw = siteData && siteData.rows && siteData.rows[0] && siteData.rows[0].raw;
 
         if (isRaw) {
-          // Parse raw page text
           const rawText = siteData.rows[0].raw;
           const lines = rawText.split("\n").map(l => l.trim()).filter(Boolean);
 
-          // Known province names pattern - look for lines with numbers after them
-          // Format: "Province Name  Combo  Honor  Acres  NW..."
-          const provinces = [];
-          let i = 0;
-          while (i < lines.length) {
-            const line = lines[i];
-            // Skip navigation/header lines
-            if (["KINGDOM","ENEMY","RECENT","KD STATS","OPS","USERS","NEWS","OVERVIEW","WAR","MILITARY","SURVEY","SCIENCE","RESOURCES","ALL","ARMIES","GAINS"].includes(line.toUpperCase())) {
-              i++; continue;
+          // Detect if this is tab-separated table data from scrapeTable()
+          const isTabular = lines.some(l => l.includes("\t") && l.split("\t").length > 5);
+
+          if (isTabular) {
+            // Find header row — contains "Name" or "Ruler" column
+            let headerIdx = -1;
+            let headers = [];
+            for (let i = 0; i < lines.length; i++) {
+              const cols = lines[i].split("\t").map(c => c.trim().toLowerCase());
+              if (cols.includes("name") || cols.includes("ruler")) {
+                headerIdx = i;
+                headers = cols;
+                break;
+              }
             }
-            // Look for a line followed by combo (Un/Ta, El/He, etc) and honor (Lord, Lady, Knight, etc)
-            const nextLine = lines[i+1] || "";
-            const nextNextLine = lines[i+2] || "";
-            const isCombo = /^[A-Z][a-z]{1,2}\/[A-Z][a-z]{1,2}$/.test(nextLine);
+
+            if (headerIdx === -1) {
+              logger.info(`[INTEL-SITE] No header row found in tabular data`);
+            } else {
+              const nameIdx = headers.indexOf("name") !== -1 ? headers.indexOf("name") : headers.indexOf("ruler");
+              const parseNum = (v) => {
+                if (!v) return null;
+                const s = v.toString().replace(/,/g,"").trim();
+                const m = s.match(/^([\d.]+)([km]?)$/i);
+                if (!m) return parseFloat(s) || null;
+                const n = parseFloat(m[1]);
+                if (m[2].toLowerCase()==="k") return Math.round(n*1000);
+                if (m[2].toLowerCase()==="m") return Math.round(n*1000000);
+                return Math.round(n) || null;
+              };
+
+              const colMap = {
+                name: nameIdx,
+                ruler: headers.indexOf("ruler"),
+                race: headers.indexOf("race"),
+                personality: headers.indexOf("persona...") !== -1 ? headers.indexOf("persona...") : headers.indexOf("personality"),
+                combo: headers.indexOf("combo"),
+                honor: headers.indexOf("hon...") !== -1 ? headers.indexOf("hon...") : headers.indexOf("honor"),
+                acres: headers.indexOf("acr...") !== -1 ? headers.indexOf("acr...") : headers.indexOf("acres"),
+                nw: headers.indexOf("nw"),
+                nwpa: headers.indexOf("nw...") !== -1 ? headers.indexOf("nw...") : headers.indexOf("nwpa"),
+                pop: headers.indexOf("po...") !== -1 ? headers.indexOf("po...") : headers.indexOf("pop%"),
+                off: headers.indexOf("off"),
+                def: headers.indexOf("def"),
+                defhome: headers.indexOf("defho...") !== -1 ? headers.indexOf("defho...") : headers.indexOf("defhome"),
+                peons: headers.indexOf("peo...") !== -1 ? headers.indexOf("peo...") : headers.indexOf("peons"),
+                rtpa: headers.indexOf("rtpa"),
+                otpa: headers.indexOf("otpa"),
+                rwpa: headers.indexOf("rw...") !== -1 ? headers.indexOf("rw...") : headers.indexOf("rwpa"),
+                owpa: headers.indexOf("ow...") !== -1 ? headers.indexOf("ow...") : headers.indexOf("owpa"),
+                stlth: headers.indexOf("stlth"),
+                mana: headers.indexOf("ma...") !== -1 ? headers.indexOf("ma...") : headers.indexOf("mana"),
+                map: headers.indexOf("map"),
+                be: headers.indexOf("be"),
+                wages: headers.indexOf("wag...") !== -1 ? headers.indexOf("wag...") : headers.indexOf("wages"),
+                goodspells: headers.indexOf("goodspells"),
+                badspells: headers.indexOf("badspells"),
+                intelage: headers.indexOf("intelage"),
+              };
+
+              const get = (row, key) => {
+                const idx = colMap[key];
+                return idx !== -1 && idx < row.length ? row[idx].trim() : null;
+              };
+
+              let saved = 0;
+              for (let i = headerIdx + 1; i < lines.length; i++) {
+                const row = lines[i].split("\t").map(c => c.trim());
+                const name = get(row, "name") || get(row, "ruler");
+                if (!name || name.length < 2) continue;
+                // Skip if name looks like a header or nav item
+                if (["id","kd","name","ruler","race","personality","combo"].includes(name.toLowerCase())) continue;
+
+                const upsertData = {
+                  province: name,
+                  kd_code: kd,
+                  updated_at: new Date().toISOString()
+                };
+
+                const race = get(row, "race"); if (race) upsertData.race = race;
+                const pers = get(row, "personality"); if (pers) upsertData.personality = pers;
+                const combo = get(row, "combo"); if (combo) upsertData.combo = combo;
+                const honor = get(row, "honor"); if (honor) upsertData.honor = honor;
+                const acres = get(row, "acres"); if (acres) upsertData.land = parseNum(acres);
+                const nw = get(row, "nw"); if (nw) upsertData.networth = String(parseNum(nw) || nw);
+                const nwpa = get(row, "nwpa"); if (nwpa) upsertData.nwpa = nwpa;
+                const off = get(row, "off"); if (off) upsertData.offense = String(parseNum(off) || off);
+                const def = get(row, "def"); if (def) upsertData.defense = String(parseNum(def) || def);
+                const defhome = get(row, "defhome"); if (defhome) upsertData.defense = String(parseNum(defhome) || defhome);
+                const peons = get(row, "peons"); if (peons) upsertData.peasants = parseNum(peons);
+                const rtpa = get(row, "rtpa"); if (rtpa) upsertData.tpa = parseFloat(rtpa) || null;
+                const otpa = get(row, "otpa"); if (otpa) upsertData.tpa = parseFloat(otpa) || null;
+                const rwpa = get(row, "rwpa"); if (rwpa) upsertData.wpa = parseFloat(rwpa) || null;
+                const stlth = get(row, "stlth"); if (stlth) upsertData.stealth = stlth;
+                const mana = get(row, "mana"); if (mana) upsertData.mana = mana;
+                const map = get(row, "map"); if (map) upsertData.map = map.trim();
+                const be = get(row, "be"); if (be) upsertData.be = be.replace("%","").trim();
+                const wages = get(row, "wages"); if (wages) upsertData.wages = wages;
+                const goodspells = get(row, "goodspells"); if (goodspells) upsertData.good_spells = goodspells;
+                const badspells = get(row, "badspells"); if (badspells) upsertData.bad_spells = badspells;
+                const intelage = get(row, "intelage"); if (intelage) upsertData.intel_age = intelage;
+
+                const { error: itErr } = await sb.from("intel_throne").upsert(upsertData, { onConflict: "province,kd_code" });
+                if (itErr) logger.error(`[INTEL-SITE TAB SAVE ERROR] ${name}: ${itErr.message}`);
+                else { logger.info(`[INTEL-SITE TAB SAVED] ${name} (${kd})`); saved++; }
+              }
+              logger.info(`[INTEL-SITE] Saved ${saved} provinces from tabular data for ${kd}`);
+            }
+          } else {
+            // Fallback: old line-by-line parser
+            const provinces = [];
+            let i = 0;
+            while (i < lines.length) {
+              const line = lines[i];
+              if (["KINGDOM","ENEMY","RECENT","KD STATS","OPS","USERS","NEWS","OVERVIEW","WAR","MILITARY","SURVEY","SCIENCE","RESOURCES","ALL","ARMIES","GAINS"].includes(line.toUpperCase())) {
+                i++; continue;
+              }
+              const nextLine = lines[i+1] || "";
+              const nextNextLine = lines[i+2] || "";
+              const isCombo = /^[A-Z][a-z]{1,2}\/[A-Z][a-z]{1,2}$/.test(nextLine);
               const thisLineIsCombo = /^[A-Z][a-z]{1,2}\/[A-Z][a-z]{1,2}$/.test(line);
-            const isHonor = ["Lord","Lady","Knight","King","Queen","Noble","Squire","Prince","Princess","Duke","Duchess","Baron","Baroness","Emperor","Empress"].includes(nextLine) ||
-                            ["Lord","Lady","Knight","King","Queen","Noble","Squire","Prince","Princess","Duke","Duchess","Baron","Baroness","Emperor","Empress"].includes(nextNextLine);
-
-            const isKdCode = /^\d+:\d+$/.test(line);
+              const isHonor = ["Lord","Lady","Knight","King","Queen","Noble","Squire","Prince","Princess","Duke","Duchess","Baron","Baroness","Emperor","Empress"].includes(nextLine) ||
+                              ["Lord","Lady","Knight","King","Queen","Noble","Squire","Prince","Princess","Duke","Duchess","Baron","Baroness","Emperor","Empress"].includes(nextNextLine);
+              const isKdCode = /^\d+:\d+$/.test(line);
               if (!thisLineIsCombo && !isKdCode && (isCombo || (line.length > 2 && line.length < 50 && /^[A-Z]/.test(line) && isHonor))) {
-              provinces.push({ name: line, combo: nextLine });
+                provinces.push({ name: line, combo: nextLine });
+              }
+              i++;
             }
-            i++;
-          }
-
-          logger.info(`[INTEL-SITE] Parsed ${provinces.length} provinces from raw text for ${kd}`);
-
-          for (const prov of provinces) {
-            if (!prov.name) continue;
-            const { error: itErr } = await sb.from("intel_throne").upsert({
-              province: prov.name,
-              kd_code: kd,
-              updated_at: new Date().toISOString()
-            }, { onConflict: "province,kd_code" });
-            if (itErr) logger.error(`[INTEL-SITE RAW SAVE ERROR] ${prov.name}: ${itErr.message}`);
-            else logger.info(`[INTEL-SITE RAW SAVED] ${prov.name} (${kd})`);
+            logger.info(`[INTEL-SITE] Parsed ${provinces.length} provinces from raw text for ${kd}`);
+            for (const prov of provinces) {
+              if (!prov.name) continue;
+              const { error: itErr } = await sb.from("intel_throne").upsert({
+                province: prov.name, kd_code: kd, updated_at: new Date().toISOString()
+              }, { onConflict: "province,kd_code" });
+              if (itErr) logger.error(`[INTEL-SITE RAW SAVE ERROR] ${prov.name}: ${itErr.message}`);
+              else logger.info(`[INTEL-SITE RAW SAVED] ${prov.name} (${kd})`);
+            }
           }
         } else if (siteData && siteData.rows && siteData.rows.length > 0) {
           // Structured rows
