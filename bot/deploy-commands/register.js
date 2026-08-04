@@ -99,12 +99,7 @@ const commands = [
         description: "Calculate minimum offense needed to ambush an enemy army",
         type: 1,
         options: [
-          { name: "target",   description: "Province name to look up from intel",  type: 3, required: false },
-          { name: "race",     description: "Enemy race (manual mode)",             type: 3, required: false, choices: RACE_CHOICES },
-          { name: "elites",   description: "Enemy elites in army",                 type: 4, required: false },
-          { name: "offspecs", description: "Enemy off specs",                      type: 4, required: false },
-          { name: "soldiers", description: "Enemy soldiers",                       type: 4, required: false },
-          { name: "defspecs", description: "Enemy def specs",                      type: 4, required: false }
+          { name: "target", description: "Province name to look up ambush data from intel", type: 3, required: true }
         ]
       },
       {
