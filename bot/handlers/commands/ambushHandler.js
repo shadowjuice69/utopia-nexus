@@ -36,7 +36,7 @@ module.exports = async function ambushHandler(interaction) {
     .setColor(0xff6600);
 
   for (const row of rows) {
-    const minOff = Math.ceil(row.ambush * 0.80);
+    const minOff = row.ambush;
     const safeOff = minOff + 100;
     const age = Math.round((Date.now() - new Date(row.updated_at)) / 60000);
     embed.addFields({
