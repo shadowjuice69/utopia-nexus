@@ -491,7 +491,10 @@ async function saveIntel(parsed, prov) {
             if (headerIdx === -1) {
               logger.info(`[INTEL-SITE] No header row found in tabular data`);
             } else {
-              const nameIdx = headers.indexOf("name") !== -1 ? headers.indexOf("name") : headers.indexOf("ruler");
+              // Build header map handling empty columns (double-tab issue)
+              const headerMap = {};
+              headers.forEach((h, idx) => { if (h.trim()) headerMap[h.trim()] = idx; });
+              const nameIdx = headerMap["name"] !== undefined ? headerMap["name"] : headerMap["ruler"];
               const parseNum = (v) => {
                 if (!v) return null;
                 const s = v.toString().replace(/,/g,"").trim();
@@ -503,33 +506,34 @@ async function saveIntel(parsed, prov) {
                 return Math.round(n) || null;
               };
 
+              const h = headerMap;
               const colMap = {
-                name: nameIdx,
-                ruler: headers.indexOf("ruler"),
-                race: headers.indexOf("race"),
-                personality: headers.indexOf("persona...") !== -1 ? headers.indexOf("persona...") : headers.indexOf("personality"),
-                combo: headers.indexOf("combo"),
-                honor: headers.indexOf("hon...") !== -1 ? headers.indexOf("hon...") : headers.indexOf("honor"),
-                acres: headers.indexOf("acr...") !== -1 ? headers.indexOf("acr...") : headers.indexOf("acres"),
-                nw: headers.indexOf("nw"),
-                nwpa: headers.indexOf("nw...") !== -1 ? headers.indexOf("nw...") : headers.indexOf("nwpa"),
-                pop: headers.indexOf("po...") !== -1 ? headers.indexOf("po...") : headers.indexOf("pop%"),
-                off: headers.indexOf("off"),
-                def: headers.indexOf("def"),
-                defhome: headers.indexOf("defho...") !== -1 ? headers.indexOf("defho...") : headers.indexOf("defhome"),
-                peons: headers.indexOf("peo...") !== -1 ? headers.indexOf("peo...") : headers.indexOf("peons"),
-                rtpa: headers.indexOf("rtpa"),
-                otpa: headers.indexOf("otpa"),
-                rwpa: headers.indexOf("rw...") !== -1 ? headers.indexOf("rw...") : headers.indexOf("rwpa"),
-                owpa: headers.indexOf("ow...") !== -1 ? headers.indexOf("ow...") : headers.indexOf("owpa"),
-                stlth: headers.indexOf("stlth"),
-                mana: headers.indexOf("ma...") !== -1 ? headers.indexOf("ma...") : headers.indexOf("mana"),
-                map: headers.indexOf("map"),
-                be: headers.indexOf("be"),
-                wages: headers.indexOf("wag...") !== -1 ? headers.indexOf("wag...") : headers.indexOf("wages"),
-                goodspells: headers.indexOf("goodspells"),
-                badspells: headers.indexOf("badspells"),
-                intelage: headers.indexOf("intelage"),
+                name: h["name"] !== undefined ? h["name"] : -1,
+                ruler: h["ruler"] !== undefined ? h["ruler"] : -1,
+                race: h["race"] !== undefined ? h["race"] : -1,
+                personality: h["personality"] !== undefined ? h["personality"] : (h["persona..."] !== undefined ? h["persona..."] : -1),
+                combo: h["combo"] !== undefined ? h["combo"] : -1,
+                honor: h["honor"] !== undefined ? h["honor"] : (h["hon..."] !== undefined ? h["hon..."] : -1),
+                acres: h["acres"] !== undefined ? h["acres"] : (h["acr..."] !== undefined ? h["acr..."] : -1),
+                nw: h["nw"] !== undefined ? h["nw"] : -1,
+                nwpa: h["nwpa"] !== undefined ? h["nwpa"] : (h["nw..."] !== undefined ? h["nw..."] : -1),
+                pop: h["pop%"] !== undefined ? h["pop%"] : (h["po..."] !== undefined ? h["po..."] : -1),
+                off: h["off"] !== undefined ? h["off"] : -1,
+                def: h["def"] !== undefined ? h["def"] : -1,
+                defhome: h["defhome"] !== undefined ? h["defhome"] : (h["defho..."] !== undefined ? h["defho..."] : -1),
+                peons: h["peons"] !== undefined ? h["peons"] : (h["peo..."] !== undefined ? h["peo..."] : -1),
+                rtpa: h["rtpa"] !== undefined ? h["rtpa"] : -1,
+                otpa: h["otpa"] !== undefined ? h["otpa"] : -1,
+                rwpa: h["rwpa"] !== undefined ? h["rwpa"] : (h["rw..."] !== undefined ? h["rw..."] : -1),
+                owpa: h["owpa"] !== undefined ? h["owpa"] : (h["ow..."] !== undefined ? h["ow..."] : -1),
+                stlth: h["stlth"] !== undefined ? h["stlth"] : -1,
+                mana: h["mana"] !== undefined ? h["mana"] : (h["ma..."] !== undefined ? h["ma..."] : -1),
+                map: h["map"] !== undefined ? h["map"] : -1,
+                be: h["be"] !== undefined ? h["be"] : -1,
+                wages: h["wages"] !== undefined ? h["wages"] : (h["wag..."] !== undefined ? h["wag..."] : -1),
+                goodspells: h["goodspells"] !== undefined ? h["goodspells"] : -1,
+                badspells: h["badspells"] !== undefined ? h["badspells"] : -1,
+                intelage: h["intelage"] !== undefined ? h["intelage"] : -1,
               };
 
               const get = (row, key) => {
