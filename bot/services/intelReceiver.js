@@ -641,11 +641,17 @@ async function saveIntel(parsed, prov) {
             logger.info(`[INTEL-SITE] Parsed ${provinces.length} provinces from raw text for ${kd}`);
             for (const prov of provinces) {
               if (!prov.name) continue;
+              const comboDecoded = decodeCombo(prov.combo);
               const { error: itErr } = await sb.from("intel_throne").upsert({
-                province: prov.name, kd_code: kd, updated_at: new Date().toISOString()
+                province: prov.name,
+                kd_code: kd,
+                combo: prov.combo || null,
+                race: comboDecoded.race || null,
+                personality: comboDecoded.personality || null,
+                updated_at: new Date().toISOString()
               }, { onConflict: "province,kd_code" });
               if (itErr) logger.error(`[INTEL-SITE RAW SAVE ERROR] ${prov.name}: ${itErr.message}`);
-              else logger.info(`[INTEL-SITE RAW SAVED] ${prov.name} (${kd})`);
+              else logger.info(`[INTEL-SITE RAW SAVED] ${prov.name} race=${comboDecoded.race} (${kd})`);
             }
           }
         } else if (siteData && siteData.rows && siteData.rows.length > 0) {
