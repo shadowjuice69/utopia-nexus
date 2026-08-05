@@ -428,8 +428,8 @@ async function saveIntel(parsed, prov) {
               if (row.combo) {
                 upsertData.combo = row.combo;
                 const decoded = decodeCombo(row.combo);
-                if (decoded.race && !upsertData.race) upsertData.race = decoded.race;
-                if (decoded.personality && !upsertData.personality) upsertData.personality = decoded.personality;
+                if (decoded.race) upsertData.race = decoded.race;
+                if (decoded.personality) upsertData.personality = decoded.personality;
               }
               if (row.honor) upsertData.honor = row.honor;
               if (row.acres) upsertData.land = parseNum(row.acres);
@@ -497,7 +497,7 @@ async function saveIntel(parsed, prov) {
           const lines = rawText.split("\n").map(l => l.trim()).filter(Boolean);
 
           // Detect if this is tab-separated table data from scrapeTable()
-          const isTabular = lines.some(l => l.includes("\t") && l.split("\t").length > 5);
+          const isTabular = lines.some(l => l.includes("\t") && l.split("\t").length > 5) || lines.some(l => l.startsWith("#") && l.includes("Name"));
 
           if (isTabular) {
             // Find header row — contains "Name" or "Ruler" column
