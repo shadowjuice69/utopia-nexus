@@ -207,6 +207,25 @@ const parsed = parseThrone(text);
   return result;
 }
 
+function decodeCombo(combo) {
+  if (!combo) return {};
+  const RACE_MAP = {
+    "Un": "Undead", "El": "Elf", "Or": "Orc", "Dw": "Dwarf",
+    "Hu": "Human", "Av": "Avian", "Fa": "Faery", "Ha": "Halfling",
+    "Dk": "Dark Elf", "Dr": "Dryad"
+  };
+  const PERS_MAP = {
+    "Ta": "Tactician", "He": "Heretic", "Ge": "General", "Sa": "Sage",
+    "Wh": "War Hero", "Wa": "Warrior", "My": "Mystic", "Ro": "Rogue",
+    "Kn": "Knight", "Se": "Merchant"
+  };
+  const parts = combo.split("/");
+  const result = {};
+  if (parts[0] && RACE_MAP[parts[0]]) result.race = RACE_MAP[parts[0]];
+  if (parts[1] && PERS_MAP[parts[1]]) result.personality = PERS_MAP[parts[1]];
+  return result;
+}
+
 async function saveIntel(parsed, prov) {
   const sb = supabaseService.getClient();
   if (!sb) return;
@@ -406,7 +425,12 @@ async function saveIntel(parsed, prov) {
               // Stlth->stlth, Mana->mana, MAP->map, BE->be, Wages->wages
               // OPs ToDo->ops_todo, GoodSpells->goodspells, BadSpells->badspells
               // Unique Cooldown->unique_cooldown, IntelAge->intelage
-              if (row.combo) upsertData.combo = row.combo;
+              if (row.combo) {
+                upsertData.combo = row.combo;
+                const decoded = decodeCombo(row.combo);
+                if (decoded.race && !upsertData.race) upsertData.race = decoded.race;
+                if (decoded.personality && !upsertData.personality) upsertData.personality = decoded.personality;
+              }
               if (row.honor) upsertData.honor = row.honor;
               if (row.acres) upsertData.land = parseNum(row.acres);
               if (row.nw) upsertData.networth = String(parseNum(row.nw) || row.nw);
@@ -560,7 +584,13 @@ async function saveIntel(parsed, prov) {
 
                 const race = get(row, "race"); if (race) upsertData.race = race;
                 const pers = get(row, "personality"); if (pers) upsertData.personality = pers;
-                const combo = get(row, "combo"); if (combo) upsertData.combo = combo;
+                const combo = get(row, "combo");
+                if (combo) {
+                  upsertData.combo = combo;
+                  const decoded = decodeCombo(combo);
+                  if (decoded.race && !upsertData.race) upsertData.race = decoded.race;
+                  if (decoded.personality && !upsertData.personality) upsertData.personality = decoded.personality;
+                }
                 const honor = get(row, "honor"); if (honor) upsertData.honor = honor;
                 const acres = get(row, "acres"); if (acres) upsertData.land = parseNum(acres);
                 const nw = get(row, "nw"); if (nw) upsertData.networth = String(parseNum(nw) || nw);
