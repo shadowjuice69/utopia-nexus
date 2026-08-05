@@ -5,16 +5,16 @@
 - Mozilla Add-ons submission: Awaiting Review
 - Intel pipeline: Working
 - Race/personality extraction: Verified
-- Supabase intel_throne updated with race and personality data
+- Supabase intel_throne populated with race and personality data
 
 ## Current Workflow Position
-- Extension sends intel
+- Extension collects Utopia intel
 - Backend receives and processes intel
-- Supabase stores kingdom data
-- Next step is using enriched intel for analysis/dashboard features
+- Supabase stores kingdom intelligence
+- AI analysis layer uses stored data
 
 ## Next Tasks
-- Continue Nexus AI analysis improvements
-- Integrate race/personality into reports
-- Continue testing extension updates
+- Integrate race/personality into analysis
+- Continue dashboard improvements
+- Continue AI intelligence features
 
