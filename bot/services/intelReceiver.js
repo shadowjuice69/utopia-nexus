@@ -221,8 +221,8 @@ function decodeCombo(combo) {
   };
   const parts = combo.split("/");
   const result = {};
-  if (parts[0] && RACE_MAP[parts[0]]) result.race = RACE_MAP[parts[0]];
-  if (parts[1] && PERS_MAP[parts[1]]) result.personality = PERS_MAP[parts[1]];
+  if (parts[0] && RACE_MAP[parts[0].trim()]) result.race = RACE_MAP[parts[0].trim()];
+  if (parts[1] && PERS_MAP[parts[1].trim()]) result.personality = PERS_MAP[parts[1].trim()];
   return result;
 }
 
@@ -588,8 +588,8 @@ async function saveIntel(parsed, prov) {
                 if (combo) {
                   upsertData.combo = combo;
                   const decoded = decodeCombo(combo);
-                  if (decoded.race && !upsertData.race) upsertData.race = decoded.race;
-                  if (decoded.personality && !upsertData.personality) upsertData.personality = decoded.personality;
+                  if (decoded.race) upsertData.race = decoded.race;
+                  if (decoded.personality) upsertData.personality = decoded.personality;
                 }
                 const honor = get(row, "honor"); if (honor) upsertData.honor = honor;
                 const acres = get(row, "acres"); if (acres) upsertData.land = parseNum(acres);
