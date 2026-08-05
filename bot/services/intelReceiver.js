@@ -543,6 +543,8 @@ async function saveIntel(parsed, prov) {
               };
 
               let saved = 0;
+              logger.info(`[TABULAR LINES] total=${lines.length} headerIdx=${headerIdx} nameIdx=${nameIdx}`);
+              if (lines.length > headerIdx + 1) logger.info(`[FIRST DATA ROW] ${JSON.stringify(lines[headerIdx+1].split("\t"))}`);
               for (let i = headerIdx + 1; i < lines.length; i++) {
                 const row = lines[i].split("\t").map(c => c.trim());
                 const name = get(row, "name") || get(row, "ruler");
