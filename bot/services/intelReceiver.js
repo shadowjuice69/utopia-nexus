@@ -494,6 +494,7 @@ async function saveIntel(parsed, prov) {
               // Build header map handling empty columns (double-tab issue)
               const headerMap = {};
               headers.forEach((h, idx) => { if (h.trim()) headerMap[h.trim()] = idx; });
+              logger.info(`[HEADER MAP] ${JSON.stringify(headerMap)}`);
               const nameIdx = headerMap["name"] !== undefined ? headerMap["name"] : headerMap["ruler"];
               const parseNum = (v) => {
                 if (!v) return null;
