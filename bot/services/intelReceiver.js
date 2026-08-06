@@ -497,7 +497,8 @@ async function saveIntel(parsed, prov) {
           const lines = rawText.split("\n").map(l => l.trim()).filter(Boolean);
 
           // Detect if this is tab-separated table data from scrapeTable()
-          const isTabular = lines.some(l => l.includes("\t") && l.split("\t").length > 5) || lines.some(l => l.startsWith("#") && l.includes("Name"));
+          const isCSVFormat = lines.some(l => l.startsWith("#,Name") || l.startsWith("#, Name"));
+          const isTabular = !isCSVFormat && (lines.some(l => l.includes("\t") && l.split("\t").length > 5) || lines.some(l => l.startsWith("#") && l.includes("Name")));
 
           if (isTabular) {
             // Find header row — contains "Name" or "Ruler" column
