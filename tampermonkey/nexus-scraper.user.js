@@ -628,9 +628,40 @@ function addNexusUI() {
     panel.style.cssText =
       "position:fixed;top:20px;left:20px;z-index:2147483647;" +
       "padding:16px;background:#0d1117;border:1px solid #30363d;" +
-      "border-radius:10px;width:220px;box-shadow:0 4px 20px rgba(0,0,0,0.5);";
+      "border-radius:10px;width:220px;box-shadow:0 4px 20px rgba(0,0,0,0.5);cursor:move;";
     document.body.appendChild(panel);
     updatePanel();
+
+    // Make panel draggable
+    let isDragging = false, dragX = 0, dragY = 0;
+    panel.addEventListener("mousedown", function(e) {
+      if (e.target.tagName === "BUTTON") return;
+      isDragging = true;
+      dragX = e.clientX - panel.getBoundingClientRect().left;
+      dragY = e.clientY - panel.getBoundingClientRect().top;
+    });
+    document.addEventListener("mousemove", function(e) {
+      if (!isDragging) return;
+      panel.style.left = (e.clientX - dragX) + "px";
+      panel.style.top = (e.clientY - dragY) + "px";
+    });
+    document.addEventListener("mouseup", function() { isDragging = false; });
+
+    // Touch drag support for tablet
+    panel.addEventListener("touchstart", function(e) {
+      if (e.target.tagName === "BUTTON") return;
+      let touch = e.touches[0];
+      isDragging = true;
+      dragX = touch.clientX - panel.getBoundingClientRect().left;
+      dragY = touch.clientY - panel.getBoundingClientRect().top;
+    });
+    document.addEventListener("touchmove", function(e) {
+      if (!isDragging) return;
+      let touch = e.touches[0];
+      panel.style.left = (touch.clientX - dragX) + "px";
+      panel.style.top = (touch.clientY - dragY) + "px";
+    });
+    document.addEventListener("touchend", function() { isDragging = false; });
   }
 }
 

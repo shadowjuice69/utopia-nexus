@@ -11,11 +11,12 @@ export default function EnemyKingdoms() {
 
   useEffect(() => {
     async function load() {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("kingdoms")
         .select("*")
         .neq("kd_id", MY_KD)
         .order("nw_rank", { ascending: true });
+      console.log("[ENEMY KD]", data, error);
       setKingdoms(data || []);
       setLoading(false);
     }
