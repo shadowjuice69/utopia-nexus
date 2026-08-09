@@ -840,14 +840,12 @@ Our provinces: ${ourProvs ? ourProvs.length : 0}
 Enemy provinces (sorted by NW):
 ${(provinces || []).slice(0, 30).map(p =>
   `- ${p.name} (${p.kd_code}): ${p.race || "?"} | ${p.acres || "?"}a | ${p.nw || "?"}gc NW | Off:${p.off || "?"} Def:${p.def || "?"}`
-).join("
-")}
+).join("\n")}
 
 Recent attacks:
 ${(recentAttacks || []).slice(0, 10).map(a =>
   `- ${a.attacker} vs ${a.defender}: ${a.acres_captured || 0} acres (${a.attack_type || "?"})`
-).join("
-")}
+).join("\n")}
 
 Provide:
 1. TOP 5 TARGET RANKING - best provinces to attack with reasons (NW within 90-110% of our avg, prefer Elf/Faery)
