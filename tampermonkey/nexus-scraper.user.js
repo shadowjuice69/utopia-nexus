@@ -105,11 +105,37 @@ function updatePanel() {
       updatePanel();
     };
   } else {
-    panel.innerHTML = `
-      <div style="font:bold 14px monospace;color:#56d364;margin-bottom:8px;">⚡ Nexus Cycler</div>
-      <div style="font:12px monospace;color:#aaa;margin-bottom:12px;">Auto-scrape enemy kingdoms</div>
-      <button id="nexus-start-btn" style="width:100%;padding:10px;background:#238636;color:white;border:none;border-radius:6px;font:bold 13px monospace;cursor:pointer;">▶ Start Cycling</button>`;
-    document.getElementById("nexus-start-btn").onclick = startCycler;
+    let minimized = GM_getValue("panel_minimized", false);
+    if (minimized) {
+      panel.innerHTML = `
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <div style="font:bold 12px monospace;color:#56d364;">⚡ Nexus</div>
+          <button id="nexus-expand-btn" style="padding:2px 8px;background:#238636;color:white;border:none;border-radius:4px;font:bold 11px monospace;cursor:pointer;">▼</button>
+        </div>`;
+      panel.style.width = "120px";
+      panel.style.padding = "8px 12px";
+      document.getElementById("nexus-expand-btn").onclick = () => {
+        GM_setValue("panel_minimized", false);
+        panel.style.width = "220px";
+        panel.style.padding = "16px";
+        updatePanel();
+      };
+    } else {
+      panel.innerHTML = `
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+          <div style="font:bold 14px monospace;color:#56d364;">⚡ Nexus Cycler</div>
+          <button id="nexus-min-btn" style="padding:2px 8px;background:#333;color:#aaa;border:none;border-radius:4px;font:bold 11px monospace;cursor:pointer;">—</button>
+        </div>
+        <div style="font:12px monospace;color:#aaa;margin-bottom:12px;">Auto-scrape enemy kingdoms</div>
+        <button id="nexus-start-btn" style="width:100%;padding:10px;background:#238636;color:white;border:none;border-radius:6px;font:bold 13px monospace;cursor:pointer;">▶ Start Cycling</button>`;
+      document.getElementById("nexus-start-btn").onclick = startCycler;
+      document.getElementById("nexus-min-btn").onclick = () => {
+        GM_setValue("panel_minimized", true);
+        panel.style.width = "120px";
+        panel.style.padding = "8px 12px";
+        updatePanel();
+      };
+    }
   }
 }
 
