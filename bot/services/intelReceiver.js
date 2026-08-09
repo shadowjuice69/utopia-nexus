@@ -384,7 +384,7 @@ async function saveIntel(parsed, prov) {
           nobility: p.nobility || null,
           gains: p.gains ? String(parseInt(p.gains)) : null,
           updated_at: new Date().toISOString()
-        }, { onConflict: "name,kd_code" });
+        }, { onConflict: "name,kd_code", ignoreDuplicates: false });
         if (pErr) logger.error(`[KINGDOM-PAGE PROV ERROR] ${p.name}: ${pErr.message}`);
         else saved++;
       }
