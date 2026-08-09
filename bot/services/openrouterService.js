@@ -11,7 +11,7 @@ async function askOpenRouter(prompt) {
   const response = await axios.post(
     "https://openrouter.ai/api/v1/chat/completions",
     {
-      model: "mistralai/mistral-7b-instruct:free",
+      model: "google/gemma-3-4b-it:free",
       messages: [
         {
           role: "user",
@@ -27,6 +27,9 @@ async function askOpenRouter(prompt) {
     }
   );
 
+  if (!response.data.choices || !response.data.choices[0]) {
+    throw new Error("No choices in response: " + JSON.stringify(response.data));
+  }
   return response.data.choices[0].message.content;
 }
 
