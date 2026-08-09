@@ -29,7 +29,16 @@ function parseIntel(url, prov, text) {
   const kdMatch = url.match(/kd[=\/](\d+:\d+)/) || text.match(/\((\d+:\d+)\)/);
   result.kd = kdMatch ? kdMatch[1] : MY_KD;
 
-  if (url.includes("kingdom_details") || text.includes("The kingdom of") || text.includes("Total Provinces") || text.includes("Total Networth")) {
+  if (source === "kingdom-page") {
+    result.type = "kingdom-page";
+    try {
+      const parsed = JSON.parse(text);
+      result.data = parsed;
+      result.kd = parsed.kd_code || result.kd;
+    } catch(e) {
+      result.data = { raw: text };
+    }
+  } else if (url.includes("kingdom_details") || text.includes("The kingdom of") || text.includes("Total Provinces") || text.includes("Total Networth")) {
     result.type = "kingdom";
     result.data = parseKingdom(text);
   } else if (url.includes("throne")) {
@@ -199,15 +208,6 @@ const parsed = parseThrone(text);
       } catch(e) {
         result.data = { rows: [{ raw: text }] };
       }
-    }
-  } else if (source === "kingdom-page" || url.includes("kingdom_details")) {
-    result.type = "kingdom-page";
-    try {
-      const parsed = JSON.parse(text);
-      result.data = parsed;
-      result.kd = parsed.kd_code || result.kd;
-    } catch(e) {
-      result.data = { raw: text };
     }
   } else {
     result.type = "unknown";
