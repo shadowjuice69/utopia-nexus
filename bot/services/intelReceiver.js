@@ -793,6 +793,26 @@ function start() {
       return;
     }
 
+    if (req.method === "OPTIONS") {
+      res.writeHead(204, {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type"
+      });
+      res.end();
+      return;
+    }
+
+    if (req.method === "OPTIONS") {
+      res.writeHead(204, {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type"
+      });
+      res.end();
+      return;
+    }
+
     if (req.method === "POST" && req.url === "/ai/ask") {
       try {
         let raw = await readBody(req);
@@ -817,7 +837,7 @@ ${context}
 Question: ${question}`;
 
         const answer = await askOpenRouter(prompt);
-        res.writeHead(200, { "Content-Type": "text/plain" });
+        res.writeHead(200, { "Content-Type": "text/plain", "Access-Control-Allow-Origin": "*" });
         res.end(answer);
       } catch(e) {
         logger.error(`[AI ASK] ${e.message}`);
@@ -835,7 +855,7 @@ Question: ${question}`;
           res.writeHead(403); res.end("forbidden"); return;
         }
 
-        res.writeHead(200); res.end("ok");
+        res.writeHead(200, { "Access-Control-Allow-Origin": "*" }); res.end("ok");
 
         // Run analysis async so we don't block
         setImmediate(async () => {
