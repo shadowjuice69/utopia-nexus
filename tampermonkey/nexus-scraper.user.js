@@ -719,7 +719,7 @@ function startNexus() {
     }
   }, 3000);
 
-  setInterval(function () { addNexusUI(); updatePanel(); }, 3000);
+  setInterval(function () { addNexusUI(); }, 3000);
   setInterval(function () { watchPage(); }, 3000);
 
   let observer = new MutationObserver(function () { addNexusUI(); });
