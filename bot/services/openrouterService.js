@@ -13,7 +13,7 @@ async function askOpenRouter(prompt) {
     response = await axios.post(
     "https://openrouter.ai/api/v1/chat/completions",
     {
-      model: "google/gemma-3-4b-it:free",
+      model: "meta-llama/llama-3.1-8b-instruct:free",
       messages: [
         {
           role: "user",
