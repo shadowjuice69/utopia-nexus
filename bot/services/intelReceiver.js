@@ -200,6 +200,15 @@ const parsed = parseThrone(text);
         result.data = { rows: [{ raw: text }] };
       }
     }
+  } else if (source === "kingdom-page" || url.includes("kingdom_details")) {
+    result.type = "kingdom-page";
+    try {
+      const parsed = JSON.parse(text);
+      result.data = parsed;
+      result.kd = parsed.kd_code || result.kd;
+    } catch(e) {
+      result.data = { raw: text };
+    }
   } else {
     result.type = "unknown";
     result.data = { text };
@@ -335,6 +344,51 @@ async function saveIntel(parsed, prov) {
       } else {
         logger.info(`[KINGDOM SAVED] ${parsed.data.kingdom_name}`);
       }
+    }
+
+    if (parsed.type === "kingdom-page") {
+      const kpData = parsed.data;
+      const kdCode = kpData.kd_code || parsed.kd;
+
+      // Upsert kingdom summary
+      if (kdCode && kpData.kd_name) {
+        const { error: kdErr } = await sb.from("kingdoms").upsert({
+          kd_id: kdCode,
+          kd_name: kpData.kd_name,
+          kd_type: "enemy",
+          total_nw: kpData.total_nw ? parseInt(kpData.total_nw) : null,
+          total_land: kpData.total_land ? parseInt(kpData.total_land) : null,
+          total_provinces: kpData.total_provinces ? parseInt(kpData.total_provinces) : null,
+          stance: kpData.stance || null,
+          nw_rank: kpData.nw_rank ? parseInt(kpData.nw_rank) : null,
+          land_rank: kpData.land_rank ? parseInt(kpData.land_rank) : null,
+          is_active: true,
+          updated_at: new Date().toISOString()
+        }, { onConflict: "kd_id" });
+        if (kdErr) logger.error(`[KINGDOM-PAGE KD ERROR] ${kdErr.message}`);
+        else logger.info(`[KINGDOM-PAGE] Saved kingdom ${kpData.kd_name} (${kdCode})`);
+      }
+
+      // Upsert each province
+      const provinces = kpData.provinces || [];
+      let saved = 0;
+      for (const p of provinces) {
+        if (!p.name) continue;
+        const { error: pErr } = await sb.from("provinces").upsert({
+          name: p.name,
+          kd_code: kdCode,
+          race: p.race || null,
+          acres: p.land ? String(parseInt(p.land)) : null,
+          nw: p.nw ? String(parseInt(p.nw)) : null,
+          nwpa: p.nwpa ? String(parseInt(p.nwpa)) : null,
+          nobility: p.nobility || null,
+          gains: p.gains ? String(parseInt(p.gains)) : null,
+          updated_at: new Date().toISOString()
+        }, { onConflict: "name,kd_code" });
+        if (pErr) logger.error(`[KINGDOM-PAGE PROV ERROR] ${p.name}: ${pErr.message}`);
+        else saved++;
+      }
+      logger.info(`[KINGDOM-PAGE] Saved ${saved}/${provinces.length} provinces for ${kdCode}`);
     }
 
     if (parsed.type === "state") {
