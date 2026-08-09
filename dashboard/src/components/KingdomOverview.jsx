@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
+import { supabase } from "../services/supabase";
 
 const MY_KD = "3:2";
 
-export default function KingdomOverview({ supabase }) {
+export default function KingdomOverview() {
   const [provinces, setProvinces] = useState([]);
   const [loading, setLoading] = useState(true);
 

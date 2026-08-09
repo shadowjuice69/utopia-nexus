@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
+import { supabase } from "../services/supabase";
 
-export default function AIWarReport({ supabase }) {
+export default function AIWarReport() {
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);

@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
+import { supabase } from "../services/supabase";
 
 const MY_KD = "3:2";
 
-export default function WarRoom({ supabase }) {
+export default function WarRoom() {
   const [war, setWar] = useState(null);
   const [threats, setThreats] = useState([]);
   const [recentAttacks, setRecentAttacks] = useState([]);

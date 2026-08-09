@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
+import { supabase } from "../services/supabase";
 
 const MY_KD = "3:2";
 
-export default function AITargets({ supabase }) {
+export default function AITargets() {
   const [targets, setTargets] = useState([]);
   const [ourAvgNW, setOurAvgNW] = useState(0);
   const [loading, setLoading] = useState(true);

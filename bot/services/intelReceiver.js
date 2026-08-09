@@ -746,6 +746,7 @@ function start() {
     res.setHeader("Access-Control-Allow-Headers", "Content-Type");
     if (req.method === "OPTIONS") { res.writeHead(200); res.end(); return; }
 
+    console.log("[REQUEST]", req.method, req.url);
     if (req.method === "GET" && req.url === "/") {
       res.writeHead(200, { "Content-Type": "text/plain" });
       res.end("Utopia Nexus — intel receiver online");

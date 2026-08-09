@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
+import { supabase } from "../services/supabase";
 
-export default function IntelQueue({ supabase }) {
+export default function IntelQueue() {
   const [queue, setQueue] = useState([]);
   const [loading, setLoading] = useState(true);
 

@@ -1,8 +1,9 @@
 import { useState } from "react";
+import { supabase } from "../services/supabase";
 
 const MY_KD = "3:2";
 
-export default function AIAssistant({ supabase }) {
+export default function AIAssistant() {
   const [messages, setMessages] = useState([
     { role: "ai", text: "Ask me anything about your kingdom — targets, wave status, threat assessment, recent attacks, or anything else." }
   ]);
