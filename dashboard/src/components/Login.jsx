@@ -1,40 +1,37 @@
 import { useState } from "react";
 
-const CORRECT_PASSWORD = import.meta.env.VITE_DASHBOARD_PASSWORD;
+const PASSWORD = "NikkoAce";
 
-export default function Login({ onLogin }) {
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState(false);
+export default function Login({ onAuth }) {
+  const [val, setVal] = useState("");
+  const [err, setErr] = useState(false);
 
-  function handleSubmit() {
-    if (password === CORRECT_PASSWORD) {
-      localStorage.setItem("nexus_auth", "true");
-      onLogin();
-    } else {
-      setError(true);
-      setTimeout(() => setError(false), 2000);
-    }
+  function submit(e) {
+    e.preventDefault();
+    if (val === PASSWORD) { onAuth(); }
+    else { setErr(true); setTimeout(() => setErr(false), 2000); }
   }
 
   return (
-    <div className="login-screen">
+    <div className="login-wrap">
       <div className="login-card">
-        <div className="login-logo">⚔️</div>
-        <h1 className="login-title">UTOPIA NEXUS</h1>
-        <p className="login-sub">Kingdom Command Center</p>
-        <input
-          className={`login-input ${error ? "error" : ""}`}
-          type="password"
-          placeholder="Enter access code..."
-          value={password}
-          onChange={e => setPassword(e.target.value)}
-          onKeyDown={e => e.key === "Enter" && handleSubmit()}
-          autoFocus
-        />
-        {error && <p className="login-error">❌ Invalid access code</p>}
-        <button className="login-btn" onClick={handleSubmit}>
-          ACCESS NEXUS
-        </button>
+        <div className="login-logo">⚔</div>
+        <div className="login-title">NEXUS</div>
+        <div className="login-sub">KINGDOM JUDO · 3:2</div>
+        <form onSubmit={submit}>
+          <input
+            className="login-input"
+            type="password"
+            placeholder="••••••••"
+            value={val}
+            onChange={e => setVal(e.target.value)}
+            autoFocus
+          />
+          {err && <div className="login-error">Access denied</div>}
+          <button className="btn btn-gold" style={{ width: "100%" }} type="submit">
+            Enter Command Center
+          </button>
+        </form>
       </div>
     </div>
   );

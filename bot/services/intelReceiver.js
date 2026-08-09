@@ -793,6 +793,39 @@ function start() {
       return;
     }
 
+    if (req.method === "POST" && req.url === "/ai/ask") {
+      try {
+        let raw = await readBody(req);
+        const params = new URLSearchParams(raw);
+        const key = params.get("key") || "";
+        const question = params.get("question") || "";
+        const context = params.get("context") || "";
+
+        if (INTEL_KEY && key !== INTEL_KEY) {
+          res.writeHead(403); res.end("forbidden"); return;
+        }
+        if (!question) {
+          res.writeHead(400); res.end("missing question"); return;
+        }
+
+        const { askOpenRouter } = require("./openrouterService");
+        const prompt = `You are a war strategist for Utopia kingdom "Judo" (3:2). Answer concisely and tactically.
+
+Kingdom context:
+${context}
+
+Question: ${question}`;
+
+        const answer = await askOpenRouter(prompt);
+        res.writeHead(200, { "Content-Type": "text/plain" });
+        res.end(answer);
+      } catch(e) {
+        logger.error(`[AI ASK] ${e.message}`);
+        res.writeHead(500); res.end("AI error: " + e.message);
+      }
+      return;
+    }
+
     if (req.method === "POST" && req.url === "/ai/analyze") {
       try {
         let raw = await readBody(req);
