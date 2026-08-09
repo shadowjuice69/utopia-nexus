@@ -235,19 +235,20 @@ function scrapeKingdomPage(callback) {
   let kdNameMatch = text.match(/The kingdom of (.+?)[\n\r(]/i);
   let kdName = kdNameMatch ? kdNameMatch[1].trim() : "Unknown";
 
-  // KD code from input boxes
-  let inputs = document.querySelectorAll("input[type=text]");
-  let island = "", kd = "";
-  if (inputs.length >= 2) {
-    island = inputs[0].value.trim();
-    kd = inputs[1].value.trim();
+  // KD code from URL path /wol/game/kingdom_details/ISLAND/KD
+  let kdCode = "";
+  let urlMatch = location.pathname.match(/kingdom_details\/(\d+)\/(\d+)/);
+  if (urlMatch) {
+    kdCode = urlMatch[1] + ":" + urlMatch[2];
   }
-  let kdCode = island && kd ? island + ":" + kd : "";
 
   // Kingdom stats
   let totalNW = extractStat(text, /Total Networth\s+([\d,]+)/i);
   let totalLand = extractStat(text, /Total Land\s+([\d,]+)/i);
   let totalProvinces = extractStat(text, /Total Provinces\s+(\d+)/i);
+  // Also try alternate formats
+  if (!totalNW) totalNW = extractStat(text, /Total Networth[^\d]*([\d,]+)/i);
+  if (!totalLand) totalLand = extractStat(text, /Total Land[^\d]*([\d,]+)/i);
   let stance = (text.match(/Stance\s+(\w+)/i) || [])[1] || "";
   let nwRank = (text.match(/Net Worth Rank\s+(\d+)\s+of\s+(\d+)/i) || [])[1] || "";
   let landRank = (text.match(/Land Rank\s+(\d+)\s+of\s+(\d+)/i) || [])[1] || "";
@@ -329,11 +330,11 @@ function scrapeProvinceTable() {
       ths.forEach((th, i) => {
         let t = th.textContent.trim().toLowerCase();
         if (t.includes("province")) colMap.name = i;
-        else if (t.includes("race")) colMap.race = i;
-        else if (t.includes("land")) colMap.land = i;
-        else if (t.includes("net worth") || t === "nw") colMap.nw = i;
-        else if (t.includes("nwpa")) colMap.nwpa = i;
-        else if (t.includes("nobility") || t.includes("noble")) colMap.nobility = i;
+        else if (t === "race") colMap.race = i;
+        else if (t === "land") colMap.land = i;
+        else if (t === "net worth") colMap.nw = i;
+        else if (t.includes("net worth/acre") || t.includes("nwpa") || t.includes("nw/acre")) colMap.nwpa = i;
+        else if (t.includes("nobility")) colMap.nobility = i;
         else if (t.includes("gains")) colMap.gains = i;
       });
     }
@@ -350,7 +351,7 @@ function scrapeProvinceTable() {
 
       let province = { name };
       if (colMap.race !== undefined) province.race = cells[colMap.race]?.textContent.trim() || "";
-      if (colMap.land !== undefined) province.land = cells[colMap.land]?.textContent.trim().replace(/[^0-9]/g, "") || "";
+      if (colMap.land !== undefined) province.land = cells[colMap.land]?.textContent.trim().replace(/[^0-9]/g, "").replace(/acres/gi, "") || "";
       if (colMap.nw !== undefined) province.nw = cells[colMap.nw]?.textContent.trim().replace(/[^0-9]/g, "") || "";
       if (colMap.nwpa !== undefined) province.nwpa = cells[colMap.nwpa]?.textContent.trim().replace(/[^0-9]/g, "") || "";
       if (colMap.nobility !== undefined) province.nobility = cells[colMap.nobility]?.textContent.trim() || "";
