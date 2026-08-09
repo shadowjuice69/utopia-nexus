@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Utopia Nexus Universal Intel Scraper
 // @namespace    utopia-nexus
-// @version      6.0
+// @version      6.1
 // @description  Universal Utopia intel collector with kingdom cycler and AI analysis trigger
 // @match        https://intel.utopia.site/*
 // @match        https://www.utopia-game.com/*
