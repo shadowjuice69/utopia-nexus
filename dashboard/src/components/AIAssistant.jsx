@@ -49,7 +49,7 @@ Latest AI report: ${summaries?.[0]?.content?.slice(0, 500) || "None"}
       const text = await response.text();
       setMessages(m => [...m, { role: "ai", text }]);
     } catch (e) {
-      setMessages(m => [...m, { role: "ai", text: "Error connecting to AI. Check Railway is running." }]);
+      setMessages(m => [...m, { role: "ai", text: "Error: " + e.message }]);
     }
     setLoading(false);
   }

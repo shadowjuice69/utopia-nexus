@@ -841,7 +841,7 @@ Question: ${question}`;
         res.end(answer);
       } catch(e) {
         logger.error(`[AI ASK] ${e.message}`);
-        res.writeHead(500); res.end("AI error: " + e.message);
+        res.writeHead(500, { "Access-Control-Allow-Origin": "*" }); res.end("AI error: " + e.message);
       }
       return;
     }
