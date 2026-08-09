@@ -23,7 +23,7 @@ function readBody(req) {
   });
 }
 
-function parseIntel(url, prov, text) {
+function parseIntel(url, prov, text, source="") {
   const result = { url, prov, updated: new Date().toISOString() };
   console.log("[DEBUG URL CHECK]", JSON.stringify(url), url.includes("kingdom_details"));
   const kdMatch = url.match(/kd[=\/](\d+:\d+)/) || text.match(/\((\d+:\d+)\)/);
@@ -781,7 +781,8 @@ function start() {
         console.log("[INTEL KEY]", key);
         console.log("[INTEL DATA SNIPPET]", data_simple.substring(0, 100));
         const tabParam = params.get("tab") || "";
-        const parsed = parseIntel(url, prov, data_simple);
+        const source = params.get("source") || "";
+        const parsed = parseIntel(url, prov, data_simple, source);
         if (kdParam) parsed.kd = kdParam;
         if (tabParam) parsed.tab = tabParam;
         console.log("[INTEL TYPE]", parsed.type);
