@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nexus Setup — Kingdom Judo</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;500;600&display=swap');
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #080c12;
+      --bg2: #0d1520;
+      --bg3: #111c2e;
+      --border: #1e2d44;
+      --gold: #fbbf24;
+      --gold2: #f59e0b;
+      --green: #34d399;
+      --blue: #60a5fa;
+      --red: #f87171;
+      --purple: #a78bfa;
+      --text: #e2e8f0;
+      --text2: #94a3b8;
+      --text3: #64748b;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      font-size: 15px;
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+
+    /* Header */
+    .header {
+      text-align: center;
+      padding: 60px 20px 40px;
+      border-bottom: 1px solid var(--border);
+      background: linear-gradient(180deg, #0d1a2e 0%, var(--bg) 100%);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .header::before {
+      content: "";
+      position: absolute;
+      top: -60px; left: 50%;
+      transform: translateX(-50%);
+      width: 400px; height: 400px;
+      background: radial-gradient(circle, rgba(251,191,36,0.08) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .header-badge {
+      display: inline-block;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 3px;
+      color: var(--text3);
+      text-transform: uppercase;
+      border: 1px solid var(--border);
+      padding: 4px 12px;
+      border-radius: 20px;
+      margin-bottom: 20px;
+    }
+
+    .header h1 {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: clamp(32px, 6vw, 56px);
+      font-weight: 700;
+      color: var(--gold);
+      letter-spacing: 6px;
+      text-shadow: 0 0 40px rgba(251,191,36,0.3);
+      margin-bottom: 8px;
+    }
+
+    .header-sub {
+      font-size: 14px;
+      color: var(--text3);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-bottom: 24px;
+    }
+
+    .header-desc {
+      max-width: 520px;
+      margin: 0 auto;
+      color: var(--text2);
+      font-size: 15px;
+    }
+
+    /* Main */
+    .main {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 48px 20px;
+    }
+
+    /* Section */
+    .section {
+      margin-bottom: 48px;
+    }
+
+    .section-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 3px;
+      color: var(--text3);
+      text-transform: uppercase;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .section-label::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* Steps */
+    .steps {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .step {
+      display: flex;
+      gap: 16px;
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      transition: border-color 0.2s;
+    }
+
+    .step:hover { border-color: rgba(251,191,36,0.3); }
+
+    .step-num {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--gold);
+      background: rgba(251,191,36,0.1);
+      border: 1px solid rgba(251,191,36,0.2);
+      border-radius: 6px;
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .step-body h3 {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 6px;
+    }
+
+    .step-body p {
+      font-size: 13px;
+      color: var(--text2);
+      margin-bottom: 10px;
+    }
+
+    .step-body p:last-child { margin-bottom: 0; }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 18px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      text-decoration: none;
+      cursor: pointer;
+      transition: all 0.15s;
+      border: none;
+    }
+
+    .btn-gold {
+      background: var(--gold2);
+      color: #000;
+    }
+    .btn-gold:hover { background: var(--gold); }
+
+    .btn-outline {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text2);
+    }
+    .btn-outline:hover { border-color: var(--gold2); color: var(--gold); }
+
+    .btn-group {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }
+
+    /* Code block */
+    .code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 16px;
+      color: var(--green);
+      word-break: break-all;
+      margin-top: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .copy-btn {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      background: rgba(251,191,36,0.1);
+      border: 1px solid rgba(251,191,36,0.2);
+      color: var(--gold);
+      border-radius: 4px;
+      padding: 4px 10px;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: all 0.15s;
+    }
+    .copy-btn:hover { background: rgba(251,191,36,0.2); }
+
+    /* Sites card */
+    .sites {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .site-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+    }
+
+    .site-card h4 {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--gold);
+      letter-spacing: 1px;
+      margin-bottom: 6px;
+    }
+
+    .site-card p {
+      font-size: 12px;
+      color: var(--text2);
+      margin-bottom: 8px;
+    }
+
+    .site-card a {
+      font-size: 11px;
+      color: var(--blue);
+      text-decoration: none;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* What it does */
+    .features {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px;
+    }
+
+    .feature {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+    }
+
+    .feature-icon { font-size: 22px; margin-bottom: 8px; }
+    .feature h4 { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+    .feature p { font-size: 12px; color: var(--text2); }
+
+    /* Dashboard link */
+    .dashboard-card {
+      background: linear-gradient(135deg, #0d1a2e, #111c2e);
+      border: 1px solid rgba(251,191,36,0.2);
+      border-radius: 12px;
+      padding: 28px;
+      text-align: center;
+    }
+
+    .dashboard-card h3 {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--gold);
+      letter-spacing: 3px;
+      margin-bottom: 8px;
+    }
+
+    .dashboard-card p {
+      font-size: 13px;
+      color: var(--text2);
+      margin-bottom: 20px;
+    }
+
+    /* Footer */
+    .footer {
+      text-align: center;
+      padding: 32px 20px;
+      border-top: 1px solid var(--border);
+      font-size: 12px;
+      color: var(--text3);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    @media (max-width: 500px) {
+      .sites { grid-template-columns: 1fr; }
+      .step { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+
+<header class="header">
+  <div class="header-badge">Intel System</div>
+  <h1>⚔ NEXUS</h1>
+  <div class="header-sub">Intel System Setup Guide</div>
+  <p class="header-desc">Nexus automatically collects enemy intel and sends it to the war dashboard as you browse Utopia. Setup takes under 2 minutes.</p>
+</header>
+
+<main class="main">
+
+  <!-- What it does -->
+  <section class="section">
+    <div class="section-label">What Nexus Does</div>
+    <div class="features">
+      <div class="feature">
+        <div class="feature-icon">🔍</div>
+        <h4>Auto-scrapes Intel</h4>
+        <p>Captures enemy province data as you browse kingdom pages and the intel site.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">📊</div>
+        <h4>Feeds the Dashboard</h4>
+        <p>All data flows automatically to the war dashboard — no manual entry.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">🤖</div>
+        <h4>AI War Analysis</h4>
+        <p>AI ranks targets, assesses threats, and answers questions about your kingdom.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">⚡</div>
+        <h4>Kingdom Cycler</h4>
+        <p>Auto-cycles through all 76 enemy kingdoms in ~25 minutes with one tap.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Setup steps -->
+  <section class="section">
+    <div class="section-label">Setup Steps</div>
+    <div class="steps">
+
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <h3>Install Tampermonkey</h3>
+          <p>Tampermonkey is a free browser extension that runs the Nexus script. Works on Chrome and Firefox.</p>
+          <div class="btn-group">
+            <a class="btn btn-gold" href="https://chrome.google.com/webstore/detail/tampermonkey/dhdgffkkebhmkfjojejmpbldmpobfkfo" target="_blank">
+              Chrome
+            </a>
+            <a class="btn btn-outline" href="https://addons.mozilla.org/en-US/firefox/addon/tampermonkey/" target="_blank">
+              Firefox
+            </a>
+          </div>
+          <p style="margin-top:12px;font-size:12px;color:var(--text3);">
+            🦊 <strong style="color:var(--text2)">Firefox users:</strong> You can also install the official 
+            <a href="https://addons.mozilla.org/en-US/firefox/addon/utopia-nexus-intel/" target="_blank" style="color:var(--blue)">Utopia Nexus Intel extension</a> 
+            directly from Mozilla Add-ons — no Tampermonkey needed.
+          </p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <h3>Install the Nexus Script</h3>
+          <p>Click the button below. Tampermonkey will open and ask you to confirm — tap <strong style="color:var(--gold)">Install</strong>.</p>
+          <div class="btn-group">
+            <a class="btn btn-gold" href="https://raw.githubusercontent.com/shadowjuice69/utopia-nexus/main/tampermonkey/nexus-scraper.user.js" target="_blank">
+              ⚡ Install Nexus Script
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <h3>Browse Utopia as Normal</h3>
+          <p>Visit these two sites while logged into Utopia. Nexus runs automatically in the background — you'll see a small status bar at the bottom of the page.</p>
+          <div class="sites" style="margin-top:12px;">
+            <div class="site-card">
+              <h4>UTOPIA GAME</h4>
+              <p>Kingdom pages, throne, military, ops results</p>
+              <a href="https://utopia-game.com" target="_blank">utopia-game.com →</a>
+            </div>
+            <div class="site-card">
+              <h4>INTEL SITE</h4>
+              <p>Full kingdom CSV stats — visit enemy kingdoms here. Nexus captures the data automatically when the CSV loads. <strong style="color:var(--gold)">You don't need to save the file</strong> — cancel the download if it appears.</p>
+              <a href="https://intel.utopia.site" target="_blank">intel.utopia.site →</a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-body">
+          <h3>Use the Kingdom Cycler (Optional)</h3>
+          <p>First navigate to kingdom <strong style="color:var(--gold)">1:1</strong> so the cycler starts from the beginning and covers all kingdoms.</p>
+          <div class="btn-group">
+            <a class="btn btn-outline" href="https://utopia-game.com/wol/game/kingdom_details/1/1" target="_blank">
+              Go to Kingdom 1:1 →
+            </a>
+          </div>
+          <p style="margin-top:10px;">Then tap <strong style="color:var(--gold)">▶ Start Cycling</strong> in the top-left panel. It automatically scrapes all 76 enemy kingdoms while you leave the tab open — takes about 25 minutes.</p>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- Dashboard -->
+  <section class="section">
+    <div class="section-label">War Dashboard</div>
+    <div class="dashboard-card">
+      <h3>NEXUS DASHBOARD</h3>
+      <p>View live kingdom stats, enemy intel, wave status, AI war reports, and target rankings.</p>
+      <a class="btn btn-gold" href="https://dashboard-gold-six-11.vercel.app" target="_blank">
+        Open Dashboard →
+      </a>
+      <p style="margin-top:14px;font-size:11px;color:var(--text3);font-family:'JetBrains Mono',monospace;">
+        Password: NikkoAce
+      </p>
+    </div>
+  </section>
+
+  <!-- Troubleshooting -->
+  <section class="section">
+    <div class="section-label">Troubleshooting</div>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">?</div>
+        <div class="step-body">
+          <h3>Script not running?</h3>
+          <p>Make sure Tampermonkey is enabled. Click the Tampermonkey icon in your browser toolbar — the script should show as active (green toggle).</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">?</div>
+        <div class="step-body">
+          <h3>No status bar showing?</h3>
+          <p>Reload the Utopia page. If it still doesn't appear, try disabling and re-enabling the script in the Tampermonkey dashboard.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">?</div>
+        <div class="step-body">
+          <h3>Need help?</h3>
+          <p>Ping <strong style="color:var(--gold)">@shadowjuice69</strong> on Discord.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="footer">
+  ⚔ NEXUS · Built by Shadow
+</footer>
+
+<script>
+  function copyText(text, btn) {
+    navigator.clipboard.writeText(text).then(() => {
+      btn.textContent = 'Copied!';
+      setTimeout(() => btn.textContent = 'Copy', 2000);
+    });
+  }
+</script>
+
+</body>
+</html>
