@@ -6,7 +6,7 @@ module.exports = async function helpHandler(interaction) {
   const embed = new EmbedBuilder()
     .setTitle("⚔️ Utopia Nexus — Command Guide")
     .setColor(0x38bdf8)
-    .setDescription("All available commands for Judo kingdom members. Age 116.")
+    .setDescription(`All available commands for ${kd.name} kingdom members. Age ${kd.age}.`)
     .addFields(
       {
         name: "👤 /utopia register",

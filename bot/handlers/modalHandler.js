@@ -476,7 +476,7 @@ console.log("[THIEVERY DEBUG]", {
         const user = await interaction.client.users.fetch(p.discord_id);
         await user.send([
           `🏰 **${title}**`,
-          `From: ${interaction.user.username} (Judo 4:9)`,
+          `From: ${interaction.user.username} (${kd.name} ${kd.code})`,
           ``,
           message
         ].join("\n"));

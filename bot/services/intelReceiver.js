@@ -831,7 +831,7 @@ function start() {
         }
 
         const { askOpenRouter } = require("./openrouterService");
-        const prompt = `You are a war strategist for Utopia kingdom "Judo" (3:2). Answer concisely and tactically.
+        const prompt = `You are a war strategist for Utopia kingdom. Answer concisely and tactically.
 
 Kingdom context:
 ${context}
@@ -887,7 +887,7 @@ Question: ${question}`;
             const ourNW = ourProvs ? ourProvs.reduce((s, p) => s + (parseInt(p.nw) || 0), 0) : 0;
             const avgNW = ourProvs && ourProvs.length ? Math.round(ourNW / ourProvs.length) : 0;
 
-            const prompt = `You are a war strategist for the Utopia kingdom "Judo" (3:2).
+            const prompt = `You are a war strategist for the Utopia kingdom.
 
 Our kingdom average NW: ${avgNW}gc
 Our provinces: ${ourProvs ? ourProvs.length : 0}

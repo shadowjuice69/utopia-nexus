@@ -40,7 +40,8 @@ async function getKingdomContext(supabase, kd) {
   }
 
   // My province full intel
-  const { data: myState } = await supabase.from("intel_state").select("*").eq("province", "Daddy Long Legs").single();
+  const myProvName = settings?.find(s => s.key === "my_province")?.value || null;
+  const { data: myState } = myProvName ? await supabase.from("intel_state").select("*").eq("province", myProvName).single() : { data: null };
   if (myState) {
     lines.push(`\nMY PROVINCE STATE:`);
     lines.push(`  NW:${myState.networth} Land:${myState.land} Honor:${myState.honor} Rank:${myState.nw_rank} MAP:${myState.map}`);
@@ -50,7 +51,7 @@ async function getKingdomContext(supabase, kd) {
   }
 
   // My military
-  const { data: myMil } = await supabase.from("intel_military").select("*").eq("province", "Daddy Long Legs").single();
+  const { data: myMil } = myProvName ? await supabase.from("intel_military").select("*").eq("province", myProvName).single() : { data: null };
   if (myMil) {
     lines.push(`\nMY MILITARY:`);
     lines.push(`  Off Points:${myMil.offense} Def Points:${myMil.defense} Generals:${myMil.generals}`);
