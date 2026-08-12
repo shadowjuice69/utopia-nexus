@@ -15,7 +15,7 @@ async function buildWarEmbed(supabase) {
     .setTitle("⚔️ War Status Board")
     .setColor(war ? 0xe53935 : 0x43a047)
     .setTimestamp()
-    .setFooter({ text: `Judo (3:2) • WoL Age 116 • Last updated` });
+    .setFooter({ text: `${kdName} (${kdCode}) • WoL Age 116 • Last updated` });
 
   if (!war) {
     embed.setDescription("No active war. Kingdom is at peace. 🕊️");
