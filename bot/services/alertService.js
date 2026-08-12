@@ -1,3 +1,4 @@
+const { updateWarStatusBoard } = require('./warStatusBoard');
 const supabaseService = require("./supabase");
 const logger = require("./logger");
 
@@ -130,6 +131,7 @@ async function checkAlerts(client) {
 function startAlertLoop(client) {
   async function loop() {
     await checkAlerts(client);
+    await updateWarStatusBoard(client, require('./supabase').getClient());
     const wait = msUntilNextTick();
     logger.info(`[ALERT] Next check in ${Math.round(wait/60000)}m`);
     setTimeout(loop, wait + 2000);
