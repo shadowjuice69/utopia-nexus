@@ -409,9 +409,29 @@ function getProvinceName() {
 }
 
 function getKD() {
+  // 1. Check URL for kd param (intel.utopia.site?kd=X:Y)
+  let urlParams = new URLSearchParams(location.search);
+  let kdParam = urlParams.get("kd");
+  if (kdParam && kdParam !== MY_KD) return kdParam;
+
+  // 2. Check dropdown on intel.utopia.site
+  let dropdown = document.querySelector('select[name="kd"], select[name="kingdom"], #kd_select');
+  if (dropdown && dropdown.value && dropdown.value !== MY_KD) return dropdown.value;
+
+  // 3. Check page URL path for X/Y pattern (intel site uses /kd/X/Y/)
+  let pathMatch = location.href.match(/\/(\d+)\/(\d+)\//);
+  if (pathMatch) {
+    let kdFromPath = pathMatch[1] + ":" + pathMatch[2];
+    if (kdFromPath !== MY_KD) return kdFromPath;
+  }
+
+  // 4. Fall back to text scan (skip own stats bar by finding 2nd match)
   let text = document.body.innerText;
-  let m = text.match(/\b(\d+:\d+)\b/);
-  return m ? m[1] : MY_KD;
+  let matches = [...text.matchAll(/\b(\d+:\d+)\b/g)].map(m => m[1]);
+  let foreign = matches.find(k => k !== MY_KD);
+  if (foreign) return foreign;
+
+  return MY_KD;
 }
 
 function getTab() {
