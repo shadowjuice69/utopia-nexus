@@ -166,6 +166,110 @@ Be specific and actionable.`;
   }
 }
 
+
+// ─── COMBO ADVISOR ────────────────────────────────────────────────────────────
+
+const ROLE_KEYWORDS = {
+  thief:    ["thief", "thieves", "tpa", "thievery", "rogue", "steal", "rob", "ops"],
+  mage:     ["mage", "wizard", "wpa", "spell", "sorcery", "magic", "arcane"],
+  attacker: ["attacker", "attack", "offense", "offensive", "off", "soldier", "general", "march"],
+  defender: ["defender", "defense", "defensive", "def", "fortress"],
+  hybrid:   ["hybrid", "spellfighter", "thief mage", "thief-mage", "mage thief"]
+};
+
+const RACE_SYNERGY = {
+  thief:    ["halfling", "dark elf", "darkelf", "rogue", "human"],
+  mage:     ["elf", "faery", "dryad", "mystic"],
+  attacker: ["orc", "avian", "dwarf", "undead"],
+  defender: ["dwarf", "human", "halfling"],
+  hybrid:   ["dark elf", "darkelf", "elf", "faery", "halfling"]
+};
+
+const PERS_SYNERGY = {
+  thief:    ["rogue", "heretic"],
+  mage:     ["mystic", "necromancer", "sage", "cleric"],
+  attacker: ["general", "warrior", "war hero", "warhero", "tactician"],
+  defender: ["tactician", "warrior", "artisan"],
+  hybrid:   ["rogue", "mystic", "necromancer", "heretic"]
+};
+
+function detectRoles(question) {
+  const lq = question.toLowerCase();
+  const roles = [];
+  for (const [role, keywords] of Object.entries(ROLE_KEYWORDS)) {
+    if (keywords.some(k => lq.includes(k))) roles.push(role);
+  }
+  if (roles.includes("thief") && roles.includes("mage") && !roles.includes("hybrid")) {
+    roles.push("hybrid");
+  }
+  return roles;
+}
+
+async function getComboContext(supabase, question) {
+  const roles = detectRoles(question);
+  if (roles.length === 0) return null;
+
+  const { data: raceRules } = await supabase
+    .from("race_rules").select("race_name, rule_name, value")
+    .eq("active", true).eq("age_number", 116);
+  const { data: persRules } = await supabase
+    .from("personality_rules").select("personality_name, rule_name, value")
+    .eq("active", true).eq("age_number", 116);
+
+  if (!raceRules || !persRules) return null;
+
+  const relevantRaces = new Set();
+  const relevantPers = new Set();
+  for (const role of roles) {
+    (RACE_SYNERGY[role] || []).forEach(r => relevantRaces.add(r));
+    (PERS_SYNERGY[role] || []).forEach(p => relevantPers.add(p));
+  }
+
+  const matchedRaces = raceRules.filter(r =>
+    relevantRaces.has(r.race_name.toLowerCase()) ||
+    relevantRaces.has(r.race_name.toLowerCase().replace(" ", ""))
+  );
+  const matchedPers = persRules.filter(p =>
+    relevantPers.has(p.personality_name.toLowerCase().replace("the ", "")) ||
+    relevantPers.has(p.personality_name.toLowerCase().replace("the ", "").replace(" ", ""))
+  );
+
+  if (matchedRaces.length === 0 && matchedPers.length === 0) return null;
+
+  let ctx = "\nCOMBO ADVISOR (detected roles: " + roles.join(", ") + "):\n";
+  ctx += "Relevant races: " + [...relevantRaces].join(", ") + "\n";
+  ctx += "Relevant personalities: " + [...relevantPers].join(", ") + "\n";
+
+  if (matchedRaces.length > 0) {
+    const byRace = {};
+    for (const r of matchedRaces) {
+      if (!byRace[r.race_name]) byRace[r.race_name] = [];
+      byRace[r.race_name].push(r.rule_name + ": " + r.value);
+    }
+    ctx += "\nRACE BONUSES:\n";
+    for (const [race, rules] of Object.entries(byRace)) {
+      ctx += "  " + race + ":\n";
+      for (const rule of rules) ctx += "    - " + rule + "\n";
+    }
+  }
+
+  if (matchedPers.length > 0) {
+    const byPers = {};
+    for (const p of matchedPers) {
+      if (!byPers[p.personality_name]) byPers[p.personality_name] = [];
+      byPers[p.personality_name].push(p.rule_name + ": " + p.value);
+    }
+    ctx += "\nPERSONALITY BONUSES:\n";
+    for (const [pers, rules] of Object.entries(byPers)) {
+      ctx += "  " + pers + ":\n";
+      for (const rule of rules) ctx += "    - " + rule + "\n";
+    }
+  }
+
+  ctx += "\nRecommend the best race+personality combos for the detected role(s) with specific synergy reasoning.\n";
+  return ctx;
+}
+
 module.exports = async function askHandler(interaction) {
   const kd = await getKingdomInfo();
   const question = interaction.options.getString("question").trim();
@@ -183,10 +287,11 @@ module.exports = async function askHandler(interaction) {
   const supabase = supabaseService.getClient();
 
   // Gather context in parallel
-  const [wikiResults, rulesSnippet, kingdomContext] = await Promise.all([
+  const [wikiResults, rulesSnippet, kingdomContext, comboContext] = await Promise.all([
     wikiService.searchWiki(question),
     wikiService.searchRules(question),
     getKingdomContext(supabase, kd),
+    getComboContext(supabase, question),
   ]);
 
   console.log("=== NEXUS RULES DEBUG ===");
@@ -203,6 +308,8 @@ module.exports = async function askHandler(interaction) {
     }
   }
   if (rulesSnippet) wikiContext += rulesSnippet;
+  if (comboContext) wikiContext += comboContext;
+  if (comboContext) wikiContext += comboContext;
 
   // Always inject race/personality rules if mentioned in question
   const raceNames = ['avian','darkelf','dark elf','dryad','dwarf','elf','faery','halfling','human','orc','undead'];
