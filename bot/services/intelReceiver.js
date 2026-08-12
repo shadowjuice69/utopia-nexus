@@ -41,7 +41,7 @@ function parseIntel(url, prov, text, source="") {
   } else if (url.includes("kingdom_details") || text.includes("The kingdom of") || text.includes("Total Provinces") || text.includes("Total Networth")) {
     result.type = "kingdom";
     result.data = parseKingdom(text);
-  } else if (url.includes("throne")) {
+  } else if (url.includes("throne") || url.includes("SPY_ON_THRONE")) {
     result.type = "throne";
     const lines = text.split("\n").map(s => s.trim()).filter(Boolean);
     const get = (label) => {
