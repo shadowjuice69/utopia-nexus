@@ -23,6 +23,7 @@ const scienceSummaryHandler = require("./commands/scienceSummaryHandler");
 const ambushHandler = require("./commands/ambushHandler");
 const analyzeWarHandler = require("./commands/analyzeWarHandler");
 const warSummaryHandler = require("./commands/warSummaryHandler");
+const warBoardHandler = require("./commands/warBoardHandler");
 const setalertHandler = require("./commands/setalertHandler");
 const alertsHandler = require("./commands/alertsHandler");
 const deletealertHandler = require("./commands/deletealertHandler");
@@ -62,6 +63,7 @@ const ADMIN_COMMANDS = {
   resetage: resetageHandler,
   "analyze-war": analyzeWarHandler,
   "war-summary": warSummaryHandler,
+  "war-board": warBoardHandler,
   addadmin: addadminHandler,
   removeadmin: removeadminHandler,
   restore: restoreHandler,

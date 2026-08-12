@@ -193,6 +193,7 @@ const commands = [
         type: 1
       },
       { name: "war-summary", description: "Full war stats summary", type: 1 },
+      { name: "war-board", description: "Force refresh the war status board (Admin only)", type: 1 },
       { name: "roster", description: "View all registered kingdom members", type: 1 },
       {
         name: "admins",
@@ -240,14 +241,21 @@ const commands = [
 
 const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
 
+const GUILD_IDS = [
+  process.env.GUILD_ID,
+  "1534817549374455848"  // test server
+];
+
 (async () => {
   try {
     console.log("Refreshing application commands...");
-    await rest.put(
-      Routes.applicationGuildCommands(process.env.CLIENT_ID, process.env.GUILD_ID),
-      { body: commands }
-    );
-    console.log("✅ Commands registered successfully.");
+    for (const guildId of GUILD_IDS) {
+      await rest.put(
+        Routes.applicationGuildCommands(process.env.CLIENT_ID, guildId),
+        { body: commands }
+      );
+      console.log(`✅ Commands registered for guild ${guildId}`);
+    }
   } catch (error) {
     console.error(error);
   }
