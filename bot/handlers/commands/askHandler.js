@@ -224,7 +224,7 @@ module.exports = async function askHandler(interaction) {
       }
     }
     if (persRules && persRules.length > 0) {
-      const relevant = persRules.filter(p => lq.includes(p.personality_name.toLowerCase().replace(' ','')));
+      const relevant = persRules.filter(p => lq.includes(p.personality_name.toLowerCase().replace('the ', '').replace(' ', '')));
       if (relevant.length > 0) {
         wikiContext += `\nPERSONALITY RULES:\n`;
         for (const p of relevant) wikiContext += `  • ${p.personality_name} ${p.rule_name}: ${p.value}\n`;
