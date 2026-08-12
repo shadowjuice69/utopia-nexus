@@ -831,16 +831,111 @@ function start() {
         }
 
         const { askOpenRouter } = require("./openrouterService");
-        const prompt = `You are a war strategist for Utopia kingdom. Answer concisely and tactically.
+        const sb = supabaseService.getClient();
+        const contextLines = [];
+        if (sb) {
+          const { data: settings } = await sb.from("bot_settings").select("key, value");
+          const kdName = settings?.find(s => s.key === "kingdom_name")?.value || "Judo";
+          const kdCode = settings?.find(s => s.key === "kingdom_code")?.value || "3:2";
+          contextLines.push(`KINGDOM: ${kdName} (${kdCode})`);
 
-Kingdom context:
-${context}
+          const { data: provs } = await sb.from("provinces")
+            .select("name, race, personality, play_role, nw, acres, off, def, be, o_tpa, o_wpa")
+            .order("nw", { ascending: false }).limit(30);
+          if (provs && provs.length > 0) {
+            contextLines.push(`KINGDOM MEMBERS (${provs.length}):`);
+            for (const p of provs) {
+              let line = `  - ${p.name} ${p.race || ""} ${p.personality || ""} (${p.play_role || "?"})`;
+              if (p.nw) line += ` NW:${p.nw}`;
+              if (p.acres) line += ` Acres:${p.acres}`;
+              if (p.off) line += ` Off:${p.off}`;
+              if (p.def) line += ` Def:${p.def}`;
+              contextLines.push(line);
+            }
+          }
 
-Question: ${question}`;
+          const { data: enemies } = await sb.from("intel_throne")
+            .select("province, race, kd_code, networth, land, offense, defense")
+            .order("updated_at", { ascending: false }).limit(20);
+          if (enemies && enemies.length > 0) {
+            contextLines.push(`ENEMY INTEL (${enemies.length}):`);
+            for (const e of enemies) {
+              let line = `  - ${e.province} (${e.kd_code}) ${e.race || "?"}`;
+              if (e.networth) line += ` NW:${e.networth}`;
+              if (e.offense) line += ` Off:${e.offense}`;
+              if (e.defense) line += ` Def:${e.defense}`;
+              contextLines.push(line);
+            }
+          }
 
-        const answer = await askOpenRouter(prompt);
+          const { data: wars } = await sb.from("wars").select("enemy_kd, status").eq("status", "active").limit(1);
+          if (wars && wars.length > 0) contextLines.push(`ACTIVE WAR: vs ${wars[0].enemy_kd}`);
+
+          const ROLE_KEYWORDS = {
+            thief: ["thief","thieves","tpa","thievery","steal","rob","ops"],
+            mage: ["mage","wizard","wpa","spell","sorcery","magic","arcane"],
+            attacker: ["attacker","attack","offense","offensive","soldier","general"],
+            defender: ["defender","defense","defensive","fortress"],
+            hybrid: ["hybrid","spellfighter","thief mage","thief-mage"]
+          };
+          const RACE_SYNERGY = { thief: ["halfling","dark elf","darkelf","human"], mage: ["elf","faery","dryad"], attacker: ["orc","avian","dwarf","undead"], defender: ["dwarf","human","halfling"], hybrid: ["dark elf","darkelf","elf","faery","halfling"] };
+          const PERS_SYNERGY = { thief: ["rogue","heretic"], mage: ["mystic","necromancer","sage","cleric"], attacker: ["general","warrior","war hero","warhero","tactician"], defender: ["tactician","warrior","artisan"], hybrid: ["rogue","mystic","necromancer","heretic"] };
+          const lq = question.toLowerCase();
+          const roles = Object.entries(ROLE_KEYWORDS).filter(([,kws]) => kws.some(k => lq.includes(k))).map(([r]) => r);
+          if (roles.includes("thief") && roles.includes("mage") && !roles.includes("hybrid")) roles.push("hybrid");
+          if (roles.length > 0) {
+            const relevantRaces = new Set(roles.flatMap(r => RACE_SYNERGY[r] || []));
+            const relevantPers = new Set(roles.flatMap(r => PERS_SYNERGY[r] || []));
+            const { data: raceRules } = await sb.from("race_rules").select("race_name, rule_name, value").eq("active", true).eq("age_number", 116);
+            const { data: persRules } = await sb.from("personality_rules").select("personality_name, rule_name, value").eq("active", true).eq("age_number", 116);
+            if (raceRules) {
+              const matched = raceRules.filter(r => relevantRaces.has(r.race_name.toLowerCase()) || relevantRaces.has(r.race_name.toLowerCase().replace(" ","")));
+              if (matched.length > 0) {
+                const byRace = {};
+                for (const r of matched) { if (!byRace[r.race_name]) byRace[r.race_name] = []; byRace[r.race_name].push(`${r.rule_name}: ${r.value}`); }
+                contextLines.push("RACE BONUSES:");
+                for (const [race, rules] of Object.entries(byRace)) { contextLines.push(`  ${race}:`); for (const rule of rules) contextLines.push(`    - ${rule}`); }
+              }
+            }
+            if (persRules) {
+              const matched = persRules.filter(p => relevantPers.has(p.personality_name.toLowerCase().replace("the ","").replace(" ","")));
+              if (matched.length > 0) {
+                const byPers = {};
+                for (const p of matched) { if (!byPers[p.personality_name]) byPers[p.personality_name] = []; byPers[p.personality_name].push(`${p.rule_name}: ${p.value}`); }
+                contextLines.push("PERSONALITY BONUSES:");
+                for (const [pers, rules] of Object.entries(byPers)) { contextLines.push(`  ${pers}:`); for (const rule of rules) contextLines.push(`    - ${rule}`); }
+              }
+            }
+          }
+
+          const raceNames = ["avian","darkelf","dark elf","dryad","dwarf","elf","faery","halfling","human","orc","undead"];
+          const persNames = ["artisan","cleric","general","heretic","mystic","necromancer","rogue","sage","tactician","warrior","warhero","war hero"];
+          const mentionsRace = raceNames.some(r => lq.includes(r));
+          const mentionsPers = persNames.some(p => lq.includes(p));
+          if (mentionsRace || mentionsPers) {
+            const { data: raceRules } = await sb.from("race_rules").select("race_name, rule_name, value").eq("active", true).eq("age_number", 116);
+            const { data: persRules } = await sb.from("personality_rules").select("personality_name, rule_name, value").eq("active", true).eq("age_number", 116);
+            if (raceRules) { const rel = raceRules.filter(r => lq.includes(r.race_name.toLowerCase().replace(" ",""))); if (rel.length > 0) { contextLines.push("RACE RULES:"); for (const r of rel) contextLines.push(`  - ${r.race_name} ${r.rule_name}: ${r.value}`); } }
+            if (persRules) { const rel = persRules.filter(p => lq.includes(p.personality_name.toLowerCase().replace("the ","").replace(" ",""))); if (rel.length > 0) { contextLines.push("PERSONALITY RULES:"); for (const p of rel) contextLines.push(`  - ${p.personality_name} ${p.rule_name}: ${p.value}`); } }
+          }
+        }
+
+        const richContext = contextLines.join("\n");
+        const prompt = `You are Nexus, a war strategist for a Utopia kingdom. Answer concisely and tactically using real game mechanics.\n\nKINGDOM CONTEXT:\n${richContext}\n\n${context ? "ADDITIONAL CONTEXT:\n" + context + "\n\n" : ""}QUESTION: ${question}`;
+
+        let answer = null;
+        try {
+          const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${process.env.GROQ_API_KEY}` },
+            body: JSON.stringify({ model: "llama-3.3-70b-versatile", messages: [{ role: "user", content: prompt }], max_tokens: 600 })
+          });
+          const groqData = await groqRes.json();
+          answer = groqData.choices?.[0]?.message?.content || null;
+        } catch(e) {}
+        if (!answer) answer = await askOpenRouter(prompt);
         res.writeHead(200, { "Content-Type": "text/plain", "Access-Control-Allow-Origin": "*" });
-        res.end(answer);
+        res.end(answer || "No answer available.");
       } catch(e) {
         logger.error(`[AI ASK] ${e.message}`);
         res.writeHead(500, { "Access-Control-Allow-Origin": "*" }); res.end("AI error: " + e.message);
