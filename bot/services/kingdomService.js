@@ -2,13 +2,13 @@ const supabaseService = require("./supabase");
 
 let cache = null;
 let cacheTime = 0;
-const CACHE_TTL = 60000; // 1 minute
+const CACHE_TTL = 60000;
 
 async function getKingdomInfo() {
   if (cache && Date.now() - cacheTime < CACHE_TTL) return cache;
 
   const supabase = supabaseService.getClient();
-  if (!supabase) return { name: "Judo", code: "4:9", age: "116" };
+  if (!supabase) return null;
 
   const { data } = await supabase
     .from("bot_settings")
@@ -20,18 +20,19 @@ async function getKingdomInfo() {
       "kingdom_personality"
     ]);
 
-  if (!data) return { name: "Judo", code: "4:9", age: "116" };
+  if (!data) return null;
 
   const settings = {};
   for (const row of data) settings[row.key] = row.value;
 
   cache = {
-    name: settings.kingdom_name || "Judo",
-    code: settings.kingdom_code || "4:9",
-    age: settings.current_age || "116",
-    personality: settings.kingdom_personality || "The Cleric",
-    footer: `${settings.kingdom_name || "Judo"} Kingdom (${settings.kingdom_code || "4:9"}) • WoL Age ${settings.current_age || "116"} • Utopia Nexus`,
+    name: settings.kingdom_name,
+    code: settings.kingdom_code,
+    age: settings.current_age,
+    personality: settings.kingdom_personality,
+    footer: `${settings.kingdom_name} Kingdom (${settings.kingdom_code}) • WoL Age ${settings.current_age} • Utopia Nexus`,
   };
+
   cacheTime = Date.now();
   return cache;
 }
@@ -45,7 +46,7 @@ async function setKingdomInfo(name, code) {
     { key: "kingdom_code", value: code },
   ], { onConflict: "key" });
 
-  cache = null; // invalidate cache
+  cache = null;
   return true;
 }
 

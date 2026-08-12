@@ -9,7 +9,7 @@ const { parseArmies } = require("../parsers/armiesParser");
 
 const INTEL_KEY = process.env.INTEL_KEY || "";
 const PORT = parseInt(process.env.PORT || "3000", 10);
-const MY_KD = process.env.MY_KD || "4:9";
+const MY_KD = process.env.MY_KD;
 
 function readBody(req) {
   return new Promise((resolve, reject) => {
@@ -264,7 +264,7 @@ async function saveIntel(parsed, prov) {
       logger.info(`[THRONE SAVED] ${prov}`);
 
       // Also update provinces table for own kingdom members
-      const myKd = process.env.MY_KD || "3:2";
+      const myKd = process.env.MY_KD;
       if (parsed.kd === myKd) {
         const d = parsed.data;
         const provUpdate = {};
@@ -868,7 +868,7 @@ Question: ${question}`;
             // Pull enemy provinces
             const { data: provinces } = await sb.from("provinces")
               .select("name, kd_code, race, acres, nw, nwpa, nobility, off, def, personality")
-              .neq("kd_code", process.env.MY_KD || "3:2")
+              .neq("kd_code", process.env.MY_KD)
               .not("nw", "is", null)
               .order("nw", { ascending: false })
               .limit(50);
@@ -876,7 +876,7 @@ Question: ${question}`;
             // Pull our kingdom
             const { data: ourProvs } = await sb.from("provinces")
               .select("name, acres, nw, off, def")
-              .eq("kd_code", process.env.MY_KD || "3:2");
+              .eq("kd_code", process.env.MY_KD);
 
             // Pull recent attacks
             const { data: recentAttacks } = await sb.from("attacks")

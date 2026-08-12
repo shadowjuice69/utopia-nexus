@@ -17,8 +17,8 @@ async function getKingdomContext(supabase, kd) {
 
   // Kingdom settings
   const { data: settings } = await supabase.from("bot_settings").select("key, value");
-  const kdName = settings?.find(s => s.key === "kingdom_name")?.value || "Judo";
-  const kdCode = settings?.find(s => s.key === "kingdom_code")?.value || "3:2";
+  const kdName = settings?.find(s => s.key === "kingdom_name")?.value || "Unknown Kingdom";
+  const kdCode = settings?.find(s => s.key === "kingdom_code")?.value || "Unknown";
   lines.push(`KINGDOM: ${kdName} (${kdCode})`);
 
   // Provinces with full stats

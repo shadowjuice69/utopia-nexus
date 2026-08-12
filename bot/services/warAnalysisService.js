@@ -14,8 +14,8 @@ async function getWarData() {
     const [attacks, hostileOps, intelMilitary, intelThrone, intelOps, allyOps] = await Promise.all([
       supabase.from("attacks").select("*").gte("timestamp", since).order("timestamp", { ascending: false }).limit(50),
       supabase.from("hostile_ops").select("*").gte("timestamp", since).order("timestamp", { ascending: false }).limit(100),
-      supabase.from("intel_military").select("*").neq("kd_code", process.env.MY_KD || "3:2").limit(20),
-      supabase.from("intel_throne").select("*").neq("kd_code", process.env.MY_KD || "3:2").limit(20),
+      supabase.from("intel_military").select("*").neq("kd_code", process.env.MY_KD).limit(20),
+      supabase.from("intel_throne").select("*").neq("kd_code", process.env.MY_KD).limit(20),
     supabase.from("intel_ops").select("*").limit(50),
       getRecentOps(72),
     ]);
