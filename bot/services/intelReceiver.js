@@ -369,6 +369,11 @@ async function saveIntel(parsed, prov) {
         else logger.info(`[KINGDOM-PAGE] Saved kingdom ${kpData.kd_name} (${kdCode})`);
       }
 
+      // Only save provinces for enemy kingdoms — own kingdom tracked via throne/SOM
+      const myKd = process.env.MY_KD || "3:2";
+      if (kdCode === myKd) {
+        logger.info(`[KINGDOM-PAGE] Skipping province upsert for own kingdom ${kdCode}`);
+      } else {
       // Upsert each province
       const provinces = kpData.provinces || [];
       let saved = 0;
@@ -389,6 +394,7 @@ async function saveIntel(parsed, prov) {
         else saved++;
       }
       logger.info(`[KINGDOM-PAGE] Saved ${saved}/${provinces.length} provinces for ${kdCode}`);
+      } // end enemy-only block
     }
 
     if (parsed.type === "state") {
