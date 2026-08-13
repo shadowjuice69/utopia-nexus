@@ -11,12 +11,18 @@ module.exports = async function modalHandler(interaction) {
   const supabase = supabaseService.getClient();
 
   if (interaction.customId === "utopia_register_1") {
-    const user = db.get("users").value()?.find(u => u.id === interaction.user.id);
+    let user = db.get("users").value()?.find(u => u.id === interaction.user.id);
+
+    // Registration is allowed to create the local profile/session.
+    // Do not require an existing profile before Step 1.
     if (!user) {
-      return interaction.reply({
-        content: "❌ You need a profile first. Use /utopia register.",
-        flags: MessageFlags.Ephemeral,
-      });
+      user = {
+        id: interaction.user.id,
+        discord_id: interaction.user.id,
+        username: interaction.user.username,
+      };
+
+      db.get("users").push(user);
     }
 
     user.province = interaction.fields.getTextInputValue("province");
@@ -24,6 +30,7 @@ module.exports = async function modalHandler(interaction) {
     user._reg_race = interaction.fields.getTextInputValue("race");
     user._reg_personality = interaction.fields.getTextInputValue("personality");
     user._reg_play_role = interaction.fields.getTextInputValue("play_role");
+
     await db.write();
 
     const button = new ButtonBuilder()
@@ -39,7 +46,11 @@ module.exports = async function modalHandler(interaction) {
   }
 
   if (interaction.customId === "utopia_register_2") {
-    const user = db.get("users").value()?.find(u => u.id === interaction.user.id);
+    let user = db.get("users").value()?.find(u => u.id === interaction.user.id);
+    if (!user) {
+      user = { id: interaction.user.id };
+      db.get("users").push(user);
+    }
     if (!user) {
       return interaction.reply({
         content: "❌ Registration session expired. Please start again.",
