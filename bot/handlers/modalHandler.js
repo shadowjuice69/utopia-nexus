@@ -41,7 +41,6 @@ module.exports = async function modalHandler(interaction) {
     return interaction.reply({
       content: "✅ Step 1 complete. Click below to continue.",
       components: [new ActionRowBuilder().addComponents(button)],
-      flags: MessageFlags.Ephemeral,
     });
   }
 
@@ -146,7 +145,6 @@ module.exports = async function modalHandler(interaction) {
         `🎯 Role: ${user._reg_play_role}\n` +
         `🕐 Timezone: ${timezone}\n` +
         `⏰ Best Wave Times: ${waveTimes}`,
-      flags: MessageFlags.Ephemeral,
     });
   }
 
