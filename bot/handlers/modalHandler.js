@@ -11,27 +11,23 @@ module.exports = async function modalHandler(interaction) {
   const supabase = supabaseService.getClient();
 
   if (interaction.customId === "utopia_register_1") {
-    let user = db.get("users").value()?.find(u => u.id === interaction.user.id);
-
-    // Registration is allowed to create the local profile/session.
-    // Do not require an existing profile before Step 1.
-    if (!user) {
-      user = {
-        id: interaction.user.id,
-        discord_id: interaction.user.id,
-        username: interaction.user.username,
-      };
-
-      db.get("users").push(user);
+    if (!interaction.client._pendingRegistrations) {
+      interaction.client._pendingRegistrations = new Map();
     }
 
-    user.province = interaction.fields.getTextInputValue("province");
-    user.coordinates = interaction.fields.getTextInputValue("coordinates");
-    user._reg_race = interaction.fields.getTextInputValue("race");
-    user._reg_personality = interaction.fields.getTextInputValue("personality");
-    user._reg_play_role = interaction.fields.getTextInputValue("play_role");
+    const regData = {
+      id: interaction.user.id,
+      discord_id: interaction.user.id,
+      username: interaction.user.username,
+      province: interaction.fields.getTextInputValue("province"),
+      coordinates: interaction.fields.getTextInputValue("coordinates"),
+      _reg_race: interaction.fields.getTextInputValue("race"),
+      _reg_personality: interaction.fields.getTextInputValue("personality"),
+      _reg_play_role: interaction.fields.getTextInputValue("play_role"),
+    };
 
-    await db.write();
+    interaction.client._pendingRegistrations.set(interaction.user.id, regData);
+    console.log("[REGISTER] Stored pending reg for", interaction.user.id, regData.province);
 
     const button = new ButtonBuilder()
       .setCustomId("continue_registration")
@@ -45,14 +41,13 @@ module.exports = async function modalHandler(interaction) {
   }
 
   if (interaction.customId === "utopia_register_2") {
-    let user = db.get("users").value()?.find(u => u.id === interaction.user.id);
-    if (!user) {
-      user = { id: interaction.user.id };
-      db.get("users").push(user);
+    if (!interaction.client._pendingRegistrations) {
+      interaction.client._pendingRegistrations = new Map();
     }
+    let user = interaction.client._pendingRegistrations.get(interaction.user.id);
     if (!user) {
       return interaction.reply({
-        content: "❌ Registration session expired. Please start again.",
+        content: "❌ Registration session expired. Please start over with /utopia register.",
         flags: MessageFlags.Ephemeral,
       });
     }
