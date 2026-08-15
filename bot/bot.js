@@ -40,3 +40,13 @@ client.login(process.env.DISCORD_TOKEN)
   .catch(err => {
     logger.error(`[LOGIN ERROR] ${err.message}`);
   });
+
+// Keep Render free tier alive
+const https = require("https");
+setInterval(() => {
+  https.get("https://utopia-nexus.onrender.com", (res) => {
+    console.log("[KEEP-ALIVE] Pinged self, status:", res.statusCode);
+  }).on("error", (e) => {
+    console.error("[KEEP-ALIVE] Error:", e.message);
+  });
+}, 10 * 60 * 1000); // every 10 minutes
