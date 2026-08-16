@@ -6,6 +6,11 @@ const WAR_STATUS_KEY = "war_status_message_id";
 async function buildWarEmbed(supabase) {
   const lines = [];
 
+  // Fetch kingdom identity
+  const { data: settings } = await supabase.from("bot_settings").select("key, value");
+  const kdName = settings?.find(s => s.key === "kingdom_name")?.value || "Judo";
+  const kdCode = settings?.find(s => s.key === "kingdom_code")?.value || "4:9";
+
   // Active war
   const { data: wars } = await supabase.from("wars")
     .select("enemy_kd, status, started_at").eq("status", "active").limit(1);
