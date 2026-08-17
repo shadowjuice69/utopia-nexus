@@ -88,6 +88,7 @@ export default function App() {
     restoreAuthorization().catch(() => {
       if (!cancelled) {
         sessionStorage.removeItem("nexus_auth");
+        sessionStorage.removeItem("nexus_province");
         setAuthReady(true);
       }
     });
@@ -119,7 +120,13 @@ export default function App() {
   }
 
   if (!authed) {
-    return <Login onAuth={() => { sessionStorage.setItem("nexus_auth", "true"); setAuthed(true); }} />;
+    return <Login onAuth={(result) => {
+      sessionStorage.setItem("nexus_auth", "true");
+      if (result?.province?.name) {
+        sessionStorage.setItem("nexus_province", result.province.name);
+      }
+      setAuthed(true);
+    }} />;
   }
 
   if (!configReady) {
