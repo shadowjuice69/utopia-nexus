@@ -1,39 +1,73 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../services/supabase";
-
-const MY_KD = "3:2";
+import { getNexusConfig } from "../services/nexusConfig";
 
 export default function KingdomOverview() {
   const [provinces, setProvinces] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
+    let cancelled = false;
+
     async function load() {
-      const { data } = await supabase
+      const { kd } = getNexusConfig();
+
+      if (!kd) {
+        if (!cancelled) {
+          setProvinces([]);
+          setError("Kingdom context is unavailable.");
+          setLoading(false);
+        }
+        return;
+      }
+
+      const { data, error: queryError } = await supabase
         .from("provinces")
-        .select("name, acres, nw, off, def, be, race, personality, networth, land")
-        .eq("kd_code", MY_KD)
+        .select("name, acres, nw, off, def, be, race, personality, kd_code")
+        .eq("kd_code", kd)
         .order("nw", { ascending: false });
-      setProvinces(data || []);
+
+      if (cancelled) return;
+
+      if (queryError) {
+        setProvinces([]);
+        setError(queryError.message || "Unable to load kingdom data.");
+      } else {
+        setProvinces(data || []);
+        setError("");
+      }
       setLoading(false);
     }
+
     load();
     const iv = setInterval(load, 30000);
-    return () => clearInterval(iv);
-  }, [supabase]);
+    return () => {
+      cancelled = true;
+      clearInterval(iv);
+    };
+  }, []);
 
-  const totalNW = provinces.reduce((s, p) => s + (parseInt(p.nw) || parseInt(p.networth) || 0), 0);
-  const totalAcres = provinces.reduce((s, p) => s + (parseInt(p.acres) || parseInt(p.land) || 0), 0);
-  const totalOff = provinces.reduce((s, p) => s + (parseInt(p.off) || 0), 0);
-  const totalDef = provinces.reduce((s, p) => s + (parseInt(p.def) || 0), 0);
+  const totalNW = provinces.reduce((s, p) => s + (parseInt(p.nw, 10) || 0), 0);
+  const totalAcres = provinces.reduce((s, p) => s + (parseInt(p.acres, 10) || 0), 0);
+  const totalOff = provinces.reduce((s, p) => s + (parseInt(p.off, 10) || 0), 0);
+  const totalDef = provinces.reduce((s, p) => s + (parseInt(p.def, 10) || 0), 0);
   const avgNW = provinces.length ? Math.round(totalNW / provinces.length) : 0;
-  const avgBE = provinces.filter(p => p.be).length
-    ? Math.round(provinces.filter(p => p.be).reduce((s, p) => s + parseFloat(p.be) || 0, 0) / provinces.filter(p => p.be).length)
+  const beValues = provinces
+    .map(p => parseFloat(p.be))
+    .filter(Number.isFinite);
+  const avgBE = beValues.length
+    ? Math.round(beValues.reduce((s, value) => s + value, 0) / beValues.length)
     : 0;
 
   const fmt = n => n ? n.toLocaleString() : "—";
+  const { kd } = getNexusConfig();
 
   if (loading) return <div className="empty"><div className="empty-icon">⏳</div><div className="empty-text">Loading kingdom...</div></div>;
+
+  if (error) {
+    return <div className="empty"><div className="empty-icon">⚠️</div><div className="empty-text">{error}</div></div>;
+  }
 
   return (
     <div>
@@ -68,7 +102,7 @@ export default function KingdomOverview() {
         </div>
         <div className="stat-card">
           <div className="stat-label">Coordinates</div>
-          <div className="stat-value blue">3:2</div>
+          <div className="stat-value blue">{kd || "—"}</div>
         </div>
       </div>
 
@@ -92,10 +126,10 @@ export default function KingdomOverview() {
                 <tr key={i}>
                   <td className="gold">{p.name}</td>
                   <td>{p.race || "—"}</td>
-                  <td>{fmt(parseInt(p.acres) || parseInt(p.land) || 0)}</td>
-                  <td className="gold">{fmt(parseInt(p.nw) || parseInt(p.networth) || 0)}</td>
-                  <td className="red">{fmt(parseInt(p.off) || 0)}</td>
-                  <td className="purple">{fmt(parseInt(p.def) || 0)}</td>
+                  <td>{fmt(parseInt(p.acres, 10) || 0)}</td>
+                  <td className="gold">{fmt(parseInt(p.nw, 10) || 0)}</td>
+                  <td className="red">{fmt(parseInt(p.off, 10) || 0)}</td>
+                  <td className="purple">{fmt(parseInt(p.def, 10) || 0)}</td>
                   <td className="green">{p.be ? p.be + "%" : "—"}</td>
                 </tr>
               ))}
