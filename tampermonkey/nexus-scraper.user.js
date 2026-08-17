@@ -405,6 +405,9 @@ function getProvinceName() {
     let m = text.match(p);
     if (m) return m[1].trim().replace(/\s+/g, " ");
   }
+  // SoM format: "Province Name, we have N generals available..."
+  let som = text.match(/^([^,\n]+),\s*we have \d+ generals? available/im);
+  if (som) return som[1].trim().replace(/\s+/g, " ");
   return "Unknown";
 }
 
@@ -502,7 +505,7 @@ function sendCSVData(csv) {
     "source=intel-site-csv",
     "kd=" + encodeURIComponent(kd),
     "tab=overview",
-    "prov=Unknown",
+    "prov=" + encodeURIComponent(getProvinceName()),
     "url=" + encodeURIComponent(location.href),
     "data_simple=" + encodeURIComponent(csv)
   ].join("&");
