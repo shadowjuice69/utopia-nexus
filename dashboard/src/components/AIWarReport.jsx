@@ -29,7 +29,7 @@ export default function AIWarReport() {
       await fetch("https://utopia-nexus-production.up.railway.app/ai/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: "trigger=manual"
+        body: "key=NikkoAce&trigger=manual"
       });
       setTimeout(() => { load(); setRefreshing(false); }, 8000);
     } catch {
