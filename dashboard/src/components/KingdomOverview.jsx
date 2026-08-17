@@ -1,43 +1,56 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../services/supabase";
-import { getNexusConfig } from "../services/nexusConfig";
+import { getNexusConfig, loadNexusConfig } from "../services/nexusConfig";
 
 export default function KingdomOverview() {
   const [provinces, setProvinces] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [kd, setKd] = useState("");
 
   useEffect(() => {
     let cancelled = false;
 
     async function load() {
-      const { kd } = getNexusConfig();
+      try {
+        const config = await loadNexusConfig();
+        const currentKd = config?.kd || getNexusConfig().kd || "";
 
-      if (!kd) {
+        if (!currentKd) {
+          if (!cancelled) {
+            setProvinces([]);
+            setKd("");
+            setError("Kingdom context is unavailable.");
+            setLoading(false);
+          }
+          return;
+        }
+
+        if (!cancelled) setKd(currentKd);
+
+        const { data, error: queryError } = await supabase
+          .from("provinces")
+          .select("name, acres, nw, off, def, be, race, personality, kd_code")
+          .eq("kd_code", currentKd)
+          .order("nw", { ascending: false });
+
+        if (cancelled) return;
+
+        if (queryError) {
+          setProvinces([]);
+          setError(queryError.message || "Unable to load kingdom data.");
+        } else {
+          setProvinces(data || []);
+          setError("");
+        }
+      } catch (loadError) {
         if (!cancelled) {
           setProvinces([]);
-          setError("Kingdom context is unavailable.");
-          setLoading(false);
+          setError(loadError?.message || "Unable to load kingdom context.");
         }
-        return;
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-
-      const { data, error: queryError } = await supabase
-        .from("provinces")
-        .select("name, acres, nw, off, def, be, race, personality, kd_code")
-        .eq("kd_code", kd)
-        .order("nw", { ascending: false });
-
-      if (cancelled) return;
-
-      if (queryError) {
-        setProvinces([]);
-        setError(queryError.message || "Unable to load kingdom data.");
-      } else {
-        setProvinces(data || []);
-        setError("");
-      }
-      setLoading(false);
     }
 
     load();
@@ -61,7 +74,6 @@ export default function KingdomOverview() {
     : 0;
 
   const fmt = n => n ? n.toLocaleString() : "—";
-  const { kd } = getNexusConfig();
 
   if (loading) return <div className="empty"><div className="empty-icon">⏳</div><div className="empty-text">Loading kingdom...</div></div>;
 
