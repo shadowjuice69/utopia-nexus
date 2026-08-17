@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import "./App.css";
 import { loadNexusConfig, getKingdomLabel } from "./services/nexusConfig";
+import { getDashboardRegistration } from "./services/auth";
 import { getTickState } from "./services/tick";
 
 // ── Components ──────────────────────────────────────────────────────────────
@@ -59,23 +60,50 @@ const GROUPS = [
 
 export default function App() {
   const [authed, setAuthed] = useState(false);
+  const [authReady, setAuthReady] = useState(false);
   const [activeGroup, setActiveGroup] = useState("kingdom");
   const [activeTab, setActiveTab] = useState("overview");
   const [tick, setTick] = useState(null);
   const [configReady, setConfigReady] = useState(false);
 
   useEffect(() => {
-    const saved = sessionStorage.getItem("nexus_auth");
-    if (saved === "true") setAuthed(true);
+    let cancelled = false;
+
+    async function restoreAuthorization() {
+      const saved = sessionStorage.getItem("nexus_auth") === "true";
+      if (!saved) {
+        if (!cancelled) setAuthReady(true);
+        return;
+      }
+
+      const registration = await getDashboardRegistration();
+      const allowed = registration.registered || registration.owner;
+      if (!cancelled) {
+        if (allowed) setAuthed(true);
+        else sessionStorage.removeItem("nexus_auth");
+        setAuthReady(true);
+      }
+    }
+
+    restoreAuthorization().catch(() => {
+      if (!cancelled) {
+        sessionStorage.removeItem("nexus_auth");
+        setAuthReady(true);
+      }
+    });
+
+    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {
+    if (!authed) return undefined;
+
     let cancelled = false;
     loadNexusConfig().finally(() => {
       if (!cancelled) setConfigReady(true);
     });
     return () => { cancelled = true; };
-  }, []);
+  }, [authed]);
 
   useEffect(() => {
     function calcTick() {
@@ -85,6 +113,10 @@ export default function App() {
     const iv = setInterval(calcTick, 1000);
     return () => clearInterval(iv);
   }, []);
+
+  if (!authReady) {
+    return <div className="loading">Checking Nexus authorization...</div>;
+  }
 
   if (!authed) {
     return <Login onAuth={() => { sessionStorage.setItem("nexus_auth", "true"); setAuthed(true); }} />;
