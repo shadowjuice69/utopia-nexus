@@ -1,8 +1,6 @@
 import { useState } from "react";
 import { getKingdomLabel } from "../services/nexusConfig";
-import { supabase } from "../services/supabase";
-
-const PASSWORD = "NikkoAce";
+import { getDashboardAuthorization } from "../services/auth";
 
 export default function Login({ onAuth }) {
   const [province, setProvince] = useState("");
@@ -16,23 +14,20 @@ export default function Login({ onAuth }) {
     setErr(false);
     setChecking(true);
 
-    const provinceName = province.trim();
-    const { data, error } = await supabase
-      .from("provinces")
-      .select("name")
-      .eq("name", provinceName)
-      .limit(1)
-      .maybeSingle();
-
-    const registered = !error && !!data;
-    if (registered && password === PASSWORD) {
-      onAuth();
-    } else {
+    try {
+      const result = await getDashboardAuthorization(province, password);
+      if (result.allowed) {
+        onAuth(result);
+      } else {
+        setErr(true);
+        setTimeout(() => setErr(false), 2500);
+      }
+    } catch {
       setErr(true);
       setTimeout(() => setErr(false), 2500);
+    } finally {
+      setChecking(false);
     }
-
-    setChecking(false);
   }
 
   return (
@@ -61,9 +56,9 @@ export default function Login({ onAuth }) {
             autoComplete="current-password"
             required
           />
-          {err && <div className="login-error">Province not registered or password incorrect</div>}
+          {err && <div className="login-error">Access denied</div>}
           <button className="btn btn-gold" style={{ width: "100%" }} type="submit" disabled={checking}>
-            {checking ? "Checking Registration..." : "Enter Command Center"}
+            {checking ? "Checking Authorization..." : "Enter Command Center"}
           </button>
         </form>
       </div>
