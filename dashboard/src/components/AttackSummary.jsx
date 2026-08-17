@@ -2,8 +2,6 @@ import { useEffect, useState } from "react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { supabase } from "../services/supabase";
 
-const MY_KD = "3:2";
-
 const OUTGOING = ["outgoing_attack","outgoing_ambush","outgoing_recapture"];
 const INCOMING = ["incoming_attack","incoming_ambush"];
 const KD_OUT   = ["kd_invasion","kd_ambush","kd_pillage","kd_loot"];
@@ -81,7 +79,7 @@ export default function AttackSummary() {
   const [incoming, setIncoming] = useState([]);
   const [kdEvents, setKdEvents] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [myKd, setMyKd] = useState(MY_KD);
+  const [myKd, setMyKd] = useState("");
   const [view, setView] = useState("overview");
   const [attacks, setAttacks] = useState([]);
 
@@ -113,7 +111,6 @@ export default function AttackSummary() {
     setLoading(false);
   }
 
-  // Stats
   const totalAcresGained = outgoing.reduce((s,e) => s + (e.acres||0), 0);
   const totalAcresLost   = incoming.reduce((s,e) => s + (e.acres||0), 0);
   const totalTroopsSent  = outgoing.reduce((s,e) => s + (e.troops_sent||0), 0);
@@ -130,7 +127,6 @@ export default function AttackSummary() {
   const kdAcresGained = kdOurAtks.reduce((s,e) => s + (e.acres||0), 0);
   const kdAcresLost   = kdIncoming.reduce((s,e) => s + (e.acres||0), 0);
 
-  // Per-target breakdown
   const byTarget = {};
   outgoing.forEach(e => {
     const key = `${e.defender_name} (${e.defender_kd})`;
@@ -183,21 +179,15 @@ export default function AttackSummary() {
             <StatCard label="KD Attacks In" value={kdIncoming.length} color="#f87171" sub={`-${kdAcresLost} acres`} />
             <StatCard label="Net Acres (KD)" value={kdAcresGained - kdAcresLost} color={kdAcresGained >= kdAcresLost ? "#4ade80" : "#f87171"} />
           </div>
-
-          {/* Land Graph */}
           {attacks.length > 0 && (() => {
             const outAtks = attacks.filter(a => a.attack_type !== "incoming");
             const inAtks = attacks.filter(a => a.attack_type === "incoming");
-
-            // Get all enemy kingdoms
             const kdSet = new Set(outAtks.map(a => a.target_kingdom).filter(Boolean));
             const kds = [...kdSet];
-
-            // Build timeline by hour buckets
             const buckets = {};
             for (const a of outAtks) {
               const d = new Date(a.timestamp);
-              const key = d.toISOString().slice(0, 13); // hour bucket
+              const key = d.toISOString().slice(0, 13);
               if (!buckets[key]) buckets[key] = { time: key };
               const kd = a.target_kingdom || "Unknown";
               buckets[key][kd] = (buckets[key][kd] || 0) + (a.acres_captured || 0);
@@ -208,8 +198,6 @@ export default function AttackSummary() {
               if (!buckets[key]) buckets[key] = { time: key };
               buckets[key]["Incoming"] = (buckets[key]["Incoming"] || 0) - (a.acres_captured || 0);
             }
-
-            // Sort and cumulate
             const sorted = Object.values(buckets).sort((a, b) => a.time.localeCompare(b.time));
             const cumulative = {};
             const chartData = sorted.map(b => {
@@ -220,9 +208,7 @@ export default function AttackSummary() {
               }
               return point;
             });
-
             const KD_COLORS = ["#38bdf8","#4ade80","#f87171","#a78bfa","#fbbf24","#fb923c","#34d399","#e879f9"];
-
             return (
               <div className="panel" style={{ marginTop: 12 }}>
                 <h2>📈 Cumulative Land Change</h2>
@@ -230,83 +216,32 @@ export default function AttackSummary() {
                   <LineChart data={chartData}>
                     <XAxis dataKey="time" tick={{ fontSize: 10, fill: "#475569" }} />
                     <YAxis tick={{ fontSize: 10, fill: "#475569" }} />
-                    <Tooltip
-                      contentStyle={{ background: "#0f172a", border: "1px solid #38bdf8", borderRadius: 8, fontSize: 12 }}
-                      labelStyle={{ color: "#94a3b8" }}
-                    />
+                    <Tooltip contentStyle={{ background: "#0f172a", border: "1px solid #38bdf8", borderRadius: 8, fontSize: 12 }} labelStyle={{ color: "#94a3b8" }} />
                     <Legend wrapperStyle={{ fontSize: 12 }} />
-                    {kds.map((kd, i) => (
-                      <Line key={kd} type="monotone" dataKey={kd} stroke={KD_COLORS[i % KD_COLORS.length]} strokeWidth={2} dot={false} />
-                    ))}
+                    {kds.map((kd, i) => <Line key={kd} type="monotone" dataKey={kd} stroke={KD_COLORS[i % KD_COLORS.length]} strokeWidth={2} dot={false} />)}
                     <Line key="Incoming" type="monotone" dataKey="Incoming" stroke="#f87171" strokeWidth={2} strokeDasharray="4 2" dot={false} />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
             );
           })()}
-
           <div className="panel" style={{ padding: 0, marginTop: 12 }}>
             <SectionHeader title="Per-Target Breakdown" />
             <div style={{ overflowX: "auto" }}>
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                <thead>
-                  <tr style={{ color: "#64748b", fontSize: 11, textTransform: "uppercase" }}>
-                    {["Target","KD","Attacks","Acres","Killed","Lost","Credits"].map(h => (
-                      <th key={h} style={{ padding: "8px 12px", textAlign: "left", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
+                <thead><tr style={{ color: "#64748b", fontSize: 11, textTransform: "uppercase" }}>{["Target","KD","Attacks","Acres","Killed","Lost","Credits"].map(h => <th key={h} style={{ padding: "8px 12px", textAlign: "left", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>{h}</th>)}</tr></thead>
                 <tbody>
-                  {targets.map((t,i) => (
-                    <tr key={i} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
-                      <td style={{ padding: "8px 12px", color: "#e2e8f0", fontWeight: 600 }}>{t.name}</td>
-                      <td style={{ padding: "8px 12px", color: "#64748b" }}>{t.kd}</td>
-                      <td style={{ padding: "8px 12px", color: "#38bdf8" }}>{t.attacks}</td>
-                      <td style={{ padding: "8px 12px", color: "#4ade80" }}>+{t.acres}</td>
-                      <td style={{ padding: "8px 12px", color: "#f87171" }}>{t.killed}</td>
-                      <td style={{ padding: "8px 12px", color: "#fb923c" }}>{t.lost}</td>
-                      <td style={{ padding: "8px 12px", color: "#4ade80" }}>{t.credits}</td>
-                    </tr>
-                  ))}
-                  {targets.length === 0 && (
-                    <tr><td colSpan={7} style={{ padding: 24, textAlign: "center", color: "#475569" }}>No outgoing attacks yet</td></tr>
-                  )}
+                  {targets.map((t,i) => <tr key={i} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}><td style={{ padding: "8px 12px", color: "#e2e8f0", fontWeight: 600 }}>{t.name}</td><td style={{ padding: "8px 12px", color: "#64748b" }}>{t.kd}</td><td style={{ padding: "8px 12px", color: "#38bdf8" }}>{t.attacks}</td><td style={{ padding: "8px 12px", color: "#4ade80" }}>+{t.acres}</td><td style={{ padding: "8px 12px", color: "#f87171" }}>{t.killed}</td><td style={{ padding: "8px 12px", color: "#fb923c" }}>{t.lost}</td><td style={{ padding: "8px 12px", color: "#4ade80" }}>{t.credits}</td></tr>)}
+                  {targets.length === 0 && <tr><td colSpan={7} style={{ padding: 24, textAlign: "center", color: "#475569" }}>No outgoing attacks yet</td></tr>}
                 </tbody>
               </table>
             </div>
           </div>
         </>
       )}
-
-      {view === "outgoing" && (
-        <div className="panel" style={{ padding: 0 }}>
-          <SectionHeader title={`Outgoing Attacks (${outgoing.length})`} />
-          <div style={{ maxHeight: "65vh", overflowY: "auto" }}>
-            {outgoing.map((e,i) => <AttackRow key={i} e={e} isIncoming={false} />)}
-            {outgoing.length === 0 && <div style={{ padding: 24, color: "#475569", textAlign: "center" }}>No outgoing attacks recorded</div>}
-          </div>
-        </div>
-      )}
-
-      {view === "incoming" && (
-        <div className="panel" style={{ padding: 0 }}>
-          <SectionHeader title={`Incoming Attacks (${incoming.length})`} />
-          <div style={{ maxHeight: "65vh", overflowY: "auto" }}>
-            {incoming.map((e,i) => <AttackRow key={i} e={e} isIncoming={true} />)}
-            {incoming.length === 0 && <div style={{ padding: 24, color: "#475569", textAlign: "center" }}>No incoming attacks recorded</div>}
-          </div>
-        </div>
-      )}
-
-      {view === "kd feed" && (
-        <div className="panel" style={{ padding: 0 }}>
-          <SectionHeader title={`KD Attack Feed (${kdEvents.length})`} />
-          <div style={{ maxHeight: "65vh", overflowY: "auto" }}>
-            {kdEvents.map((e,i) => <KDRow key={i} e={e} myKd={myKd} />)}
-            {kdEvents.length === 0 && <div style={{ padding: 24, color: "#475569", textAlign: "center" }}>No KD events recorded</div>}
-          </div>
-        </div>
-      )}
+      {view === "outgoing" && <div className="panel" style={{ padding: 0 }}><SectionHeader title={`Outgoing Attacks (${outgoing.length})`} /><div style={{ maxHeight: "65vh", overflowY: "auto" }}>{outgoing.map((e,i) => <AttackRow key={i} e={e} isIncoming={false} />)}{outgoing.length === 0 && <div style={{ padding: 24, color: "#475569", textAlign: "center" }}>No outgoing attacks recorded</div>}</div></div>}
+      {view === "incoming" && <div className="panel" style={{ padding: 0 }}><SectionHeader title={`Incoming Attacks (${incoming.length})`} /><div style={{ maxHeight: "65vh", overflowY: "auto" }}>{incoming.map((e,i) => <AttackRow key={i} e={e} isIncoming={true} />)}{incoming.length === 0 && <div style={{ padding: 24, color: "#475569", textAlign: "center" }}>No incoming attacks recorded</div>}</div></div>}
+      {view === "kd feed" && <div className="panel" style={{ padding: 0 }}><SectionHeader title={`KD Attack Feed (${kdEvents.length})`} /><div style={{ maxHeight: "65vh", overflowY: "auto" }}>{kdEvents.map((e,i) => <KDRow key={i} e={e} myKd={myKd} />)}{kdEvents.length === 0 && <div style={{ padding: 24, color: "#475569", textAlign: "center" }}>No KD events recorded</div>}</div></div>}
     </div>
   );
 }
