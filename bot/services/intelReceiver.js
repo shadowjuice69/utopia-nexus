@@ -759,15 +759,6 @@ function start() {
       return;
     }
 
-    if (req.method === "POST" && req.url === "/") {
-      let rawBody;
-      try { rawBody = await readBody(req); } catch(e) { rawBody = ""; }
-      console.log("[UTOPIA NATIVE POST]", rawBody.substring(0, 500));
-      res.writeHead(200, { "Content-Type": "text/plain" });
-      res.end("ok");
-      return;
-    }
-
     if (req.method === "POST" && req.url === "/intel") {
       try {
         let raw;
