@@ -45,18 +45,18 @@ export async function loadNexusConfig() {
   if (!user) {
     const savedProvince = sessionStorage.getItem("nexus_province");
     const registered = await loadFromRegisteredProvince(savedProvince);
-
-    cachedConfig = registered || {
-      kingdom: "",
-      kd: "",
-      province: "",
-      kingdomId: "",
-      owner: false,
-    };
+    if (registered) {
+      cachedConfig = registered;
+      return cachedConfig;
+    }
+    const { data: bs } = await supabase.from("bot_settings").select("key, value");
+    const fallbackKd = bs?.find(s => s.key === "kingdom_code")?.value || "";
+    const fallbackKdName = bs?.find(s => s.key === "kingdom_name")?.value || "";
+    cachedConfig = { kingdom: fallbackKdName, kd: fallbackKd, province: "", kingdomId: "", owner: false };
     return cachedConfig;
   }
 
-  const [{ data: settings }, { data: province }, { data: admin }] = await Promise.all([
+  const [{ data: settings }, { data: province }, { data: admin }, { data: botSettings }] = await Promise.all([
     supabase
       .from("user_settings")
       .select("my_kd_id, age_current")
@@ -74,13 +74,17 @@ export async function loadNexusConfig() {
       .eq("user_id", user.id)
       .eq("role", "owner")
       .maybeSingle(),
+    supabase
+      .from("bot_settings")
+      .select("key, value"),
   ]);
+  const botKd = botSettings?.find(s => s.key === "kingdom_code")?.value || "";
 
   const current = settings?.age_current && typeof settings.age_current === "object"
     ? settings.age_current
     : {};
 
-  const kd = clean(province?.kd_code || settings?.my_kd_id || current.kd_code || current.kingdom_code);
+  const kd = clean(province?.kd_code || settings?.my_kd_id || current.kd_code || current.kingdom_code || botKd);
   const kingdom = clean(current.kingdom || current.kingdom_name || current.name);
   const provinceName = clean(province?.name || current.province || current.province_name);
   const kingdomId = clean(province?.kingdom_id);
