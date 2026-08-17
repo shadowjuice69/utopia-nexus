@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../services/supabase";
+import { getKingdomContext, isOutgoingAttack } from "../services/kingdomContext";
 
 const ATTACK_EMOJI = {
   "traditional march": "⚔️",
@@ -43,29 +44,44 @@ export default function AttackLog() {
   const [filter, setFilter] = useState("all"); // all | outgoing | incoming
   const [search, setSearch] = useState("");
   const [limit, setLimit] = useState(50);
-
-  const OUR_KD = "4:9";
+  const [kingdomCode, setKingdomCode] = useState(null);
 
   useEffect(() => {
+    let active = true;
+
+    async function loadContext() {
+      const context = await getKingdomContext();
+      if (active) setKingdomCode(context.kingdomCode);
+    }
+
+    loadContext();
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    async function fetchAttacks() {
+      const { data } = await supabase
+        .from("attacks")
+        .select("*")
+        .order("timestamp", { ascending: false })
+        .limit(limit);
+      if (!active) return;
+      setAttacks(data || []);
+      setLoading(false);
+    }
+
     fetchAttacks();
     const interval = setInterval(fetchAttacks, 30000);
-    return () => clearInterval(interval);
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
   }, [limit]);
 
-  async function fetchAttacks() {
-    const { data } = await supabase
-      .from("attacks")
-      .select("*")
-      .order("timestamp", { ascending: false })
-      .limit(limit);
-    setAttacks(data || []);
-    setLoading(false);
-  }
-
   function isOutgoing(attack) {
-    if (attack.attack_type === "incoming") return false;
-    if (attack.attack_type === "traditional" || attack.attack_type === "ambush") return true;
-    return attack.kd_code === OUR_KD;
+    return isOutgoingAttack(attack, kingdomCode);
   }
 
   const filtered = attacks.filter(a => {
@@ -95,13 +111,11 @@ export default function AttackLog() {
   return (
     <div className="intel-panel">
       <div className="panel">
-        {/* Header */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 8 }}>
           <h2 style={{ margin: 0 }}>⚔️ Attack Log</h2>
           <span style={{ color: "#475569", fontSize: 12 }}>Auto-refreshes every 30s</span>
         </div>
 
-        {/* 24h Summary */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))", gap: 8, marginBottom: 16 }}>
           <div style={{ background: "rgba(56,189,248,0.1)", border: "1px solid rgba(56,189,248,0.2)", borderRadius: 8, padding: "10px 14px" }}>
             <div style={{ color: "#94a3b8", fontSize: 11, marginBottom: 4 }}>ATTACKS (24H)</div>
@@ -125,7 +139,6 @@ export default function AttackLog() {
           </div>
         </div>
 
-        {/* Filters */}
         <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
           {["all", "outgoing", "incoming"].map(f => (
             <button key={f} onClick={() => setFilter(f)} style={{
@@ -150,7 +163,6 @@ export default function AttackLog() {
           />
         </div>
 
-        {/* Attack list */}
         {filtered.length === 0 ? (
           <p style={{ color: "#475569", textAlign: "center", padding: 32 }}>
             No attacks recorded yet. Bot will populate this as attacks come in.
@@ -171,29 +183,17 @@ export default function AttackLog() {
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
                     <div>
                       <span style={{ fontSize: 16, marginRight: 8 }}>{emoji}</span>
-                      <span style={{ color: "#e2e8f0", fontWeight: 600, fontSize: 14 }}>
-                        {a.attack_type || "Attack"}
-                      </span>
-                      <span style={{ color: "#475569", fontSize: 12, marginLeft: 8 }}>
-                        {out ? "outgoing" : "incoming"}
-                      </span>
+                      <span style={{ color: "#e2e8f0", fontWeight: 600, fontSize: 14 }}>{a.attack_type || "Attack"}</span>
+                      <span style={{ color: "#475569", fontSize: 12, marginLeft: 8 }}>{out ? "outgoing" : "incoming"}</span>
                     </div>
                     <span style={{ color: "#475569", fontSize: 11 }}>{timeAgo(a.timestamp)}</span>
                   </div>
 
                   <div style={{ color: "#94a3b8", fontSize: 13, marginBottom: 8 }}>
-                    <span style={{ color: out ? "#4ade80" : "#ef4444" }}>
-                      {a.attacker_province || "Unknown"}
-                    </span>
+                    <span style={{ color: out ? "#4ade80" : "#ef4444" }}>{a.attacker_province || "Unknown"}</span>
                     <span style={{ color: "#475569", margin: "0 6px" }}>→</span>
-                    <span style={{ color: "#38bdf8" }}>
-                      {a.target_province || "Unknown"}
-                    </span>
-                    {a.target_kingdom && (
-                      <span style={{ color: "#475569", fontSize: 11, marginLeft: 6 }}>
-                        ({a.target_kingdom})
-                      </span>
-                    )}
+                    <span style={{ color: "#38bdf8" }}>{a.target_province || "Unknown"}</span>
+                    {a.target_kingdom && <span style={{ color: "#475569", fontSize: 11, marginLeft: 6 }}>({a.target_kingdom})</span>}
                   </div>
 
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
