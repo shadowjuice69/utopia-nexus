@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import "./App.css";
 import { getKingdomLabel } from "./services/nexusConfig";
+import { getTickState } from "./services/tick";
 
 // ── Components ──────────────────────────────────────────────────────────────
 import KingdomOverview from "./components/KingdomOverview";
@@ -25,60 +26,35 @@ import RepoTools from "./components/RepoTools";
 import Login from "./components/Login";
 
 const GROUPS = [
-  {
-    id: "kingdom",
-    label: "KINGDOM",
-    color: "#fbbf24",
-    tabs: [
-      { id: "overview", label: "Overview", component: KingdomOverview },
-      { id: "news", label: "News", component: NewsPanel },
-      { id: "buildings", label: "Buildings", component: BuildingIntel },
-      { id: "science", label: "Science", component: ScienceIntel },
-      { id: "members", label: "Members", component: MembersPanel },
-    ],
-  },
-  {
-    id: "war",
-    label: "WAR",
-    color: "#f87171",
-    tabs: [
-      { id: "warroom", label: "War Room", component: WarRoom },
-      { id: "waves", label: "Waves", component: WaveTracker },
-      { id: "attacks", label: "Attack Log", component: AttackLog },
-      { id: "summary", label: "Summary", component: AttackSummary },
-      { id: "enemies", label: "Enemy Kingdoms", component: EnemyKingdoms },
-      { id: "queue", label: "Intel Queue", component: IntelQueue },
-    ],
-  },
-  {
-    id: "ops",
-    label: "OPS",
-    color: "#a78bfa",
-    tabs: [
-      { id: "hostileops", label: "Hostile Ops", component: OpsIntel },
-      { id: "spells", label: "Spells", component: SpellTracker },
-      { id: "alerts", label: "Alerts", component: AlertPanel },
-      { id: "calc", label: "Calculator", component: AttackCalc },
-    ],
-  },
-  {
-    id: "ai",
-    label: "AI",
-    color: "#34d399",
-    tabs: [
-      { id: "warreport", label: "War Report", component: AIWarReport },
-      { id: "targets", label: "Targets", component: AITargets },
-      { id: "ask", label: "Ask", component: AIAssistant },
-    ],
-  },
-  {
-    id: "tools",
-    label: "TOOLS",
-    color: "#60a5fa",
-    tabs: [
-      { id: "repo-tools", label: "Repo Toolkit", component: RepoTools },
-    ],
-  },
+  { id: "kingdom", label: "KINGDOM", color: "#fbbf24", tabs: [
+    { id: "overview", label: "Overview", component: KingdomOverview },
+    { id: "news", label: "News", component: NewsPanel },
+    { id: "buildings", label: "Buildings", component: BuildingIntel },
+    { id: "science", label: "Science", component: ScienceIntel },
+    { id: "members", label: "Members", component: MembersPanel },
+  ] },
+  { id: "war", label: "WAR", color: "#f87171", tabs: [
+    { id: "warroom", label: "War Room", component: WarRoom },
+    { id: "waves", label: "Waves", component: WaveTracker },
+    { id: "attacks", label: "Attack Log", component: AttackLog },
+    { id: "summary", label: "Summary", component: AttackSummary },
+    { id: "enemies", label: "Enemy Kingdoms", component: EnemyKingdoms },
+    { id: "queue", label: "Intel Queue", component: IntelQueue },
+  ] },
+  { id: "ops", label: "OPS", color: "#a78bfa", tabs: [
+    { id: "hostileops", label: "Hostile Ops", component: OpsIntel },
+    { id: "spells", label: "Spells", component: SpellTracker },
+    { id: "alerts", label: "Alerts", component: AlertPanel },
+    { id: "calc", label: "Calculator", component: AttackCalc },
+  ] },
+  { id: "ai", label: "AI", color: "#34d399", tabs: [
+    { id: "warreport", label: "War Report", component: AIWarReport },
+    { id: "targets", label: "Targets", component: AITargets },
+    { id: "ask", label: "Ask", component: AIAssistant },
+  ] },
+  { id: "tools", label: "TOOLS", color: "#60a5fa", tabs: [
+    { id: "repo-tools", label: "Repo Toolkit", component: RepoTools },
+  ] },
 ];
 
 export default function App() {
@@ -94,12 +70,7 @@ export default function App() {
 
   useEffect(() => {
     function calcTick() {
-      const now = new Date();
-      const minutesSinceStart = (now.getUTCHours() - 13 + 24) % 24 * 60 + now.getUTCMinutes();
-      const currentTick = Math.floor(minutesSinceStart / 60) + 1;
-      const minLeft = 59 - now.getUTCMinutes();
-      const secLeft = 59 - now.getUTCSeconds();
-      setTick({ current: currentTick, minLeft, secLeft });
+      setTick(getTickState());
     }
     calcTick();
     const iv = setInterval(calcTick, 1000);
@@ -145,12 +116,7 @@ export default function App() {
 
       <nav className="group-nav">
         {GROUPS.map(g => (
-          <button
-            key={g.id}
-            className={`group-btn ${activeGroup === g.id ? "group-btn-active" : ""}`}
-            style={activeGroup === g.id ? { borderColor: g.color, color: g.color } : {}}
-            onClick={() => switchGroup(g.id)}
-          >
+          <button key={g.id} className={`group-btn ${activeGroup === g.id ? "group-btn-active" : ""}`} style={activeGroup === g.id ? { borderColor: g.color, color: g.color } : {}} onClick={() => switchGroup(g.id)}>
             {g.label}
           </button>
         ))}
@@ -158,12 +124,7 @@ export default function App() {
 
       <nav className="tab-nav">
         {currentGroup?.tabs.map(t => (
-          <button
-            key={t.id}
-            className={`tab-btn ${activeTab === t.id ? "tab-btn-active" : ""}`}
-            style={activeTab === t.id ? { color: currentGroup.color, borderBottomColor: currentGroup.color } : {}}
-            onClick={() => setActiveTab(t.id)}
-          >
+          <button key={t.id} className={`tab-btn ${activeTab === t.id ? "tab-btn-active" : ""}`} style={activeTab === t.id ? { color: currentGroup.color, borderBottomColor: currentGroup.color } : {}} onClick={() => setActiveTab(t.id)}>
             {t.label}
           </button>
         ))}
