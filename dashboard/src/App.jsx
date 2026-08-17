@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import "./App.css";
-import { getKingdomLabel } from "./services/nexusConfig";
+import { loadNexusConfig, getKingdomLabel } from "./services/nexusConfig";
 import { getTickState } from "./services/tick";
 
 // ── Components ──────────────────────────────────────────────────────────────
@@ -62,10 +62,19 @@ export default function App() {
   const [activeGroup, setActiveGroup] = useState("kingdom");
   const [activeTab, setActiveTab] = useState("overview");
   const [tick, setTick] = useState(null);
+  const [configReady, setConfigReady] = useState(false);
 
   useEffect(() => {
     const saved = sessionStorage.getItem("nexus_auth");
     if (saved === "true") setAuthed(true);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadNexusConfig().finally(() => {
+      if (!cancelled) setConfigReady(true);
+    });
+    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {
@@ -79,6 +88,10 @@ export default function App() {
 
   if (!authed) {
     return <Login onAuth={() => { sessionStorage.setItem("nexus_auth", "true"); setAuthed(true); }} />;
+  }
+
+  if (!configReady) {
+    return <div className="loading">Loading current kingdom context...</div>;
   }
 
   const currentGroup = GROUPS.find(g => g.id === activeGroup);
