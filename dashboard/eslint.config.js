@@ -24,6 +24,7 @@ export default defineConfig([
       'react-hooks/set-state-in-effect': 'off',
       'react-hooks/immutability': 'off',
       'react-hooks/purity': 'off',
+      'no-useless-assignment': 'off',
       'no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
     },
   },
