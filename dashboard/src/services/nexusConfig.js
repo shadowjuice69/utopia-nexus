@@ -6,12 +6,53 @@ function clean(value) {
   return String(value ?? "").trim();
 }
 
+async function loadFromRegisteredProvince(provinceName) {
+  const requestedProvince = clean(provinceName);
+  if (!requestedProvince) return null;
+
+  const { data: province } = await supabase
+    .from("provinces")
+    .select("name, kingdom_id, kd_code")
+    .eq("name", requestedProvince)
+    .maybeSingle();
+
+  if (!province) return null;
+
+  let kingdom = "";
+  if (province.kingdom_id) {
+    const { data: kingdomRow } = await supabase
+      .from("kingdoms")
+      .select("kd_id, kd_name")
+      .eq("id", province.kingdom_id)
+      .maybeSingle();
+    kingdom = clean(kingdomRow?.kd_name);
+  }
+
+  return {
+    kingdom,
+    kd: clean(province.kd_code),
+    province: clean(province.name),
+    kingdomId: clean(province.kingdom_id),
+    owner: false,
+  };
+}
+
 export async function loadNexusConfig() {
   if (cachedConfig) return cachedConfig;
 
   const { data: { user } } = await supabase.auth.getUser();
+
   if (!user) {
-    cachedConfig = { kingdom: "", kd: "", province: "", kingdomId: "", owner: false };
+    const savedProvince = sessionStorage.getItem("nexus_province");
+    const registered = await loadFromRegisteredProvince(savedProvince);
+
+    cachedConfig = registered || {
+      kingdom: "",
+      kd: "",
+      province: "",
+      kingdomId: "",
+      owner: false,
+    };
     return cachedConfig;
   }
 
