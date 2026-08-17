@@ -21,7 +21,7 @@ export default function AIWarReport() {
     load();
     const iv = setInterval(load, 30000);
     return () => clearInterval(iv);
-  }, [supabase]);
+  }, []);
 
   async function triggerAnalysis() {
     setRefreshing(true);
@@ -29,10 +29,10 @@ export default function AIWarReport() {
       await fetch("https://utopia-nexus-production.up.railway.app/ai/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: "key=NikkoAce&trigger=manual"
+        body: "trigger=manual"
       });
       setTimeout(() => { load(); setRefreshing(false); }, 8000);
-    } catch (e) {
+    } catch {
       setRefreshing(false);
     }
   }
