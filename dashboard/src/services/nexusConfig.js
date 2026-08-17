@@ -9,29 +9,64 @@ function clean(value) {
 export async function loadNexusConfig() {
   if (cachedConfig) return cachedConfig;
 
-  const { data, error } = await supabase
-    .from("user_settings")
-    .select("my_kd_id, age_current")
-    .limit(1)
-    .maybeSingle();
-
-  if (error || !data) {
-    cachedConfig = { kingdom: "", kd: "" };
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    cachedConfig = { kingdom: "", kd: "", province: "", kingdomId: "", owner: false };
     return cachedConfig;
   }
 
-  const current = data.age_current && typeof data.age_current === "object"
-    ? data.age_current
-    : {};
-  const kd = clean(data.my_kd_id);
-  const kingdom = clean(current.kingdom || current.kingdom_name || current.name);
+  const [{ data: settings }, { data: province }, { data: admin }] = await Promise.all([
+    supabase
+      .from("user_settings")
+      .select("my_kd_id, age_current")
+      .eq("user_id", user.id)
+      .maybeSingle(),
+    supabase
+      .from("provinces")
+      .select("name, kingdom_id, kd_code")
+      .eq("user_id", user.id)
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from("nexus_admins")
+      .select("role")
+      .eq("user_id", user.id)
+      .eq("role", "owner")
+      .maybeSingle(),
+  ]);
 
-  cachedConfig = { kingdom, kd };
+  const current = settings?.age_current && typeof settings.age_current === "object"
+    ? settings.age_current
+    : {};
+
+  const kd = clean(province?.kd_code || settings?.my_kd_id || current.kd_code || current.kingdom_code);
+  const kingdom = clean(current.kingdom || current.kingdom_name || current.name);
+  const provinceName = clean(province?.name || current.province || current.province_name);
+  const kingdomId = clean(province?.kingdom_id);
+
+  if (provinceName || kd) {
+    await supabase
+      .from("nexus_identity_profiles")
+      .upsert({
+        user_id: user.id,
+        current_province: provinceName || null,
+        current_kd_code: kd || null,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "user_id" });
+  }
+
+  cachedConfig = {
+    kingdom,
+    kd,
+    province: provinceName,
+    kingdomId,
+    owner: !!admin,
+  };
   return cachedConfig;
 }
 
 export function getNexusConfig() {
-  return cachedConfig || { kingdom: "", kd: "" };
+  return cachedConfig || { kingdom: "", kd: "", province: "", kingdomId: "", owner: false };
 }
 
 export function getKingdomLabel() {
