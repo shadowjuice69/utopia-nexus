@@ -5,13 +5,16 @@ const PASSWORD = "NikkoAce";
 
 async function findRegisteredProvince(provinceName, userId = null) {
   const requestedProvince = String(provinceName ?? "").trim();
-  let query = supabase
-    .from("provinces")
-    .select("id, name, user_id, kingdom_id, kd_code")
-    .eq("name", requestedProvince);
 
-  if (userId) query = query.eq("user_id", userId);
-  return query.maybeSingle();
+  // Registration is keyed by the Nexus province record. The historical
+  // provinces.user_id field contains the Discord/user identifier, not
+  // necessarily the Supabase Auth UUID, so do not require those IDs to match.
+  const { data, error } = await supabase.rpc("nexus_registration_lookup", {
+    province_name: requestedProvince,
+  });
+
+  if (error) return { data: null, error };
+  return { data: data?.[0] ?? null, error: null };
 }
 
 export async function getDashboardAuthorization(provinceName, password) {
@@ -19,34 +22,26 @@ export async function getDashboardAuthorization(provinceName, password) {
   const { data: { user }, error: userError } = await supabase.auth.getUser();
 
   if (user && !userError) {
-    const [{ data: admin }, { data: province, error: provinceError }] = await Promise.all([
-      supabase
-        .from("nexus_admins")
-        .select("user_id, role")
-        .eq("user_id", user.id)
-        .eq("role", "owner")
-        .maybeSingle(),
-      findRegisteredProvince(requestedProvince, user.id),
-    ]);
+    const { data: admin } = await supabase
+      .from("nexus_admins")
+      .select("user_id, role")
+      .eq("user_id", user.id)
+      .eq("role", "owner")
+      .maybeSingle();
 
-    const decision = evaluateAuthorization({
-      authenticated: true,
-      provinceName: requestedProvince,
-      password,
-      registeredProvince: provinceError ? null : province,
-      isOwner: !!admin,
-      expectedPassword: PASSWORD,
-    });
-
-    if (decision.allowed) {
-      return { ...decision, user, province: provinceError ? null : province };
+    if (admin) {
+      return {
+        allowed: true,
+        reason: "owner-emergency",
+        owner: true,
+        user,
+        province: null,
+      };
     }
   }
 
-  // Normal registration is anchored to the registered province itself. This
-  // allows the dashboard to work in a fresh browser without requiring the
-  // setup site's Supabase session to be present in this Vercel origin.
-  const { data: registeredProvince, error: registrationError } = await findRegisteredProvince(requestedProvince);
+  const { data: registeredProvince, error: registrationError } =
+    await findRegisteredProvince(requestedProvince);
 
   const decision = evaluateAuthorization({
     authenticated: true,
@@ -65,33 +60,29 @@ export async function getDashboardAuthorization(provinceName, password) {
 }
 
 export async function getDashboardRegistration() {
+  const savedProvince = sessionStorage.getItem("nexus_province") || "";
   const { data: { user }, error: userError } = await supabase.auth.getUser();
 
   if (user && !userError) {
-    const [{ data: admin }, { data: province }] = await Promise.all([
-      supabase
-        .from("nexus_admins")
-        .select("user_id, role")
-        .eq("user_id", user.id)
-        .eq("role", "owner")
-        .maybeSingle(),
-      findRegisteredProvince(sessionStorage.getItem("nexus_province") || "", user.id),
-    ]);
+    const { data: admin } = await supabase
+      .from("nexus_admins")
+      .select("user_id, role")
+      .eq("user_id", user.id)
+      .eq("role", "owner")
+      .maybeSingle();
 
-    return {
-      user,
-      registered: !!province || !!admin,
-      owner: !!admin,
-      province: province || null,
-    };
+    if (admin) {
+      return { user, registered: true, owner: true, province: null };
+    }
   }
 
-  const savedProvince = sessionStorage.getItem("nexus_province");
-  if (!savedProvince) return { user: null, registered: false, owner: false, province: null };
+  if (!savedProvince) {
+    return { user: user || null, registered: false, owner: false, province: null };
+  }
 
   const { data: province } = await findRegisteredProvince(savedProvince);
   return {
-    user: null,
+    user: user || null,
     registered: !!province,
     owner: false,
     province: province || null,
