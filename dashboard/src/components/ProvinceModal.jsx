@@ -14,8 +14,10 @@ function StatCard({ label, value, color = "#38bdf8" }) {
 function ProvinceModal({ province, onClose }) {
   const [tab, setTab] = useState("overview");
   const [lastAttack, setLastAttack] = useState(null);
+  const [buildings, setBuildings] = useState(province?.buildings || {});
 
   useEffect(() => {
+    if (!province?.name) return;
     async function checkAttack() {
       const attack = await getProvinceAttackStatus(province.name);
       setLastAttack(attack);
@@ -23,18 +25,17 @@ function ProvinceModal({ province, onClose }) {
     checkAttack();
   }, [province]);
 
-  if (!province) return null;
-
-  const [buildings, setBuildings] = useState(province.buildings || {});
-
   useEffect(() => {
-    if (!province.name) return;
+    if (!province?.name) return;
     supabase.from("intel_buildings").select("buildings, updated_at")
       .ilike("province", province.name).limit(1)
       .then(({ data }) => {
         if (data && data[0]?.buildings) setBuildings(data[0].buildings);
       });
-  }, [province.name]);
+  }, [province?.name]);
+
+  if (!province) return null;
+
   const science = province.science || {};
 
   const BUILDING_ICONS = {
@@ -57,7 +58,6 @@ function ProvinceModal({ province, onClose }) {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-card" onClick={e => e.stopPropagation()}>
 
-        {/* Header */}
         <div className="modal-header">
           <div>
             <h2 className="modal-title">🏰 {province.name}</h2>
@@ -75,7 +75,6 @@ function ProvinceModal({ province, onClose }) {
           <button className="modal-close" onClick={onClose}>✕</button>
         </div>
 
-        {/* Tabs */}
         <div className="tab-bar" style={{ marginBottom: 16 }}>
           {["overview", "military", "science", "buildings"].map(t => (
             <button
@@ -91,7 +90,6 @@ function ProvinceModal({ province, onClose }) {
           ))}
         </div>
 
-        {/* Overview Tab */}
         {tab === "overview" && (
           <div>
             <div className="modal-stats">
@@ -104,28 +102,12 @@ function ProvinceModal({ province, onClose }) {
               <StatCard label="Stealth" value={province.stlth} color="#a78bfa" />
               <StatCard label="Mana%" value={province.mana ? `${province.mana}%` : "—"} color="#a78bfa" />
             </div>
-            {province.good_spells && (
-              <div className="modal-row">
-                <span className="modal-row-label">✨ Spells:</span>
-                <span className="modal-row-value">{province.good_spells}</span>
-              </div>
-            )}
-            {province.map && (
-              <div className="modal-row">
-                <span className="modal-row-label">🗺️ MAP:</span>
-                <span className="modal-row-value">{province.map}</span>
-              </div>
-            )}
-            {lastAttack && (
-              <div className="modal-row" style={{ borderLeftColor: "#f87171" }}>
-                <span className="modal-row-label">🔴 Last Hit:</span>
-                <span className="modal-row-value">{new Date(lastAttack.created_at).toLocaleString()}</span>
-              </div>
-            )}
+            {province.good_spells && <div className="modal-row"><span className="modal-row-label">✨ Spells:</span><span className="modal-row-value">{province.good_spells}</span></div>}
+            {province.map && <div className="modal-row"><span className="modal-row-label">🗺️ MAP:</span><span className="modal-row-value">{province.map}</span></div>}
+            {lastAttack && <div className="modal-row" style={{ borderLeftColor: "#f87171" }}><span className="modal-row-label">🔴 Last Hit:</span><span className="modal-row-value">{new Date(lastAttack.created_at).toLocaleString()}</span></div>}
           </div>
         )}
 
-        {/* Military Tab */}
         {tab === "military" && (
           <div className="modal-stats">
             <StatCard label="Offense" value={Number(province.off || 0).toLocaleString()} color="#f87171" />
@@ -143,7 +125,6 @@ function ProvinceModal({ province, onClose }) {
           </div>
         )}
 
-        {/* Science Tab */}
         {tab === "science" && (
           <div>
             {Object.keys(science).length === 0 ? (
@@ -151,21 +132,13 @@ function ProvinceModal({ province, onClose }) {
             ) : (
               <div className="modal-stats">
                 {Object.entries(science).map(([key, val]) => (
-                  parseInt(val) > 0 && (
-                    <StatCard
-                      key={key}
-                      label={`${SCIENCE_ICONS[key] || "🔬"} ${key}`}
-                      value={Number(val).toLocaleString()}
-                      color="#38bdf8"
-                    />
-                  )
+                  parseInt(val) > 0 && <StatCard key={key} label={`${SCIENCE_ICONS[key] || "🔬"} ${key}`} value={Number(val).toLocaleString()} color="#38bdf8" />
                 ))}
               </div>
             )}
           </div>
         )}
 
-        {/* Buildings Tab */}
         {tab === "buildings" && (
           <div>
             {Object.keys(buildings).length === 0 ? (
@@ -175,20 +148,11 @@ function ProvinceModal({ province, onClose }) {
                 {Object.entries(buildings)
                   .filter(([, data]) => parseInt(data.qty) > 0)
                   .map(([name, data]) => (
-                    <StatCard
-                      key={name}
-                      label={`${BUILDING_ICONS[name] || "🏗️"} ${name.replaceAll("_", " ")}`}
-                      value={`${Number(data.qty).toLocaleString()} (${data.pct}%)`}
-                      color="#38bdf8"
-                    />
+                    <StatCard key={name} label={`${BUILDING_ICONS[name] || "🏗️"} ${name.replaceAll("_", " ")}`} value={`${Number(data.qty).toLocaleString()} (${data.pct}%)`} color="#38bdf8" />
                   ))}
               </div>
             )}
-            {Object.keys(buildings).length > 0 && (
-              <div style={{ marginTop: 12, color: "#475569", fontSize: 11, textAlign: "center" }}>
-                Only showing buildings with qty &gt; 0
-              </div>
-            )}
+            {Object.keys(buildings).length > 0 && <div style={{ marginTop: 12, color: "#475569", fontSize: 11, textAlign: "center" }}>Only showing buildings with qty &gt; 0</div>}
           </div>
         )}
 
