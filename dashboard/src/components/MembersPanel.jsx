@@ -10,8 +10,9 @@ export default function MembersPanel() {
   useEffect(() => {
     async function load() {
       const { data } = await supabase
-        .from("kingdom_members")
+        .from("provinces")
         .select("*")
+        .not("user_id", "is", null)
         .eq("kd_code", MY_KD)
         .order("name");
       setMembers(data || []);
