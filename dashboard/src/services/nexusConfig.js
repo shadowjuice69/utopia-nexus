@@ -52,8 +52,8 @@ export async function loadNexusConfig() {
     const { data: bs } = await supabase.from("bot_settings").select("key, value");
     const fallbackKd = bs?.find(s => s.key === "kingdom_code")?.value || "";
     const fallbackKdName = bs?.find(s => s.key === "kingdom_name")?.value || "";
-    cachedConfig = { kingdom: fallbackKdName, kd: fallbackKd, province: "", kingdomId: "", owner: false };
-    return cachedConfig;
+    // Don't cache fallback — let province login override it next time
+    return { kingdom: fallbackKdName, kd: fallbackKd, province: "", kingdomId: "", owner: false };
   }
 
   const [{ data: settings }, { data: province }, { data: admin }, { data: botSettings }] = await Promise.all([
