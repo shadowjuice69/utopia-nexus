@@ -461,10 +461,115 @@ function start() {
             }
           }
         }
-        const answer = await askOpenRouter(question, `${contextLines.join("\\n")}\\n${context}`);
-        res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ answer }));
-      } catch(e) { logger.error(`[AI ASK ERROR] ${e.message}`); res.writeHead(500); res.end(JSON.stringify({error:"AI unavailable"})); }
+
+        const richContext = contextLines.join("\n");
+        const prompt = `You are Nexus, a war strategist for a Utopia kingdom. Answer concisely and tactically using real game mechanics.\n\nKINGDOM CONTEXT:\n${richContext}\n\n${context ? "ADDITIONAL CONTEXT:\n" + context + "\n\n" : ""}QUESTION: ${question}`;
+
+        let answer = null;
+        try {
+          const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${process.env.GROQ_API_KEY}` },
+            body: JSON.stringify({ model: "qwen/qwen3.6-27b", messages: [{ role: "user", content: prompt }], max_tokens: 600 })
+          });
+          const groqData = await groqRes.json();
+          answer = groqData.choices?.[0]?.message?.content || null;
+        } catch(e) {}
+        if (!answer) answer = await askOpenRouter(prompt);
+        res.writeHead(200, { "Content-Type": "text/plain", "Access-Control-Allow-Origin": "*" });
+        res.end(answer || "No answer available.");
+      } catch(e) {
+        logger.error(`[AI ASK] ${e.message}`);
+        res.writeHead(500, { "Access-Control-Allow-Origin": "*" }); res.end("AI error: " + e.message);
+      }
+      return;
+    }
+
+    if (req.method === "POST" && req.url === "/ai/analyze") {
+      try {
+        let raw = await readBody(req);
+        const params = new URLSearchParams(raw);
+        const key = params.get("key") || "";
+        if (INTEL_KEY && key !== INTEL_KEY) {
+          res.writeHead(403); res.end("forbidden"); return;
+        }
+
+        res.writeHead(200, { "Access-Control-Allow-Origin": "*" }); res.end("ok");
+
+        // Run analysis async so we don't block
+        setImmediate(async () => {
+          try {
+            const sb = supabaseService.getClient();
+            if (!sb) return;
+
+            // Pull enemy provinces
+            const { data: provinces } = await sb.from("provinces")
+              .select("name, kd_code, race, acres, nw, nwpa, nobility, off, def, personality")
+              .neq("kd_code", process.env.MY_KD)
+              .not("nw", "is", null)
+              .order("nw", { ascending: false })
+              .limit(50);
+
+            // Pull our kingdom
+            const { data: ourProvs } = await sb.from("provinces")
+              .select("name, acres, nw, off, def")
+              .eq("kd_code", process.env.MY_KD);
+
+            // Pull recent attacks
+            const { data: recentAttacks } = await sb.from("attacks")
+              .select("attacker, defender, acres_captured, attack_type, created_at")
+              .order("created_at", { ascending: false })
+              .limit(20);
+
+            const ourNW = ourProvs ? ourProvs.reduce((s, p) => s + (parseInt(p.nw) || 0), 0) : 0;
+            const avgNW = ourProvs && ourProvs.length ? Math.round(ourNW / ourProvs.length) : 0;
+
+            const prompt = `You are a war strategist for the Utopia kingdom.
+
+Our kingdom average NW: ${avgNW}gc
+Our provinces: ${ourProvs ? ourProvs.length : 0}
+
+Enemy provinces (sorted by NW):
+${(provinces || []).slice(0, 30).map(p =>
+  `- ${p.name} (${p.kd_code}): ${p.race || "?"} | ${p.acres || "?"}a | ${p.nw || "?"}gc NW | Off:${p.off || "?"} Def:${p.def || "?"}`
+).join("\n")}
+
+Recent attacks:
+${(recentAttacks || []).slice(0, 10).map(a =>
+  `- ${a.attacker} vs ${a.defender}: ${a.acres_captured || 0} acres (${a.attack_type || "?"})`
+).join("\n")}
+
+Provide:
+1. TOP 5 TARGET RANKING - best provinces to attack with reasons (NW within 90-110% of our avg, prefer Elf/Faery)
+2. THREAT ASSESSMENT - which enemy kingdoms pose the most danger
+3. WAR SUMMARY - overall situation in 2-3 sentences
+
+Be concise and tactical.`;
+
+            const { askOpenRouter } = require("./openrouterService");
+            const analysis = await askOpenRouter(prompt);
+
+            // Save to ai_summaries
+            await sb.from("ai_summaries").insert({
+              type: "war_report",
+              content: analysis,
+              metadata: {
+                provinces_analyzed: (provinces || []).length,
+                our_avg_nw: avgNW,
+                triggered_by: "cycler_complete"
+              },
+              created_at: new Date().toISOString()
+            });
+
+            logger.info("[AI ANALYZE] War report saved to ai_summaries");
+          } catch(e) {
+            logger.error(`[AI ANALYZE ERROR] ${e.message}`);
+          }
+        });
+      } catch(e) {
+        logger.error(`[AI ANALYZE] ${e.message}`);
+        res.writeHead(500); res.end("error");
+      }
       return;
     }
 

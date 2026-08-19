@@ -92,7 +92,7 @@ ENEMY MIL: ${militarySummary||"None"}
 
 ENEMY THRONE: ${throneSummary||"None"}
 
-Analyze: 1)What happened 2)Who is winning 3)Enemy weaknesses 4)Actions. Be concise.`;
+Analyze: 1)What happened 2)Who is winning 3)Enemy weaknesses 4)Actions. Be concise. /no_think`;
 
   try {
     const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -102,13 +102,16 @@ Analyze: 1)What happened 2)Who is winning 3)Enemy weaknesses 4)Actions. Be conci
         "Authorization": `Bearer ${process.env.GROQ_API_KEY}`
       },
       body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
-        messages: [{ role: "user", content: prompt }],
-        max_tokens: 800
+        model: "openai/gpt-oss-20b",
+        messages: [{ role: "system", content: "You are a concise war analyst. Never use <think> tags. Respond directly with your analysis." }, { role: "user", content: prompt }],
+        max_tokens: 1200
       })
     });
     const result = await response.json();
-    if (result.choices?.[0]?.message?.content) return result.choices[0].message.content;
+    if (result.choices?.[0]?.message?.content) {
+      const raw = result.choices[0].message.content;
+      return raw.replace(/<think>[\s\S]*?<\/think>\s*/g, '').trim();
+    }
     if (result.error) return `Error: ${result.error.message}`;
     return null;
   } catch (err) {
