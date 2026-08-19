@@ -14,6 +14,7 @@ const database = require("./services/database");
 const { startAlertLoop } = require("./services/alertService");
 const { startAgeWatch } = require("./services/ageWatchService");
 const intelReceiver = require("./services/intelReceiver");
+const nexusEvents = require("./services/nexusEventBus");
 
 const client = new Client({
   intents: [
@@ -31,14 +32,18 @@ database.connect();
 
 client.once("clientReady", () => {
   logger.info(`✅ Bot online as ${client.user.tag}`);
+  nexusEvents.emit("nexus.ready", { botUser: client.user.tag });
   startAlertLoop(client);
   startAgeWatch(client);
 });
 
+nexusEvents.emit("nexus.starting", { service: "utopia-nexus" });
 intelReceiver.start();
 client.login(process.env.DISCORD_TOKEN)
+  .then(() => nexusEvents.emit("nexus.login", { service: "discord" }))
   .catch(err => {
     logger.error(`[LOGIN ERROR] ${err.message}`);
+    nexusEvents.emit("nexus.login_error", { service: "discord", error: err.message });
   });
 
 // Keep Render free tier alive
