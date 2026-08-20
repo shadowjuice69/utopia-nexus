@@ -1,4 +1,5 @@
 const assert = require("node:assert/strict");
+const { describe, it, beforeEach, afterEach } = require("node:test");
 const registry = require("../services/commandRegistry");
 const health = require("../services/commandHealthService");
 
