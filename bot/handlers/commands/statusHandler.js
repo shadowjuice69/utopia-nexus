@@ -1,4 +1,6 @@
 const supabaseService = require("../../services/supabase");
+const commandHealth = require("../../services/commandHealthService");
+const musicService = require("../../services/musicService");
 
 const TICK_START_UTC = 19;
 
@@ -30,12 +32,16 @@ module.exports = async function statusHandler(interaction) {
   const minLeft = 60 - now.getMinutes();
   const activeWar = war.data?.[0];
   const activeAlerts = alerts.data || [];
+  const commandStatus = commandHealth.snapshot();
+  const musicStatus = musicService.status();
 
   let msg = `⚔️ **Utopia Nexus — Kingdom Status**\n\n`;
   msg += `🕐 **Tick:** ${tick} (${minLeft}m left)\n`;
   msg += `👥 **Members:** ${members.count || 0}\n`;
   msg += `⚔️ **Attacks today:** ${attacks.count || 0}\n`;
   msg += `🗡️ **Ops today:** ${ops.count || 0}\n`;
+  msg += `🧩 **Commands:** ${commandStatus.count} (${commandStatus.healthy ? "healthy" : "degraded"})\n`;
+  msg += `🎵 **Music:** ${musicStatus.enabled ? "ready" : "disabled"}\n`;
 
   if (activeWar) {
     msg += `\n🔥 **Active War:** ${activeWar.enemy_kingdom} (${activeWar.enemy_coords})\n`;
