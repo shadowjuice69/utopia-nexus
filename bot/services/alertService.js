@@ -3,14 +3,13 @@ const supabaseService = require("./supabase");
 const logger = require("./logger");
 
 const TICK_START_UTC = 19;
+const TICK_INTERVAL_MS = 60 * 60 * 1000;
 
 const TIMEZONE_OFFSETS = {
-  "UTC": 0, "GMT": 0,
-  "EST": -5, "EDT": -4, "CST": -6, "CDT": -5,
+  "UTC": 0, "GMT": 0, "EST": -5, "EDT": -4, "CST": -6, "CDT": -5,
   "MST": -7, "MDT": -6, "PST": -8, "PDT": -7,
-  "UTC+1": 1, "UTC+2": 2, "UTC+3": 3, "UTC+4": 4,
-  "UTC+5": 5, "UTC+6": 6, "UTC+7": 7, "UTC+8": 8,
-  "UTC+9": 9, "UTC+10": 10, "UTC+11": 11, "UTC+12": 12,
+  "UTC+1": 1, "UTC+2": 2, "UTC+3": 3, "UTC+4": 4, "UTC+5": 5, "UTC+6": 6,
+  "UTC+7": 7, "UTC+8": 8, "UTC+9": 9, "UTC+10": 10, "UTC+11": 11, "UTC+12": 12,
   "UTC-1": -1, "UTC-2": -2, "UTC-3": -3, "UTC-9": -9,
   "CET": 1, "EET": 2, "IST": 5.5, "JST": 9, "AEST": 10
 };
@@ -27,12 +26,6 @@ function msUntilNextTick() {
 
 function tickToLocalHour(tick, offset) {
   return ((TICK_START_UTC + tick - 1 + offset) % 24 + 24) % 24;
-}
-
-function formatHour(h) {
-  if (h === 0) return "12am";
-  if (h === 12) return "12pm";
-  return h < 12 ? `${h}am` : `${h-12}pm`;
 }
 
 function parseTimeToHour(str) {
@@ -128,17 +121,14 @@ async function checkAlerts(client) {
   }
 }
 
-function startAlertLoop(client) {
-  async function loop() {
-    await checkAlerts(client);
-    await updateWarStatusBoard(client, require('./supabase').getClient());
-    const wait = msUntilNextTick();
-    logger.info(`[ALERT] Next check in ${Math.round(wait/60000)}m`);
-    setTimeout(loop, wait + 2000);
-  }
-  const wait = msUntilNextTick();
-  setTimeout(loop, wait + 2000);
-  logger.info(`[ALERT] Loop started — first check in ${Math.round(wait/60000)}m`);
+async function runAlertJob(client) {
+  await checkAlerts(client);
+  await updateWarStatusBoard(client, supabaseService.getClient());
 }
 
-module.exports = { startAlertLoop };
+module.exports = {
+  checkAlerts,
+  runAlertJob,
+  msUntilNextTick,
+  TICK_INTERVAL_MS
+};

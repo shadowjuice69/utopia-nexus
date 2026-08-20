@@ -12,8 +12,9 @@ const validator = require("./services/validator");
 const errorHandler = require("./services/errorHandler");
 const database = require("./services/database");
 const readiness = require("./services/readinessService");
-const { startAlertLoop } = require("./services/alertService");
-const { startAgeWatch } = require("./services/ageWatchService");
+const { runAlertJob, msUntilNextTick, TICK_INTERVAL_MS } = require("./services/alertService");
+const { detectAndResetAge, AGE_WATCH_INTERVAL_MS } = require("./services/ageWatchService");
+const scheduler = require("./services/schedulerService");
 const intelReceiver = require("./services/intelReceiver");
 const nexusEvents = require("./services/nexusEventBus");
 
@@ -52,8 +53,22 @@ client.once("clientReady", () => {
   readiness.markReady("discord", { required: true, user: client.user.tag });
   logger.info(`✅ Bot online as ${client.user.tag}`);
   nexusEvents.emit("nexus.ready", { botUser: client.user.tag });
-  startAlertLoop(client);
-  startAgeWatch(client);
+
+  scheduler.register(
+    "tick-alerts",
+    () => runAlertJob(client),
+    TICK_INTERVAL_MS,
+    { initialDelayMs: msUntilNextTick() + 2000 }
+  );
+
+  scheduler.register(
+    "age-watch",
+    () => detectAndResetAge(client),
+    AGE_WATCH_INTERVAL_MS,
+    { initialDelayMs: AGE_WATCH_INTERVAL_MS }
+  );
+
+  scheduler.start();
 });
 
 nexusEvents.emit("nexus.starting", { service: "utopia-nexus" });
