@@ -8,7 +8,7 @@ test("is not ready before required dependencies are registered", () => {
   assert.equal(readiness.isReady(), false);
 });
 
-test("becomes ready only when every registered dependency is ready", () => {
+test("becomes ready only when every required dependency is ready", () => {
   readiness.markNotReady("database");
   readiness.markNotReady("discord");
   assert.equal(readiness.isReady(), false);
@@ -18,6 +18,16 @@ test("becomes ready only when every registered dependency is ready", () => {
 
   readiness.markReady("discord");
   assert.equal(readiness.isReady(), true);
+});
+
+test("optional dependencies are visible but do not block readiness", () => {
+  readiness.markReady("database");
+  readiness.markReady("discord");
+  readiness.markNotReady("supabase", { required: false, reason: "disabled" });
+
+  assert.equal(readiness.isReady(), true);
+  assert.equal(readiness.snapshot().supabase.required, false);
+  assert.equal(readiness.snapshot().supabase.ready, false);
 });
 
 test("snapshot exposes dependency state without exposing internal map", () => {
