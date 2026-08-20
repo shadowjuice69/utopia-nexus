@@ -1,9 +1,17 @@
 const assert = require("node:assert/strict");
-const { describe, it, afterEach } = require("node:test");
+const { afterEach, beforeEach, describe, it } = require("node:test");
 const service = require("../services/musicPlayerService");
 
 describe("musicPlayerService", () => {
-  afterEach(() => service.clearAdapter());
+  beforeEach(() => {
+    service.clearAll();
+    service.clearAdapter();
+  });
+
+  afterEach(() => {
+    service.clearAll();
+    service.clearAdapter();
+  });
 
   it("rejects playback when no backend adapter exists", async () => {
     await assert.rejects(
@@ -19,6 +27,7 @@ describe("musicPlayerService", () => {
         connected: true,
         playing: true,
         paused: false,
+        queueSize: 1,
         queue: [{ title: "track" }],
         destroy: async () => { destroyed = true; }
       })
@@ -36,5 +45,44 @@ describe("musicPlayerService", () => {
     await service.destroyPlayer("g");
     assert.equal(destroyed, true);
     assert.deepEqual(service.snapshot(), []);
+  });
+
+  it("routes playback controls to the active player", async () => {
+    const calls = [];
+    const player = {
+      connected: true,
+      playing: true,
+      paused: false,
+      queueSize: 0,
+      queue: [],
+      async addQuery(query) { calls.push(["play", query]); },
+      async pause() { calls.push(["pause"]); },
+      async resume() { calls.push(["resume"]); },
+      async skip() { calls.push(["skip"]); },
+      async stop() { calls.push(["stop"]); },
+      async setVolume(value) { calls.push(["volume", value]); },
+      async seek(value) { calls.push(["seek", value]); },
+      shuffle() { calls.push(["shuffle"]); },
+      clearQueue() { calls.push(["clear"]); },
+      async destroy() { calls.push(["destroy"]); }
+    };
+
+    service.setAdapter({ createPlayer: async () => player });
+    await service.createPlayer({ guildId: "g", voiceChannelId: "v", textChannelId: "t" });
+
+    await service.play("g", "test song", "user");
+    await service.pause("g");
+    await service.resume("g");
+    await service.skip("g");
+    await service.stop("g");
+    await service.volume("g", 50);
+    await service.seek("g", 10000);
+    service.shuffle("g");
+    service.clearQueue("g");
+
+    assert.deepEqual(calls, [
+      ["play", "test song"], ["pause"], ["resume"], ["skip"], ["stop"],
+      ["volume", 50], ["seek", 10000], ["shuffle"], ["clear"]
+    ]);
   });
 });
