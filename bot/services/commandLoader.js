@@ -35,6 +35,7 @@ function normalizeExport(commandModule, filename) {
     subcommand,
     handler,
     options: {
+      access: metadata.access,
       requiresRegistration: metadata.requiresRegistration,
       requiresAdmin: metadata.requiresAdmin,
       requiresOwner: metadata.requiresOwner,
