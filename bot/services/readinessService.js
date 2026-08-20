@@ -2,17 +2,20 @@
  * Dependency readiness tracking.
  *
  * Health means the process is alive; readiness means required Nexus
- * dependencies have completed initialization.
+ * dependencies have completed initialization. Optional dependencies may be
+ * tracked for observability without blocking readiness.
  */
 
 const state = new Map();
 
 function set(name, ready, details = {}) {
   if (!name) throw new Error("Readiness dependency name is required");
+  const { required = true, ...metadata } = details;
   state.set(name, {
     ready: Boolean(ready),
+    required: required !== false,
     updatedAt: new Date().toISOString(),
-    ...details
+    ...metadata
   });
 }
 
@@ -25,11 +28,14 @@ function markNotReady(name, details) {
 }
 
 function isReady() {
-  return state.size > 0 && [...state.values()].every(item => item.ready);
+  const entries = [...state.values()].filter(item => item.required);
+  return entries.length > 0 && entries.every(item => item.ready);
 }
 
 function snapshot() {
-  return Object.fromEntries(state.entries());
+  return Object.fromEntries(
+    [...state.entries()].map(([name, details]) => [name, { ...details }])
+  );
 }
 
 function reset() {

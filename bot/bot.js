@@ -11,6 +11,7 @@ const logger = require("./services/logger");
 const validator = require("./services/validator");
 const errorHandler = require("./services/errorHandler");
 const database = require("./services/database");
+const readiness = require("./services/readinessService");
 const { startAlertLoop } = require("./services/alertService");
 const { startAgeWatch } = require("./services/ageWatchService");
 const intelReceiver = require("./services/intelReceiver");
@@ -27,10 +28,28 @@ const client = new Client({
 errorHandler.attach(client);
 loadEvents(client);
 logger.info("🚀 Utopia Nexus Bot Starting...");
-validator.checkEnv();
-database.connect();
+
+readiness.markNotReady("configuration", { required: true });
+readiness.markNotReady("database", { required: true });
+readiness.markNotReady("discord", { required: true });
+
+try {
+  validator.checkEnv();
+  readiness.markReady("configuration", { required: true });
+} catch (err) {
+  readiness.markNotReady("configuration", { required: true, error: err.message });
+  throw err;
+}
+
+database.connect()
+  .then(() => readiness.markReady("database", { required: true }))
+  .catch(err => {
+    readiness.markNotReady("database", { required: true, error: err.message });
+    logger.error(`[DATABASE INIT ERROR] ${err.message}`);
+  });
 
 client.once("clientReady", () => {
+  readiness.markReady("discord", { required: true, user: client.user.tag });
   logger.info(`✅ Bot online as ${client.user.tag}`);
   nexusEvents.emit("nexus.ready", { botUser: client.user.tag });
   startAlertLoop(client);
@@ -42,6 +61,7 @@ intelReceiver.start();
 client.login(process.env.DISCORD_TOKEN)
   .then(() => nexusEvents.emit("nexus.login", { service: "discord" }))
   .catch(err => {
+    readiness.markNotReady("discord", { required: true, error: err.message });
     logger.error(`[LOGIN ERROR] ${err.message}`);
     nexusEvents.emit("nexus.login_error", { service: "discord", error: err.message });
   });
