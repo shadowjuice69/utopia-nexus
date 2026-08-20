@@ -120,17 +120,24 @@ Useful for Nexus operational visibility:
 These are technically reusable but do not directly strengthen Utopia intelligence/war-room functionality:
 
 - generic economy/shop/inventory
-- gambling
-- generic leveling/XP
-- birthdays
 - welcome/auto-role systems
 - reaction-role system
-- generic giveaways
 - generic fun commands
 
 They should not enter Phase 6 unless they acquire a clear Nexus use case.
 
-## Explicit exclusions
+## Permanent exclusions
+
+The following TitanBot features are explicitly **out of Nexus scope** and should not be reintroduced merely to increase command count:
+
+- gambling
+- birthdays
+- giveaways
+- XP / leveling
+
+These are product decisions, not temporary deferrals.
+
+## Explicit architectural exclusions
 
 Do **not**:
 
@@ -149,7 +156,7 @@ The previously inspected TitanBot command loader had a `MAX_COMMANDS=100` guard,
 2. **Nexus utility/operator commands** — status, health, diagnostics and reports.
 3. **Music/Lavalink subsystem** — isolated service with explicit configuration and graceful degradation.
 4. **Incident/ticket workflow** — only after the first three are stable.
-5. **Optional community features** — defer until a concrete Nexus use case exists.
+5. **Optional community features** — only if a concrete Nexus use case is approved.
 
 ## Definition of done
 
