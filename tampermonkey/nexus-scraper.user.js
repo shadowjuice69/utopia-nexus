@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Utopia Nexus Universal Intel Scraper
 // @namespace    utopia-nexus
-// @version      6.5
+// @version      6.6
 // @description  Universal Utopia intel collector with kingdom cycler and AI analysis trigger
 // @match        https://intel.utopia.site/*
 // @match        https://www.utopia-game.com/*
@@ -9,14 +9,14 @@
 // @grant        GM_xmlhttpRequest
 // @grant        GM_setValue
 // @grant        GM_getValue
-// @connect      utopia-nexus-production.up.railway.app
+// @connect      utopia-nexus.onrender.com
 // @run-at       document-start
 // ==/UserScript==
 
 (function () {
 "use strict";
 
-const ENDPOINT = "https://utopia-nexus-production.up.railway.app/intel";
+const ENDPOINT = "https://utopia-nexus.onrender.com/intel";
 const KEY = "NikkoAce";
 const MY_KD = "3:2";
 
@@ -235,7 +235,7 @@ function clickNextKingdom() {
 function triggerAIAnalysis() {
   GM_xmlhttpRequest({
     method: "POST",
-    url: "https://utopia-nexus-production.up.railway.app/ai/analyze",
+    url: "https://utopia-nexus.onrender.com/ai/analyze",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     data: "key=" + encodeURIComponent(KEY) + "&trigger=cycler_complete",
     onload: function (r) {
