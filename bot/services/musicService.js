@@ -4,11 +4,15 @@
  * Lavalink/Riffy integration is isolated behind this interface so the Discord
  * command layer does not depend directly on a player implementation.
  * Music remains disabled until MUSIC_ENABLED is explicitly true and a
- * Lavalink host is configured.
+ * complete Lavalink connection is configured.
  */
 
+function isConfigured(env = process.env) {
+  return Boolean(env.LAVALINK_HOST && env.LAVALINK_PASSWORD);
+}
+
 function isEnabled(env = process.env) {
-  return env.MUSIC_ENABLED === "true" && Boolean(env.LAVALINK_HOST);
+  return env.MUSIC_ENABLED === "true" && isConfigured(env);
 }
 
 function status(env = process.env) {
@@ -16,7 +20,7 @@ function status(env = process.env) {
     enabled: isEnabled(env),
     provider: "lavalink",
     adapter: "riffy",
-    configured: Boolean(env.LAVALINK_HOST)
+    configured: isConfigured(env)
   };
 }
 
@@ -27,6 +31,7 @@ function unavailable() {
 }
 
 module.exports = {
+  isConfigured,
   isEnabled,
   status,
   unavailable
