@@ -1,6 +1,7 @@
 const supabaseService = require("./supabase");
 const logger = require("./logger");
 
+const AGE_WATCH_INTERVAL_MS = 5 * 60 * 1000;
 let lastKnownAge = null;
 
 async function detectAndResetAge(client) {
@@ -27,7 +28,7 @@ async function detectAndResetAge(client) {
       supabase.from("intel_throne").delete().neq("id", "00000000-0000-0000-0000-000000000000"),
       supabase.from("intel_military").delete().neq("id", "00000000-0000-0000-0000-000000000000"),
       supabase.from("intel_buildings").delete().neq("id", "00000000-0000-0000-0000-000000000000"),
-      supabase.from("wars").update({ active: false }).eq("active", true),
+      supabase.from("wars").update({ active: false }).eq("active", true)
     ]);
 
     logger.info(`[AGE WATCH] Reset complete for age ${currentAge}`);
@@ -48,9 +49,7 @@ async function detectAndResetAge(client) {
   }
 }
 
-function startAgeWatch(client) {
-  setInterval(() => detectAndResetAge(client), 5 * 60 * 1000);
-  logger.info(`[AGE WATCH] Watching for age changes every 5 minutes`);
-}
-
-module.exports = { startAgeWatch };
+module.exports = {
+  detectAndResetAge,
+  AGE_WATCH_INTERVAL_MS
+};
