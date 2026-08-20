@@ -8,6 +8,7 @@ const wavesHandler          = require("./commands/wavesHandler");
 const helpHandler           = require("./commands/helpHandler");
 const askHandler            = require("./commands/askHandler");
 const registerHandler       = require("./commands/registerHandler");
+const musicHandler          = require("./commands/musicHandler");
 
 const analyzeWarHandler     = require("./commands/analyzeWarHandler");
 const warSummaryHandler     = require("./commands/warSummaryHandler");
@@ -35,9 +36,9 @@ const setalertHandler       = require("./commands/setalertHandler");
 const alertsHandler         = require("./commands/alertsHandler");
 const deletealertHandler    = require("./commands/deletealertHandler");
 const setkingdomHandler     = require("./commands/setkingdomHandler");
-const logsHandler           = require("./commands/logsHandler");
+const logsHandler            = require("./commands/logsHandler");
 const resetageHandler       = require("./commands/resetageHandler");
-const threatHandler         = require("./commands/threatHandler");
+const threatHandler          = require("./commands/threatHandler");
 
 const permissionService = require("../services/permissionService");
 const commandAccess = require("../services/commandAccessService");
@@ -55,6 +56,21 @@ const COMMAND_GROUPS = {
     help: helpHandler,
     member: memberHandler,
     ask: askHandler
+  },
+  music: {
+    join: musicHandler,
+    play: musicHandler,
+    pause: musicHandler,
+    resume: musicHandler,
+    skip: musicHandler,
+    stop: musicHandler,
+    queue: musicHandler,
+    nowplaying: musicHandler,
+    volume: musicHandler,
+    shuffle: musicHandler,
+    clear: musicHandler,
+    loop: musicHandler,
+    seek: musicHandler
   },
   war: {
     analyze: analyzeWarHandler,
@@ -94,8 +110,6 @@ const COMMAND_GROUPS = {
 
 const OPEN_COMMANDS = new Set(["register", "help", "roster"]);
 
-// Register the existing handlers once. Future commands can register here
-// without changing the dispatcher itself.
 for (const [group, commands] of Object.entries(COMMAND_GROUPS)) {
   for (const [subcommand, handler] of Object.entries(commands)) {
     commandRegistry.register(group, subcommand, handler, {
@@ -108,13 +122,7 @@ for (const [group, commands] of Object.entries(COMMAND_GROUPS)) {
 async function isRegistered(userId) {
   const supabase = require("../services/supabase").getClient();
   if (!supabase) return true;
-
-  const { data } = await supabase
-    .from("provinces")
-    .select("id")
-    .or(`user_id.eq.${userId},discord_id.eq.${userId}`)
-    .limit(1);
-
+  const { data } = await supabase.from("provinces").select("id").or(`user_id.eq.${userId},discord_id.eq.${userId}`).limit(1);
   return data && data.length > 0;
 }
 
@@ -126,29 +134,17 @@ module.exports = async function commandHandler(interaction) {
   console.log(`[${command}] ${subcommand || "(no subcommand)"}`);
 
   if (!entry) {
-    return interaction.reply({
-      content: `❌ Unknown command: \`/${command} ${subcommand || ""}\``,
-      ephemeral: true
-    });
+    return interaction.reply({ content: `❌ Unknown command: \`/${command} ${subcommand || ""}\``, ephemeral: true });
   }
-
   if (!commandAccess.canAccess(entry, interaction.user, permissionService)) {
-    return interaction.reply({
-      content: commandAccess.denialMessage(entry),
-      ephemeral: true
-    });
+    return interaction.reply({ content: commandAccess.denialMessage(entry), ephemeral: true });
   }
-
   if (entry.requiresRegistration) {
     const registered = await isRegistered(interaction.user.id);
     if (!registered) {
-      return interaction.reply({
-        content: "❌ You need to register first. Use `/utopia register` to get started.",
-        ephemeral: true
-      });
+      return interaction.reply({ content: "❌ You need to register first. Use `/utopia register` to get started.", ephemeral: true });
     }
   }
-
   return entry.handler(interaction);
 };
 
