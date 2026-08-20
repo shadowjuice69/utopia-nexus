@@ -3,8 +3,8 @@ const { describe, it } = require("node:test");
 const fs = require("node:fs");
 const path = require("node:path");
 
-describe("statusHandler command health integration", () => {
-  it("loads the command health service and renders command health", () => {
+describe("statusHandler service health integration", () => {
+  it("renders command and music health", () => {
     const file = fs.readFileSync(
       path.join(__dirname, "../handlers/commands/statusHandler.js"),
       "utf8"
@@ -15,5 +15,7 @@ describe("statusHandler command health integration", () => {
     assert.match(file, /\*\*Commands:\*\*/);
     assert.match(file, /healthy/);
     assert.match(file, /degraded/);
+    assert.match(file, /musicService/);
+    assert.match(file, /\*\*Music:\*\*/);
   });
 });
