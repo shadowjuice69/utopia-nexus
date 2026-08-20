@@ -1,6 +1,6 @@
+const { GatewayDispatchEvents } = require("discord.js");
 const { createRiffy, getConfig } = require("./riffyAdapter");
 
-let clientRef = null;
 let riffy = null;
 
 function ensureClient(client) {
@@ -8,7 +8,6 @@ function ensureClient(client) {
   if (!client) throw new Error("Discord client is required for music.");
   if (!getConfig().configured) throw new Error("Lavalink is not configured.");
 
-  clientRef = client;
   riffy = createRiffy(client);
   return riffy;
 }
@@ -95,17 +94,12 @@ function wrap(raw) {
 
     shuffle() {
       if (raw.queue && typeof raw.queue.shuffle === "function") return raw.queue.shuffle();
-      const items = queueItems(raw);
-      for (let i = items.length - 1; i > 0; i -= 1) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [items[i], items[j]] = [items[j], items[i]];
-      }
-      return items;
+      throw new Error("Queue shuffle is not supported by the music backend.");
     },
 
     clearQueue() {
       if (raw.queue && typeof raw.queue.clear === "function") return raw.queue.clear();
-      if (raw.queue && typeof raw.queue.splice === "function") raw.queue.splice(0);
+      throw new Error("Queue clearing is not supported by the music backend.");
     },
 
     async destroy() {
@@ -128,7 +122,9 @@ function initClient(client) {
 }
 
 function forwardVoiceState(payload) {
-  if (riffy) riffy.updateVoiceState(payload);
+  if (!riffy) return;
+  if (![GatewayDispatchEvents.VoiceStateUpdate, GatewayDispatchEvents.VoiceServerUpdate].includes(payload?.t)) return;
+  riffy.updateVoiceState(payload);
 }
 
 async function createPlayer(options) {
@@ -144,7 +140,6 @@ async function createPlayer(options) {
 
 function destroy() {
   riffy = null;
-  clientRef = null;
 }
 
 module.exports = {
