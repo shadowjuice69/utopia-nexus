@@ -1,13 +1,5 @@
 const musicService = require("./musicService");
 
-/**
- * Playback orchestration boundary.
- *
- * This module deliberately contains no Discord interaction handling. Commands
- * call this service, which keeps queue/player lifecycle concerns isolated.
- * The Lavalink adapter is injected so unit tests never require a live node.
- */
-
 let adapter = null;
 const players = new Map();
 
@@ -32,9 +24,15 @@ function requireAdapter() {
 
 async function createPlayer({ guildId, voiceChannelId, textChannelId }) {
   if (!guildId || !voiceChannelId) throw new Error("Guild and voice channel are required.");
+  const existing = getPlayer(guildId);
+  if (existing) return existing;
   const player = await requireAdapter().createPlayer({ guildId, voiceChannelId, textChannelId });
   players.set(guildId, player);
   return player;
+}
+
+async function getOrCreatePlayer(options) {
+  return getPlayer(options.guildId) || createPlayer(options);
 }
 
 async function destroyPlayer(guildId) {
@@ -43,13 +41,33 @@ async function destroyPlayer(guildId) {
   if (player && typeof player.destroy === "function") await player.destroy();
 }
 
+function requirePlayer(guildId) {
+  const player = getPlayer(guildId);
+  if (!player) throw new Error("No active music player in this server.");
+  return player;
+}
+
+async function play(guildId, query, requester) {
+  const player = requirePlayer(guildId);
+  return player.addQuery(query, requester);
+}
+
+async function pause(guildId) { return requirePlayer(guildId).pause(); }
+async function resume(guildId) { return requirePlayer(guildId).resume(); }
+async function skip(guildId) { return requirePlayer(guildId).skip(); }
+async function stop(guildId) { return requirePlayer(guildId).stop(); }
+async function volume(guildId, value) { return requirePlayer(guildId).setVolume(value); }
+async function seek(guildId, positionMs) { return requirePlayer(guildId).seek(positionMs); }
+function shuffle(guildId) { return requirePlayer(guildId).shuffle(); }
+function clearQueue(guildId) { return requirePlayer(guildId).clearQueue(); }
+
 function snapshot() {
   return [...players.entries()].map(([guildId, player]) => ({
     guildId,
     connected: player?.connected === true,
     playing: player?.playing === true,
     paused: player?.paused === true,
-    queueSize: Array.isArray(player?.queue) ? player.queue.length : 0
+    queueSize: Number(player?.queueSize || 0)
   }));
 }
 
@@ -57,12 +75,28 @@ function backendStatus() {
   return musicService.status();
 }
 
+function clearAll() {
+  players.clear();
+}
+
 module.exports = {
   setAdapter,
   clearAdapter,
   getPlayer,
   createPlayer,
+  getOrCreatePlayer,
   destroyPlayer,
+  requirePlayer,
+  play,
+  pause,
+  resume,
+  skip,
+  stop,
+  volume,
+  seek,
+  shuffle,
+  clearQueue,
   snapshot,
-  backendStatus
+  backendStatus,
+  clearAll
 };
