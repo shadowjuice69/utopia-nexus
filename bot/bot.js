@@ -5,7 +5,7 @@ if (!globalThis.WebSocket) {
   globalThis.WebSocket = class {};
 }
 
-const { Client, GatewayIntentBits } = require("discord.js");
+const { Client, GatewayIntentBits, REST, Routes } = require("discord.js");
 const loadEvents = require("./eventLoader");
 const logger = require("./services/logger");
 const validator = require("./services/validator");
@@ -53,6 +53,44 @@ database.connect()
     logger.error(`[DATABASE INIT ERROR] ${err.message}`);
   });
 
+async function registerMusicCommand() {
+  const musicCommand = {
+    name: "music",
+    description: "Nexus music player",
+    options: [
+      { name: "join", description: "Join your voice channel", type: 1 },
+      { name: "play", description: "Play or queue a track or playlist", type: 1,
+        options: [{ name: "query", description: "Song, URL, or playlist", type: 3, required: true }] },
+      { name: "pause", description: "Pause playback", type: 1 },
+      { name: "resume", description: "Resume playback", type: 1 },
+      { name: "skip", description: "Skip the current track", type: 1 },
+      { name: "stop", description: "Stop playback and clear the player", type: 1 },
+      { name: "queue", description: "Show the current queue", type: 1 },
+      { name: "nowplaying", description: "Show the current track", type: 1 },
+      { name: "volume", description: "Set playback volume", type: 1,
+        options: [{ name: "level", description: "Volume from 0 to 100", type: 4, required: true, min_value: 0, max_value: 100 }] },
+      { name: "shuffle", description: "Shuffle the queue", type: 1 },
+      { name: "clear", description: "Clear queued tracks", type: 1 },
+      { name: "loop", description: "Enable or disable current-track looping", type: 1,
+        options: [{ name: "enabled", description: "Enable track loop", type: 5, required: true }] },
+      { name: "seek", description: "Seek within the current track", type: 1,
+        options: [{ name: "seconds", description: "Position in seconds", type: 4, required: true, min_value: 0 }] }
+    ]
+  };
+
+  const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
+  const guildIds = [process.env.GUILD_ID, "1534817549374455848"].filter(Boolean);
+
+  for (const guildId of guildIds) {
+    const route = Routes.applicationGuildCommands(process.env.CLIENT_ID, guildId);
+    const existing = await rest.get(route);
+    const commands = existing.filter(command => command.name !== "music");
+    commands.push(musicCommand);
+    await rest.put(route, { body: commands });
+    logger.info(`🎵 Music command registered for guild ${guildId}`);
+  }
+}
+
 client.once("clientReady", () => {
   readiness.markReady("discord", { required: true, user: client.user.tag });
   logger.info(`✅ Bot online as ${client.user.tag}`);
@@ -71,6 +109,10 @@ client.once("clientReady", () => {
   } else {
     logger.info("🎵 Music backend disabled");
   }
+
+  registerMusicCommand().catch(err => {
+    logger.error(`[MUSIC COMMAND REGISTRATION ERROR] ${err.message}`);
+  });
 
   scheduler.register(
     "tick-alerts",
