@@ -20,12 +20,18 @@ function register(name, handler, intervalMs, options = {}) {
   }
   if (jobs.has(name)) throw new Error(`Duplicate scheduled job: ${name}`);
 
+  const initialDelayMs = options.initialDelayMs ?? (options.runImmediately ? 0 : intervalMs);
+  if (!Number.isFinite(initialDelayMs) || initialDelayMs < 0) {
+    throw new Error(`Scheduled job ${name} requires a non-negative initial delay`);
+  }
+
   jobs.set(name, {
     name,
     handler,
     intervalMs,
-    runImmediately: options.runImmediately === true,
+    initialDelayMs,
     timer: null,
+    initialTimer: null,
     running: false,
     lastRunAt: null,
     lastError: null,
@@ -55,8 +61,10 @@ function start() {
   started = true;
 
   for (const job of jobs.values()) {
-    if (job.runImmediately) void run(job);
-    job.timer = setInterval(() => void run(job), job.intervalMs);
+    job.initialTimer = setTimeout(() => {
+      void run(job);
+      job.timer = setInterval(() => void run(job), job.intervalMs);
+    }, job.initialDelayMs);
   }
 
   logger.info(`[SCHEDULER] Started ${jobs.size} scheduled job(s)`);
@@ -64,7 +72,9 @@ function start() {
 
 function stop() {
   for (const job of jobs.values()) {
+    if (job.initialTimer) clearTimeout(job.initialTimer);
     if (job.timer) clearInterval(job.timer);
+    job.initialTimer = null;
     job.timer = null;
   }
   started = false;
@@ -74,6 +84,7 @@ function snapshot() {
   return [...jobs.values()].map(job => ({
     name: job.name,
     intervalMs: job.intervalMs,
+    initialDelayMs: job.initialDelayMs,
     running: job.running,
     lastRunAt: job.lastRunAt,
     lastError: job.lastError,
