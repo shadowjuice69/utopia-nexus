@@ -728,9 +728,98 @@ function watchPage() {
   }
 }
 
+
+// ─── ADVISOR ──────────────────────────────────────────────────────────────────
+
+function isOwnPage() {
+  let tab = getTab();
+  let ownTabs = ["throne", "science", "survey", "military", "armies", "state"];
+  if (!ownTabs.includes(tab)) return false;
+  // Own pages have MY_KD in URL or province name matches
+  let kd = getKD();
+  return kd === MY_KD;
+}
+
+function getAdvisorPanel() {
+  return document.getElementById("nexus-advisor");
+}
+
+function showAdvisor(content) {
+  let panel = getAdvisorPanel();
+  if (!panel) return;
+  panel.querySelector("#advisor-body").innerHTML = content;
+}
+
+function fetchAdvice() {
+  let tab = getTab();
+  let prov = getProvinceName();
+  let data = getPageText();
+
+  showAdvisor("<div style='color:#aaa;font:12px monospace;'>⏳ Analyzing...</div>");
+
+  let payload = [
+    "key=" + encodeURIComponent(KEY),
+    "tab=" + encodeURIComponent(tab),
+    "prov=" + encodeURIComponent(prov),
+    "data_simple=" + encodeURIComponent(data)
+  ].join("&");
+
+  GM_xmlhttpRequest({
+    method: "POST",
+    url: "https://utopia-nexus.onrender.com/advisor",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    data: payload,
+    onload: function(r) {
+      if (r.status === 200) {
+        let text = r.responseText
+          .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+          .replace(/\*\*(.+?)\*\*/g,"<b>$1</b>")
+          .replace(/\n/g,"<br>");
+        showAdvisor("<div style='font:11px monospace;color:#ccc;line-height:1.5;'>" + text + "</div>");
+      } else {
+        showAdvisor("<div style='color:#da3633;font:11px monospace;'>Error: " + r.status + "</div>");
+      }
+    },
+    onerror: function() {
+      showAdvisor("<div style='color:#da3633;font:11px monospace;'>Connection failed</div>");
+    }
+  });
+}
+
+function addAdvisorPanel() {
+  if (!isOwnPage()) return;
+  if (getAdvisorPanel()) return;
+
+  let panel = document.createElement("div");
+  panel.id = "nexus-advisor";
+  panel.style.cssText =
+    "position:fixed;top:20px;right:20px;z-index:2147483647;" +
+    "padding:16px;background:#0d1117;border:1px solid #7c3aed;" +
+    "border-radius:10px;width:260px;max-height:80vh;overflow-y:auto;" +
+    "box-shadow:0 4px 20px rgba(0,0,0,0.5);";
+
+  panel.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+      <div style="font:bold 13px monospace;color:#a78bfa;">🧠 Dwarf Sage Advisor</div>
+      <button id="advisor-close" style="background:none;border:none;color:#aaa;font:bold 14px monospace;cursor:pointer;">✕</button>
+    </div>
+    <div id="advisor-body" style="font:11px monospace;color:#aaa;">Press Analyze to get advice.</div>
+    <button id="advisor-btn" style="margin-top:10px;width:100%;padding:8px;background:#7c3aed;color:white;border:none;border-radius:6px;font:bold 12px monospace;cursor:pointer;">⚡ Analyze This Page</button>
+  `;
+
+  document.body.appendChild(panel);
+
+  document.getElementById("advisor-btn").onclick = fetchAdvice;
+  document.getElementById("advisor-close").onclick = () => panel.remove();
+
+  // Auto-fetch on load
+  setTimeout(fetchAdvice, 2000);
+}
+
 function startNexus() {
   interceptCSV();
   addNexusUI();
+  addAdvisorPanel();
 
   // Auto-send on load
   setTimeout(function () {
@@ -742,7 +831,7 @@ function startNexus() {
     }
   }, 3000);
 
-  setInterval(function () { addNexusUI(); }, 3000);
+  setInterval(function () { addNexusUI(); addAdvisorPanel(); }, 3000);
   setInterval(function () { watchPage(); }, 3000);
 
   let observer = new MutationObserver(function () { addNexusUI(); });

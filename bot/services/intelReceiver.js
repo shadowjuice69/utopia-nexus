@@ -573,6 +573,78 @@ Be concise and tactical.`;
       return;
     }
 
+
+    if (req.method === "POST" && req.url === "/advisor") {
+      try {
+        let raw = await readBody(req);
+        const params = new URLSearchParams(raw);
+        const key = params.get("key") || "";
+        if (INTEL_KEY && key !== INTEL_KEY) { res.writeHead(403); res.end("forbidden"); return; }
+
+        const tab = params.get("tab") || "";
+        const pageText = params.get("data_simple") || "";
+        const provinceName = params.get("prov") || "Unknown";
+
+        const sb = supabaseService.getClient();
+        let raceRules = "";
+        let persRules = "";
+        let sciRules = "";
+
+        if (sb) {
+          const { data: rr } = await sb.from("race_rules").select("rule_name, value").eq("active", true).limit(30);
+          const { data: pr } = await sb.from("personality_rules").select("rule_name, value").eq("personality_name", "Sage").eq("active", true).limit(20);
+          const { data: sr } = await sb.from("science_rules").select("name, effect").limit(20);
+          if (rr) raceRules = rr.map(r => `${r.rule_name}: ${r.value}`).join("\n");
+          if (pr) persRules = pr.map(r => `${r.rule_name}: ${r.value}`).join("\n");
+          if (sr) sciRules = sr.map(r => `${r.name}: ${r.effect}`).join("\n");
+        }
+
+        const prompt = `You are an expert Utopia advisor for a Dwarf Sage province named "${provinceName}".
+
+DWARF RACE RULES:
+${raceRules || "Dwarves: high defense, Berserkers/Axemen troops, mining bonus, low offense"}
+
+SAGE PERSONALITY RULES:
+${persRules || "Sage: +20% WPA, science focus, spell efficiency bonus"}
+
+SCIENCE EFFECTS:
+${sciRules || "Alchemy: income, Bookkeeping: income, Channeling: WPA, Housing: population"}
+
+CURRENT PAGE (${tab}):
+${pageText.substring(0, 3000)}
+
+Based on the current province state, give specific tick-by-tick advice:
+1. TRAIN - what troops to train and how many
+2. BUILD - what buildings to focus on
+3. SCIENCE - what to allocate science to
+4. SPELLS - what spells to cast or maintain
+5. OPS - any stealing/spying to do this tick
+6. PRIORITY - the single most important thing to do right now
+
+Be specific with numbers where possible. Keep it concise — this is read on a tablet.`;
+
+        const { askOpenRouter } = require("./openrouterService");
+        let advice = null;
+        try {
+          const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${process.env.GROQ_API_KEY}` },
+            body: JSON.stringify({ model: "openai/gpt-oss-20b", messages: [{ role: "system", content: "You are a concise Utopia game advisor. Give direct tactical advice with no preamble." }, { role: "user", content: prompt }], max_tokens: 600 })
+          });
+          const groqData = await groqRes.json();
+          advice = groqData.choices?.[0]?.message?.content || null;
+        } catch(e) {}
+        if (!advice) advice = await askOpenRouter(prompt);
+
+        res.writeHead(200, { "Content-Type": "text/plain", "Access-Control-Allow-Origin": "*" });
+        res.end(advice || "No advice available.");
+      } catch(e) {
+        logger.error(`[ADVISOR] ${e.message}`);
+        res.writeHead(500, { "Access-Control-Allow-Origin": "*" }); res.end("Error: " + e.message);
+      }
+      return;
+    }
+
     res.writeHead(404); res.end("not found");
   });
   server.listen(PORT, () => console.log(`[INTEL RECEIVER] listening on ${PORT}`));
