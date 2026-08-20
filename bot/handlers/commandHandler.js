@@ -8,6 +8,7 @@ const wavesHandler          = require("./commands/wavesHandler");
 const helpHandler           = require("./commands/helpHandler");
 const askHandler            = require("./commands/askHandler");
 const registerHandler       = require("./commands/registerHandler");
+const musicHandler          = require("./commands/musicHandler");
 
 const analyzeWarHandler     = require("./commands/analyzeWarHandler");
 const warSummaryHandler     = require("./commands/warSummaryHandler");
@@ -56,6 +57,20 @@ const COMMAND_GROUPS = {
     member: memberHandler,
     ask: askHandler
   },
+  music: {
+    join: musicHandler,
+    play: musicHandler,
+    pause: musicHandler,
+    resume: musicHandler,
+    skip: musicHandler,
+    stop: musicHandler,
+    queue: musicHandler,
+    nowplaying: musicHandler,
+    volume: musicHandler,
+    shuffle: musicHandler,
+    clear: musicHandler,
+    seek: musicHandler
+  },
   war: {
     analyze: analyzeWarHandler,
     summary: warSummaryHandler,
@@ -94,8 +109,6 @@ const COMMAND_GROUPS = {
 
 const OPEN_COMMANDS = new Set(["register", "help", "roster"]);
 
-// Register the existing handlers once. Future commands can register here
-// without changing the dispatcher itself.
 for (const [group, commands] of Object.entries(COMMAND_GROUPS)) {
   for (const [subcommand, handler] of Object.entries(commands)) {
     commandRegistry.register(group, subcommand, handler, {
