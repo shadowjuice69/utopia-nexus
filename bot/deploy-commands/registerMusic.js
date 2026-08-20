@@ -18,6 +18,8 @@ const musicCommand = {
       options: [{ name: "level", description: "Volume from 0 to 100", type: 4, required: true, min_value: 0, max_value: 100 }] },
     { name: "shuffle", description: "Shuffle the queue", type: 1 },
     { name: "clear", description: "Clear queued tracks", type: 1 },
+    { name: "loop", description: "Enable or disable current-track looping", type: 1,
+      options: [{ name: "enabled", description: "Enable track loop", type: 5, required: true }] },
     { name: "seek", description: "Seek within the current track", type: 1,
       options: [{ name: "seconds", description: "Position in seconds", type: 4, required: true, min_value: 0 }] }
   ]
