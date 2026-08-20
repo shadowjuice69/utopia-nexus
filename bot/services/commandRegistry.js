@@ -7,6 +7,7 @@
  */
 
 const registry = new Map();
+const ACCESS_LEVELS = new Set(["public", "registered", "admin", "owner"]);
 
 function key(command, subcommand) {
   return `${command}:${subcommand || ""}`;
@@ -25,13 +26,25 @@ function register(command, subcommand, handler, options = {}) {
     throw new Error(`Duplicate command registration: /${command} ${subcommand}`);
   }
 
+  const access = options.access || (
+    options.requiresOwner === true ? "owner" :
+    options.requiresAdmin === true ? "admin" :
+    options.requiresRegistration !== false ? "registered" :
+    "public"
+  );
+
+  if (!ACCESS_LEVELS.has(access)) {
+    throw new Error(`Invalid command access level: ${access}`);
+  }
+
   registry.set(entryKey, Object.freeze({
     command,
     subcommand,
     handler,
-    requiresRegistration: options.requiresRegistration !== false,
-    requiresAdmin: options.requiresAdmin === true,
-    requiresOwner: options.requiresOwner === true,
+    access,
+    requiresRegistration: access === "registered" || options.requiresRegistration === true,
+    requiresAdmin: access === "admin" || options.requiresAdmin === true,
+    requiresOwner: access === "owner" || options.requiresOwner === true,
     description: options.description || ""
   }));
 
