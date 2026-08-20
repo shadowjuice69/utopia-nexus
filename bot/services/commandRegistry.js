@@ -37,12 +37,16 @@ function register(command, subcommand, handler, options = {}) {
     throw new Error(`Invalid command access level: ${access}`);
   }
 
+  const requiresRegistration = options.requiresRegistration === false
+    ? false
+    : access === "registered" || options.requiresRegistration === true;
+
   registry.set(entryKey, Object.freeze({
     command,
     subcommand,
     handler,
     access,
-    requiresRegistration: access === "registered" || options.requiresRegistration === true,
+    requiresRegistration,
     requiresAdmin: access === "admin" || options.requiresAdmin === true,
     requiresOwner: access === "owner" || options.requiresOwner === true,
     description: options.description || ""
