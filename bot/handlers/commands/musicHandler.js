@@ -13,12 +13,7 @@ function formatTrack(track) {
 function playerState(player) {
   const current = player?.currentTrack;
   const queue = player?.queue || [];
-  return {
-    current,
-    queue,
-    playing: player?.playing === true,
-    paused: player?.paused === true
-  };
+  return { current, queue, playing: player?.playing === true, paused: player?.paused === true };
 }
 
 module.exports = async function musicHandler(interaction) {
@@ -35,14 +30,8 @@ module.exports = async function musicHandler(interaction) {
     if (subcommand === "play") {
       const voice = voiceChannel(interaction);
       if (!voice) return interaction.reply({ content: "❌ Join a voice channel first.", ephemeral: true });
-
       const query = interaction.options.getString("query", true).trim();
-      const player = await musicPlayer.getOrCreatePlayer({
-        guildId,
-        voiceChannelId: voice.id,
-        textChannelId: interaction.channelId
-      });
-
+      const player = await musicPlayer.getOrCreatePlayer({ guildId, voiceChannelId: voice.id, textChannelId: interaction.channelId });
       const result = await player.addQuery(query, interaction.user);
       const first = result.tracks?.[0];
       const label = result.playlistName
@@ -54,11 +43,7 @@ module.exports = async function musicHandler(interaction) {
     if (subcommand === "join") {
       const voice = voiceChannel(interaction);
       if (!voice) return interaction.reply({ content: "❌ Join a voice channel first.", ephemeral: true });
-      await musicPlayer.getOrCreatePlayer({
-        guildId,
-        voiceChannelId: voice.id,
-        textChannelId: interaction.channelId
-      });
+      await musicPlayer.getOrCreatePlayer({ guildId, voiceChannelId: voice.id, textChannelId: interaction.channelId });
       return interaction.reply({ content: `🎵 Joined **${voice.name}**.` });
     }
 
@@ -66,17 +51,14 @@ module.exports = async function musicHandler(interaction) {
       await musicPlayer.pause(guildId);
       return interaction.reply({ content: "⏸️ Paused." });
     }
-
     if (subcommand === "resume") {
       await musicPlayer.resume(guildId);
       return interaction.reply({ content: "▶️ Resumed." });
     }
-
     if (subcommand === "skip") {
       await musicPlayer.skip(guildId);
       return interaction.reply({ content: "⏭️ Skipped." });
     }
-
     if (subcommand === "stop") {
       await musicPlayer.stop(guildId);
       await musicPlayer.destroyPlayer(guildId);
@@ -84,8 +66,7 @@ module.exports = async function musicHandler(interaction) {
     }
 
     if (subcommand === "queue") {
-      const player = musicPlayer.requirePlayer(guildId);
-      const state = playerState(player);
+      const state = playerState(musicPlayer.requirePlayer(guildId));
       const lines = state.queue.slice(0, 10).map((track, index) => `${index + 1}. ${formatTrack(track)}`);
       let content = state.current ? `🎵 **Now:** ${formatTrack(state.current)}\n` : "🎵 **Now:** Nothing playing\n";
       content += lines.length ? `\n**Queue:**\n${lines.join("\n")}` : "\n**Queue:** Empty";
@@ -94,13 +75,10 @@ module.exports = async function musicHandler(interaction) {
     }
 
     if (subcommand === "nowplaying") {
-      const player = musicPlayer.requirePlayer(guildId);
-      const state = playerState(player);
-      return interaction.reply({
-        content: state.current
-          ? `🎵 **Now playing:** ${formatTrack(state.current)}${state.paused ? "\n⏸️ Paused" : ""}`
-          : "🎵 Nothing is currently playing."
-      });
+      const state = playerState(musicPlayer.requirePlayer(guildId));
+      return interaction.reply({ content: state.current
+        ? `🎵 **Now playing:** ${formatTrack(state.current)}${state.paused ? "\n⏸️ Paused" : ""}`
+        : "🎵 Nothing is currently playing." });
     }
 
     if (subcommand === "volume") {
@@ -117,6 +95,12 @@ module.exports = async function musicHandler(interaction) {
     if (subcommand === "clear") {
       musicPlayer.clearQueue(guildId);
       return interaction.reply({ content: "🧹 Queue cleared." });
+    }
+
+    if (subcommand === "loop") {
+      const enabled = interaction.options.getBoolean("enabled", true);
+      await musicPlayer.loop(guildId, enabled);
+      return interaction.reply({ content: enabled ? "🔁 Track loop enabled." : "➡️ Track loop disabled." });
     }
 
     if (subcommand === "seek") {
