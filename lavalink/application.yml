@@ -49,8 +49,6 @@ plugins:
       - WEB_REMIX
     oauth:
       enabled: true
-      refreshToken: ${YOUTUBE_OAUTH_REFRESH_TOKEN}
-      skipInitialization: true
 
 logging:
   level:
