@@ -29,7 +29,9 @@ function isReady() {
 }
 
 function snapshot() {
-  return Object.fromEntries(state.entries());
+  return Object.fromEntries(
+    [...state.entries()].map(([name, details]) => [name, { ...details }])
+  );
 }
 
 function reset() {
