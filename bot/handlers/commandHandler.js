@@ -40,6 +40,7 @@ const resetageHandler       = require("./commands/resetageHandler");
 const threatHandler         = require("./commands/threatHandler");
 
 const permissionService = require("../services/permissionService");
+const commandAccess = require("../services/commandAccessService");
 const commandRegistry = require("../services/commandRegistry");
 
 const COMMAND_GROUPS = {
@@ -131,16 +132,9 @@ module.exports = async function commandHandler(interaction) {
     });
   }
 
-  if (entry.requiresAdmin && !permissionService.isAdmin(interaction.user.id)) {
+  if (!commandAccess.canAccess(entry, interaction.user, permissionService)) {
     return interaction.reply({
-      content: "❌ You don't have permission to use admin commands.",
-      ephemeral: true
-    });
-  }
-
-  if (entry.requiresOwner && !permissionService.isOwner(interaction.user.id)) {
-    return interaction.reply({
-      content: "❌ You don't have permission to use this command.",
+      content: commandAccess.denialMessage(entry),
       ephemeral: true
     });
   }
