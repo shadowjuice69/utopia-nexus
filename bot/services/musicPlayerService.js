@@ -47,17 +47,14 @@ function requirePlayer(guildId) {
   return player;
 }
 
-async function play(guildId, query, requester) {
-  const player = requirePlayer(guildId);
-  return player.addQuery(query, requester);
-}
-
+async function play(guildId, query, requester) { return requirePlayer(guildId).addQuery(query, requester); }
 async function pause(guildId) { return requirePlayer(guildId).pause(); }
 async function resume(guildId) { return requirePlayer(guildId).resume(); }
 async function skip(guildId) { return requirePlayer(guildId).skip(); }
 async function stop(guildId) { return requirePlayer(guildId).stop(); }
 async function volume(guildId, value) { return requirePlayer(guildId).setVolume(value); }
 async function seek(guildId, positionMs) { return requirePlayer(guildId).seek(positionMs); }
+async function loop(guildId, enabled) { return requirePlayer(guildId).setLoop(enabled); }
 function shuffle(guildId) { return requirePlayer(guildId).shuffle(); }
 function clearQueue(guildId) { return requirePlayer(guildId).clearQueue(); }
 
@@ -71,13 +68,8 @@ function snapshot() {
   }));
 }
 
-function backendStatus() {
-  return musicService.status();
-}
-
-function clearAll() {
-  players.clear();
-}
+function backendStatus() { return musicService.status(); }
+function clearAll() { players.clear(); }
 
 module.exports = {
   setAdapter,
@@ -94,6 +86,7 @@ module.exports = {
   stop,
   volume,
   seek,
+  loop,
   shuffle,
   clearQueue,
   snapshot,
