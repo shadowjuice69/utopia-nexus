@@ -17,11 +17,15 @@ const { detectAndResetAge, AGE_WATCH_INTERVAL_MS } = require("./services/ageWatc
 const scheduler = require("./services/schedulerService");
 const intelReceiver = require("./services/intelReceiver");
 const nexusEvents = require("./services/nexusEventBus");
+const musicService = require("./services/musicService");
+const musicPlayer = require("./services/musicPlayerService");
+const riffyMusicAdapter = require("./services/riffyMusicAdapter");
 
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.GuildVoiceStates,
     GatewayIntentBits.MessageContent
   ]
 });
@@ -54,6 +58,20 @@ client.once("clientReady", () => {
   logger.info(`✅ Bot online as ${client.user.tag}`);
   nexusEvents.emit("nexus.ready", { botUser: client.user.tag });
 
+  if (musicService.isEnabled()) {
+    try {
+      riffyMusicAdapter.initialize(client);
+      riffyMusicAdapter.initClient(client);
+      musicPlayer.setAdapter(riffyMusicAdapter);
+      logger.info("🎵 Music backend initialized (Riffy/Lavalink)");
+    } catch (err) {
+      musicPlayer.clearAdapter();
+      logger.error(`[MUSIC INIT ERROR] ${err.message}`);
+    }
+  } else {
+    logger.info("🎵 Music backend disabled");
+  }
+
   scheduler.register(
     "tick-alerts",
     () => runAlertJob(client),
@@ -70,6 +88,8 @@ client.once("clientReady", () => {
 
   scheduler.start();
 });
+
+client.on("raw", payload => riffyMusicAdapter.forwardVoiceState(payload));
 
 nexusEvents.emit("nexus.starting", { service: "utopia-nexus" });
 intelReceiver.start();
@@ -89,4 +109,4 @@ setInterval(() => {
   }).on("error", (e) => {
     console.error("[KEEP-ALIVE] Error:", e.message);
   });
-}, 10 * 60 * 1000); // every 10 minutes
+}, 10 * 60 * 1000);
