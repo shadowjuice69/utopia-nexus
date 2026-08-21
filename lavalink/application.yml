@@ -38,12 +38,20 @@ plugins:
     allowDirectVideoIds: true
     allowDirectPlaylistIds: true
     clients:
-      - MUSIC
+      - TV
+      - TVHTML5EMBEDDED
+      - ANDROID_MUSIC
       - ANDROID_VR
       - WEB
+      - MWEB
       - WEBEMBEDDED
+      - MUSIC
+      - WEB_REMIX
+    oauth:
+      enabled: true
 
 logging:
   level:
     root: INFO
     lavalink: INFO
+    dev.lavalink.youtube.http.YoutubeOauth2Handler: INFO

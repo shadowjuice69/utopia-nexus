@@ -27,9 +27,16 @@ module.exports = async function musicHandler(interaction) {
   if (!guildId) return interaction.reply({ content: "❌ Music commands can only be used in a server.", ephemeral: true });
 
   try {
+    // Discord requires an interaction acknowledgement within a few seconds.
+    // Lavalink/Riffy connection and track resolution can legitimately take longer,
+    // so acknowledge /music immediately before doing network/voice work.
+    if (subcommand === "play" || subcommand === "join") {
+      await interaction.deferReply();
+    }
+
     if (subcommand === "play") {
       const voice = voiceChannel(interaction);
-      if (!voice) return interaction.reply({ content: "❌ Join a voice channel first.", ephemeral: true });
+      if (!voice) return interaction.editReply({ content: "❌ Join a voice channel first." });
       const query = interaction.options.getString("query", true).trim();
       const player = await musicPlayer.getOrCreatePlayer({ guildId, voiceChannelId: voice.id, textChannelId: interaction.channelId });
       const result = await player.addQuery(query, interaction.user);
@@ -37,14 +44,14 @@ module.exports = async function musicHandler(interaction) {
       const label = result.playlistName
         ? `Added **${result.tracks.length} tracks** from **${result.playlistName}**.`
         : `Added ${formatTrack(first)}.`;
-      return interaction.reply({ content: `🎵 ${label}` });
+      return interaction.editReply({ content: `🎵 ${label}` });
     }
 
     if (subcommand === "join") {
       const voice = voiceChannel(interaction);
-      if (!voice) return interaction.reply({ content: "❌ Join a voice channel first.", ephemeral: true });
+      if (!voice) return interaction.editReply({ content: "❌ Join a voice channel first." });
       await musicPlayer.getOrCreatePlayer({ guildId, voiceChannelId: voice.id, textChannelId: interaction.channelId });
-      return interaction.reply({ content: `🎵 Joined **${voice.name}**.` });
+      return interaction.editReply({ content: `🎵 Joined **${voice.name}**.` });
     }
 
     if (subcommand === "pause") {
@@ -112,6 +119,9 @@ module.exports = async function musicHandler(interaction) {
     return interaction.reply({ content: "❌ Unknown music subcommand.", ephemeral: true });
   } catch (error) {
     console.error(`[MUSIC] ${subcommand} failed: ${error.message}`);
+    if (interaction.deferred || interaction.replied) {
+      return interaction.editReply({ content: `❌ ${error.message}` });
+    }
     return interaction.reply({ content: `❌ ${error.message}`, ephemeral: true });
   }
 };
