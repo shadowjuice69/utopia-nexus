@@ -100,7 +100,7 @@ export default function AttackCalc(){
   const pv = k => raw(p[k]);
 
   // ── Attack Calc state ──
-  const [a, setA] = useState({ soldiers:"0", specs:"0", elites:"0", mercs:"0", prisoners:"0", generals:"1", ome:"100", mynw:"0", theirnw:"0", def:"0", acres:"0" });
+  const [a, setA] = useState({ soldiers:"0", specs:"0", elites:"0", mercs:"0", prisoners:"0", generals:"1", ome:"100", mynw:"0", theirnw:"0", def:"0", acres:"0", myacres:"0", mymap:"0" });
   const sa = (k,v) => setA(prev=>({...prev,[k]:v}));
   const av = k => raw(a[k]);
   const [bl, setBl] = useState(false);
@@ -146,9 +146,28 @@ export default function AttackCalc(){
   let chance=0;
   if(theirDef===0) chance=100;
   else { const r=myOff/theirDef; if(r>=1) chance=Math.min(100,Math.round(75+(r-1)*50)); else if(r>=0.75) chance=Math.round((r-0.75)/0.25*75); }
-  let estAcres=null;
+  // Dev battle formula (2026-08-19)
   const tA=av("acres"), mNW=av("mynw"), tNW=av("theirnw");
-  if(tA>0&&mNW>0&&tNW>0){ const nwr=mNW/tNW; const base=traditional?0.08:0.05; const mod=nwr>1?Math.max(0.5,1-(nwr-1)*0.5):1+(1-nwr)*0.5; estAcres=Math.round(tA*base*mod); }
+  const myMAP=av("mymap");
+  let estAcres=null, gfVal=null, magicVal=null, warVal=null, mapGain=null;
+  if(tA>0&&mNW>0&&tNW>0){
+    let aRatio = tNW/mNW - 0.05;
+    if(aRatio>=1) aRatio=1/aRatio;
+    const magic = Math.max(0.67, aRatio<0.9 ? aRatio+0.1 : aRatio);
+    const war   = Math.max(0.83, 0.7*magic+0.33);
+    const gf    = Math.min(1.35, Math.max(0.01, 3*magic-2));
+    const mapf  = traditional
+      ? (1-myMAP/100)
+      : (1-myMAP/100+3)/4;
+    const raw   = 0.12*tA*gf*mapf;
+    const myAcresVal = av("myacres");
+    estAcres    = Math.floor(myAcresVal>0 ? Math.min(raw, 0.2*myAcresVal) : raw);
+    const landFrac = estAcres/tA;
+    mapGain     = Math.floor(275*landFrac);
+    magicVal    = magic.toFixed(3);
+    warVal      = war.toFixed(3);
+    gfVal       = gf.toFixed(3);
+  }
   const cc=chance>=80?"#4ade80":chance>=50?"#facc15":"#f87171";
   const ga=av("generals")>=2;
 
@@ -294,6 +313,8 @@ export default function AttackCalc(){
               <Field label="Prisoners (8/0)" value={a.prisoners} onChange={v=>sa("prisoners",v)}/>
               <Field label="Generals" value={a.generals} onChange={v=>sa("generals",v)}/>
               <Field label="OME %" value={a.ome} onChange={v=>sa("ome",v)}/>
+              <Field label="My Acres" value={a.myacres} onChange={v=>sa("myacres",v)}/>
+              <Field label="My MAP %" value={a.mymap} onChange={v=>sa("mymap",v)} note="0-100"/>
             </Fields>
             {divider}
             <Toggle label="Bloodlust (+10% OME, +15% kills)" on={bl} onToggle={()=>setBl(b=>!b)} onLabel="✅ Bloodlust ON" offLabel="❌ OFF"/>
@@ -324,6 +345,10 @@ export default function AttackCalc(){
             <Row label="Off vs Def" value={`${fmt(myOff)} vs ${fmt(theirDef)}`} color={C.muted}/>
             {theirDef>0 && <Row label="Ratio" value={`${(myOff/theirDef).toFixed(2)}x`} color={cc}/>}
             {estAcres!==null && <Row label="~Acres Gained" value={fmt(estAcres)} color={C.green}/>}
+            {magicVal && <Row label="Magic Mod" value={magicVal} color={C.purple}/>}
+            {warVal && <Row label="War Mod" value={warVal} color={C.blue}/>}
+            {gfVal && <Row label="Gains Factor" value={gfVal} color={C.gold}/>}
+            {mapGain!==null && <Row label="MAP Gain" value={`+${mapGain}`} color={C.orange}/>}
             {bl && <Row label="BL Kill Bonus" value="+15% kills" color={C.orange}/>}
             {ga && <Row label="GA Kill Bonus" value="+15% kills" color={C.purple}/>}
             {divider}
