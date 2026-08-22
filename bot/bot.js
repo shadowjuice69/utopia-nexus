@@ -152,3 +152,12 @@ setInterval(() => {
     console.error("[KEEP-ALIVE] Error:", e.message);
   });
 }, 10 * 60 * 1000);
+
+// Keep Lavalink alive
+setInterval(() => {
+  https.get("https://utopia-nexus-lavalink.onrender.com", (res) => {
+    console.log("[KEEP-ALIVE] Pinged Lavalink, status:", res.statusCode);
+  }).on("error", (e) => {
+    console.error("[KEEP-ALIVE] Lavalink error:", e.message);
+  });
+}, 5 * 60 * 1000);
