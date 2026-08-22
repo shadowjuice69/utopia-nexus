@@ -42,6 +42,10 @@ plugins:
       - WEB
       - WEBEMBEDDED
       - TVHTML5EMBEDDED
+    oauth:
+      enabled: true
+      accessToken: "ya29.a0AdMD6EhEf8g4OnPMiokU9GiCeyVWydmS99VH5_HYkGPz3EWoy5JBiIKJcVXedFuHYjWnfDzbmlYHt5EOJa3S1sBXtZiLNB6kOllPOzSrXwB17SLUhtvqEb4D_lcMAbn4IlpOkiV0xTA34Lpby9kgeZAaJXU3-5Lo6evBVrjVhGqbQDKTbSABO4HT9keiBFjMfSdZxFHM2PKEFKLhZO0aCgYKASwSAQ8SFQHGX2MiJyorhj8qD-5-976y8mKvpA0218"
+      refreshToken: "1//0fQd2lBCbmfjQCgYIARAAGA8SNwF-L9Ir_oPRG4OpHD0pddkwAaVPYxD9rP8wLYy2nlwrHt9wMl0LMJVyfF09liXl2Mx94xiSAXg"
 
 logging:
   level:
