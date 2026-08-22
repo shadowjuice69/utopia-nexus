@@ -116,6 +116,14 @@ async function createPlayer(options) {
     textChannel: options.textChannelId,
     deaf: true
   });
+
+  await new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => reject(new Error("Voice connection timed out.")), 10000);
+    if (raw.connected) { clearTimeout(timeout); return resolve(); }
+    raw.once("connectionReady", () => { clearTimeout(timeout); resolve(); });
+    raw.once("connectionError", (err) => { clearTimeout(timeout); reject(err); });
+  });
+
   return wrap(raw);
 }
 
