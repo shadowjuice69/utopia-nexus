@@ -98,6 +98,19 @@ const calcCommand = {
       ]
     },
     {
+      name: "declare", description: "Check war declaration legality vs a kingdom", type: 1,
+      options: [
+        { name: "our_nw",      description: "Our kingdom total NW",       type: 10, required: true  },
+        { name: "their_nw",    description: "Their kingdom total NW",     type: 10, required: true  },
+        { name: "our_land",    description: "Our kingdom total land",     type: 4,  required: true  },
+        { name: "their_land",  description: "Their kingdom total land",   type: 4,  required: true  },
+        { name: "our_meter",   description: "Our hostility meter (us→them)",   type: 10, required: true  },
+        { name: "their_meter", description: "Their hostility meter (them→us)", type: 10, required: true  },
+        { name: "their_name",  description: "Their kingdom name",         type: 3,  required: false },
+        { name: "quiet_ticks", description: "Ticks since last attack on them (FCF)", type: 4, required: false }
+      ]
+    },
+    {
       name: "attack", description: "Calculate traditional attack gains", type: 1,
       options: [
         { name: "your_nw",      description: "Your networth",            type: 10, required: true  },
