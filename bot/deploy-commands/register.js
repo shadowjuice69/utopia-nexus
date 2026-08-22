@@ -98,6 +98,18 @@ const calcCommand = {
       ]
     },
     {
+      name: "attack", description: "Calculate traditional attack gains", type: 1,
+      options: [
+        { name: "your_nw",      description: "Your networth",            type: 10, required: true  },
+        { name: "target_nw",    description: "Target networth",          type: 10, required: true  },
+        { name: "your_acres",   description: "Your total acres",         type: 4,  required: true  },
+        { name: "target_acres", description: "Target total acres",       type: 4,  required: true  },
+        { name: "your_map",     description: "Your current MAP (0-100)", type: 4,  required: false },
+        { name: "war",          description: "Are you in a war?",        type: 5,  required: false },
+        { name: "off_mods",     description: "Offensive modifier count", type: 4,  required: false }
+      ]
+    },
+    {
       name: "spellcheck", description: "Calculate spell success chance", type: 1,
       options: [
         { name: "my_wizards",         description: "Your wizard count",                    type: 4,  required: true  },

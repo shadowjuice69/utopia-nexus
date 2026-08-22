@@ -19,6 +19,7 @@ const ambushHandler         = require("./commands/ambushHandler");
 const intelHandler          = require("./commands/intelHandler");
 
 const thieveryHandler       = require("./commands/thieveryHandler");
+const attackHandler          = require("./commands/attackHandler");
 const spellcheckHandler     = require("./commands/spellcheckHandler");
 const scienceHandler        = require("./commands/scienceHandler");
 const scienceSummaryHandler = require("./commands/scienceSummaryHandler");
@@ -83,6 +84,7 @@ const COMMAND_GROUPS = {
   },
   calc: {
     thievery: thieveryHandler,
+    attack: attackHandler,
     spellcheck: spellcheckHandler,
     science: scienceHandler,
     "science-summary": scienceSummaryHandler
