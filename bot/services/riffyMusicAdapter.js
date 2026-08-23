@@ -28,13 +28,16 @@ function queueItems(raw) { return raw?.queue ? Array.from(raw.queue) : []; }
 function wrap(raw) {
   return {
     raw,
-    get connected() { return raw?.connected === true && raw?.connection != null; },
+    // Do not read raw.connected: Riffy can evaluate its internal connection
+    // state while the connection object is still null, which caused the
+    // production "reading 'establishing'" failure.
+    get connected() { return raw?.connection != null; },
     get playing() { return raw?.playing === true; },
     get paused() { return raw?.paused === true; },
     get currentTrack() { return currentTrack(raw); },
     get queueSize() { return queueSize(raw); },
     get queue() { return queueItems(raw); },
-    isAlive() { return Boolean(raw?.connection) && raw?.connected !== false; },
+    isAlive() { return Boolean(raw?.connection); },
 
     async addQuery(query, requester) {
       if (!this.isAlive()) throw new Error("Voice player connection was lost. Please retry /music play.");
@@ -124,10 +127,13 @@ async function waitForVoiceConnection(raw, guildId, voiceChannelId) {
   while (Date.now() - startedAt < VOICE_CONNECT_TIMEOUT_MS) {
     const guild = clientRef?.guilds?.cache?.get(guildId);
     const botVoiceChannelId = guild?.voiceStates?.cache?.get(clientRef?.user?.id)?.channelId || null;
-    const riffyConnected = raw?.connected === true && raw?.connection != null;
+
+    // Never read Riffy's `connected` property here. In the establishing
+    // phase that getter can dereference a null internal connection.
+    const riffyConnectionReady = raw?.connection != null;
     const discordConnected = botVoiceChannelId === voiceChannelId;
 
-    if (riffyConnected && discordConnected) {
+    if (riffyConnectionReady && discordConnected) {
       console.log(`[MUSIC] Voice connection confirmed for guild ${guildId} in channel ${voiceChannelId}.`);
       return;
     }
@@ -154,7 +160,7 @@ async function createPlayer(options) {
   });
 
   // Hard ordering boundary: no Lavalink resolve, queue insertion, or play call
-  // can occur until Discord and Riffy both confirm the requested VC connection.
+  // can occur until Discord and the Riffy connection object are ready.
   await waitForVoiceConnection(raw, options.guildId, options.voiceChannelId);
   return wrap(raw);
 }
