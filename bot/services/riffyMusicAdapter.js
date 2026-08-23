@@ -1,12 +1,17 @@
 const { GatewayDispatchEvents } = require("discord.js");
 const { createRiffy, getConfig } = require("./riffyAdapter");
 
+let clientRef = null;
 let riffy = null;
+
+const VOICE_CONNECT_TIMEOUT_MS = 15000;
+const VOICE_CONNECT_POLL_MS = 100;
 
 function ensureClient(client) {
   if (riffy) return riffy;
   if (!client) throw new Error("Discord client is required for music.");
   if (!getConfig().configured) throw new Error("Lavalink is not configured.");
+  clientRef = client;
   riffy = createRiffy(client);
   return riffy;
 }
@@ -23,7 +28,7 @@ function queueItems(raw) { return raw?.queue ? Array.from(raw.queue) : []; }
 function wrap(raw) {
   return {
     raw,
-    get connected() { return raw.connected !== false; },
+    get connected() { return raw.connected === true; },
     get playing() { return raw.playing === true; },
     get paused() { return raw.paused === true; },
     get currentTrack() { return currentTrack(raw); },
@@ -108,6 +113,32 @@ function forwardVoiceState(payload) {
   riffy.updateVoiceState(payload);
 }
 
+async function waitForVoiceConnection(raw, guildId, voiceChannelId) {
+  const startedAt = Date.now();
+
+  while (Date.now() - startedAt < VOICE_CONNECT_TIMEOUT_MS) {
+    const guild = clientRef?.guilds?.cache?.get(guildId);
+    const botVoiceChannelId = guild?.voiceStates?.cache?.get(clientRef?.user?.id)?.channelId || null;
+    const riffyConnected = raw?.connected === true;
+    const discordConnected = botVoiceChannelId === voiceChannelId;
+
+    if (riffyConnected && discordConnected) {
+      console.log(`[MUSIC] Voice connection confirmed for guild ${guildId} in channel ${voiceChannelId}.`);
+      return;
+    }
+
+    await new Promise(resolve => setTimeout(resolve, VOICE_CONNECT_POLL_MS));
+  }
+
+  try {
+    if (typeof raw.destroy === "function") await raw.destroy();
+  } catch {
+    // Best-effort cleanup after a failed connection.
+  }
+
+  throw new Error("Discord voice connection timed out. Music was not started.");
+}
+
 async function createPlayer(options) {
   if (!riffy) throw new Error("Music backend has not been initialized.");
   const raw = riffy.createConnection({
@@ -117,16 +148,16 @@ async function createPlayer(options) {
     deaf: true
   });
 
-  await new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => reject(new Error("Voice connection timed out.")), 10000);
-    if (raw.connected) { clearTimeout(timeout); return resolve(); }
-    raw.once("connectionReady", () => { clearTimeout(timeout); resolve(); });
-    raw.once("connectionError", (err) => { clearTimeout(timeout); reject(err); });
-  });
-
+  // Critical ordering: create the voice connection first and wait for Discord
+  // to confirm the bot is actually in the requested channel. The caller cannot
+  // resolve/add/play a track until this function returns.
+  await waitForVoiceConnection(raw, options.guildId, options.voiceChannelId);
   return wrap(raw);
 }
 
-function destroy() { riffy = null; }
+function destroy() {
+  riffy = null;
+  clientRef = null;
+}
 
 module.exports = { initialize, initClient, forwardVoiceState, createPlayer, destroy };
