@@ -27,7 +27,24 @@ const client = new Client({
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.GuildVoiceStates,
     GatewayIntentBits.MessageContent
-  ]
+  ],
+  // Render is currently hanging before discord.js logs "Fetched Gateway
+  // Information". Bypass the /gateway/bot REST lookup and use Discord's
+  // documented public Gateway endpoint directly. This removes the failing
+  // REST dependency from the Gateway startup path while retaining normal
+  // Gateway Identify/authentication with DISCORD_TOKEN.
+  ws: {
+    fetchGatewayInformation: async () => ({
+      url: "wss://gateway.discord.gg",
+      shards: 1,
+      session_start_limit: {
+        total: 1000,
+        remaining: 1000,
+        reset_after: 0,
+        max_concurrency: 1
+      }
+    })
+  }
 });
 
 errorHandler.attach(client);
