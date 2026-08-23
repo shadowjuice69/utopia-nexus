@@ -42,7 +42,7 @@ async function destroyPlayer(guildId) {
 }
 
 function requirePlayer(guildId) {
-  const player = getPlayer(guildId);
+  const player = players.get(guildId);
   if (!player) throw new Error("No active music player in this server.");
   return player;
 }
