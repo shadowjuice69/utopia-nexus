@@ -1,6 +1,10 @@
 require("dotenv").config();
 
-if (!globalThis.WebSocket) globalThis.WebSocket = class {};
+// discord.js 14.27 can use the runtime's native WebSocket implementation.
+// Render/Node environments can differ from Termux, so use the well-tested
+// `ws` implementation consistently for the Discord Gateway transport.
+const { WebSocket: NodeWebSocket } = require("ws");
+globalThis.WebSocket = NodeWebSocket;
 
 const { Client, GatewayIntentBits, REST, Routes } = require("discord.js");
 const loadEvents = require("./eventLoader");
