@@ -1,12 +1,17 @@
 const { GatewayDispatchEvents } = require("discord.js");
 const { createRiffy, getConfig } = require("./riffyAdapter");
 
+let clientRef = null;
 let riffy = null;
+
+const VOICE_CONNECT_TIMEOUT_MS = 15000;
+const VOICE_CONNECT_POLL_MS = 100;
 
 function ensureClient(client) {
   if (riffy) return riffy;
   if (!client) throw new Error("Discord client is required for music.");
   if (!getConfig().configured) throw new Error("Lavalink is not configured.");
+  clientRef = client;
   riffy = createRiffy(client);
   return riffy;
 }
@@ -113,6 +118,32 @@ function forwardVoiceState(payload) {
   riffy.updateVoiceState(payload);
 }
 
+async function waitForVoiceConnection(raw, guildId, voiceChannelId) {
+  const startedAt = Date.now();
+
+  while (Date.now() - startedAt < VOICE_CONNECT_TIMEOUT_MS) {
+    const guild = clientRef?.guilds?.cache?.get(guildId);
+    const botVoiceChannelId = guild?.voiceStates?.cache?.get(clientRef?.user?.id)?.channelId || null;
+    const riffyConnected = raw?.connected === true && raw?.connection != null;
+    const discordConnected = botVoiceChannelId === voiceChannelId;
+
+    if (riffyConnected && discordConnected) {
+      console.log(`[MUSIC] Voice connection confirmed for guild ${guildId} in channel ${voiceChannelId}.`);
+      return;
+    }
+
+    await new Promise(resolve => setTimeout(resolve, VOICE_CONNECT_POLL_MS));
+  }
+
+  try {
+    if (typeof raw.destroy === "function") await raw.destroy();
+  } catch {
+    // Best-effort cleanup after a failed connection.
+  }
+
+  throw new Error("Discord voice connection timed out. Music was not started.");
+}
+
 async function createPlayer(options) {
   if (!riffy) throw new Error("Music backend has not been initialized.");
   const raw = riffy.createConnection({
@@ -122,9 +153,15 @@ async function createPlayer(options) {
     deaf: true
   });
 
+  // Hard ordering boundary: no Lavalink resolve, queue insertion, or play call
+  // can occur until Discord and Riffy both confirm the requested VC connection.
+  await waitForVoiceConnection(raw, options.guildId, options.voiceChannelId);
   return wrap(raw);
 }
 
-function destroy() { riffy = null; }
+function destroy() {
+  riffy = null;
+  clientRef = null;
+}
 
 module.exports = { initialize, initClient, forwardVoiceState, createPlayer, destroy };
