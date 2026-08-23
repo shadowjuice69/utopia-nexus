@@ -4,14 +4,13 @@ const { createRiffy, getConfig } = require("./riffyAdapter");
 let clientRef = null;
 let riffy = null;
 
-const VOICE_CONNECT_TIMEOUT_MS = 15000;
-const VOICE_CONNECT_POLL_MS = 100;
-
 function ensureClient(client) {
   if (riffy) return riffy;
   if (!client) throw new Error("Discord client is required for music.");
-  if (!getConfig().configured) throw new Error("Lavalink is not configured.");
+  const config = getConfig();
+  if (!config.configured) throw new Error("Lavalink is not configured.");
   clientRef = client;
+  console.log(`[MUSIC] Initializing Riffy node ${config.host}:${config.port} secure=${config.secure}`);
   riffy = createRiffy(client);
   return riffy;
 }
@@ -28,9 +27,9 @@ function queueItems(raw) { return raw?.queue ? Array.from(raw.queue) : []; }
 function wrap(raw) {
   return {
     raw,
-    // Do not read raw.connected: Riffy can evaluate its internal connection
-    // state while the connection object is still null, which caused the
-    // production "reading 'establishing'" failure.
+    // Riffy's connection object is the authoritative player connection state.
+    // Do not require Discord.js' voice-state cache to report connected here;
+    // Riffy handles the Discord voice handshake through the raw gateway events.
     get connected() { return raw?.connection != null; },
     get playing() { return raw?.playing === true; },
     get paused() { return raw?.paused === true; },
@@ -52,7 +51,6 @@ function wrap(raw) {
         raw.queue.add(track);
       }
       if (!raw.playing && !raw.paused) {
-        if (!raw.connection) throw new Error("Voice connection was lost before playback started. Please retry /music play.");
         await raw.play();
       }
       return { loadType, tracks, playlistName: result?.playlistInfo?.name || null };
@@ -111,47 +109,33 @@ function initialize(client) {
 
 function initClient(client) {
   const instance = ensureClient(client);
-  if (client.user?.id) instance.init(client.user.id);
+  if (client.user?.id) {
+    instance.init(client.user.id);
+    console.log(`[MUSIC] Riffy initialized for Discord client ${client.user.id}`);
+  }
   return instance;
 }
 
 function forwardVoiceState(payload) {
   if (!riffy) return;
   if (![GatewayDispatchEvents.VoiceStateUpdate, GatewayDispatchEvents.VoiceServerUpdate].includes(payload?.t)) return;
+  console.log(`[MUSIC] Forwarding Discord ${payload.t} to Riffy for guild ${payload?.d?.guild_id || "unknown"}`);
   riffy.updateVoiceState(payload);
-}
-
-async function waitForVoiceConnection(raw, guildId, voiceChannelId) {
-  const startedAt = Date.now();
-
-  while (Date.now() - startedAt < VOICE_CONNECT_TIMEOUT_MS) {
-    const guild = clientRef?.guilds?.cache?.get(guildId);
-    const botVoiceChannelId = guild?.voiceStates?.cache?.get(clientRef?.user?.id)?.channelId || null;
-
-    // Never read Riffy's `connected` property here. In the establishing
-    // phase that getter can dereference a null internal connection.
-    const riffyConnectionReady = raw?.connection != null;
-    const discordConnected = botVoiceChannelId === voiceChannelId;
-
-    if (riffyConnectionReady && discordConnected) {
-      console.log(`[MUSIC] Voice connection confirmed for guild ${guildId} in channel ${voiceChannelId}.`);
-      return;
-    }
-
-    await new Promise(resolve => setTimeout(resolve, VOICE_CONNECT_POLL_MS));
-  }
-
-  try {
-    if (typeof raw.destroy === "function") await raw.destroy();
-  } catch {
-    // Best-effort cleanup after a failed connection.
-  }
-
-  throw new Error("Discord voice connection timed out. Music was not started.");
 }
 
 async function createPlayer(options) {
   if (!riffy) throw new Error("Music backend has not been initialized.");
+  if (!clientRef?.guilds?.cache?.has(options.guildId)) {
+    throw new Error("Discord guild is not available to the bot.");
+  }
+
+  console.log(`[MUSIC] Creating Riffy voice connection guild=${options.guildId} channel=${options.voiceChannelId}`);
+
+  // This is the canonical Riffy flow: createConnection signals Discord to
+  // join the requested voice channel. Discord's VOICE_STATE_UPDATE and
+  // VOICE_SERVER_UPDATE packets are then forwarded to Riffy by forwardVoiceState().
+  // Do not poll Discord.js' voice-state cache here; doing so can create a false
+  // timeout even though the Riffy voice handshake is progressing correctly.
   const raw = riffy.createConnection({
     guildId: options.guildId,
     voiceChannel: options.voiceChannelId,
@@ -159,9 +143,6 @@ async function createPlayer(options) {
     deaf: true
   });
 
-  // Hard ordering boundary: no Lavalink resolve, queue insertion, or play call
-  // can occur until Discord and the Riffy connection object are ready.
-  await waitForVoiceConnection(raw, options.guildId, options.voiceChannelId);
   return wrap(raw);
 }
 
