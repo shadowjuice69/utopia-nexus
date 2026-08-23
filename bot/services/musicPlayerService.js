@@ -12,7 +12,11 @@ async function initialize(client) {
   if (initializationPromise) return initializationPromise;
 
   initializationPromise = (async () => {
-    setFFmpegPath(require("ffmpeg-static"));
+    // Use the system FFmpeg binary. This works on Render/Linux and Termux/Android
+    // without requiring the incompatible ffmpeg-static npm binary.
+    const ffmpegPath = process.env.FFMPEG_PATH || "ffmpeg";
+    setFFmpegPath(ffmpegPath);
+    console.log(`[MUSIC] Using FFmpeg: ${ffmpegPath}`);
 
     player = new Player(client);
 
