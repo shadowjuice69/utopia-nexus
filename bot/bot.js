@@ -1,9 +1,6 @@
 require("dotenv").config();
 
-// Fix for Node 18 Supabase Realtime WebSocket crash
-if (!globalThis.WebSocket) {
-  globalThis.WebSocket = class {};
-}
+if (!globalThis.WebSocket) globalThis.WebSocket = class {};
 
 const { Client, GatewayIntentBits, REST, Routes } = require("discord.js");
 const loadEvents = require("./eventLoader");
@@ -19,7 +16,6 @@ const intelReceiver = require("./services/intelReceiver");
 const nexusEvents = require("./services/nexusEventBus");
 const musicService = require("./services/musicService");
 const musicPlayer = require("./services/musicPlayerService");
-const riffyMusicAdapter = require("./services/riffyMusicAdapter");
 
 const client = new Client({
   intents: [
@@ -60,11 +56,11 @@ async function registerMusicCommand() {
     options: [
       { name: "join", description: "Join your voice channel", type: 1 },
       { name: "play", description: "Play or queue a track or playlist", type: 1,
-        options: [{ name: "query", description: "Song, URL, or playlist", type: 3, required: true }] },
+        options: [{ name: "query", description: "Song, YouTube URL, or Spotify URL", type: 3, required: true }] },
       { name: "pause", description: "Pause playback", type: 1 },
       { name: "resume", description: "Resume playback", type: 1 },
       { name: "skip", description: "Skip the current track", type: 1 },
-      { name: "stop", description: "Stop playback and clear the player", type: 1 },
+      { name: "stop", description: "Stop playback and leave voice", type: 1 },
       { name: "queue", description: "Show the current queue", type: 1 },
       { name: "nowplaying", description: "Show the current track", type: 1 },
       { name: "volume", description: "Set playback volume", type: 1,
@@ -91,72 +87,46 @@ async function registerMusicCommand() {
   }
 }
 
-client.once("clientReady", () => {
+client.once("clientReady", async () => {
   readiness.markReady("discord", { required: true, user: client.user.tag });
   logger.info(`✅ Bot online as ${client.user.tag}`);
   nexusEvents.emit("nexus.ready", { botUser: client.user.tag });
 
-  if (musicService.isEnabled()) {
-    try {
-      riffyMusicAdapter.initialize(client);
-      riffyMusicAdapter.initClient(client);
-      musicPlayer.setAdapter(riffyMusicAdapter);
-      logger.info("🎵 Music backend initialized (Riffy/Lavalink)");
-    } catch (err) {
-      musicPlayer.clearAdapter();
-      logger.error(`[MUSIC INIT ERROR] ${err.message}`);
-    }
-  } else {
-    logger.info("🎵 Music backend disabled");
+  try {
+    await musicPlayer.initialize(client);
+    logger.info("🎵 Music backend ready: Discord Player");
+  } catch (err) {
+    logger.error(`[MUSIC INIT ERROR] ${err.stack || err.message}`);
   }
 
   registerMusicCommand().catch(err => {
     logger.error(`[MUSIC COMMAND REGISTRATION ERROR] ${err.message}`);
   });
 
-  scheduler.register(
-    "tick-alerts",
-    () => runAlertJob(client),
-    TICK_INTERVAL_MS,
-    { initialDelayMs: msUntilNextTick() + 2000 }
-  );
-
-  scheduler.register(
-    "age-watch",
-    () => detectAndResetAge(client),
-    AGE_WATCH_INTERVAL_MS,
-    { initialDelayMs: AGE_WATCH_INTERVAL_MS }
-  );
-
+  scheduler.register("tick-alerts", () => runAlertJob(client), TICK_INTERVAL_MS, {
+    initialDelayMs: msUntilNextTick() + 2000
+  });
+  scheduler.register("age-watch", () => detectAndResetAge(client), AGE_WATCH_INTERVAL_MS, {
+    initialDelayMs: AGE_WATCH_INTERVAL_MS
+  });
   scheduler.start();
 });
 
-client.on("raw", payload => riffyMusicAdapter.forwardVoiceState(payload));
-
 nexusEvents.emit("nexus.starting", { service: "utopia-nexus" });
-
-// Start Discord login before the auxiliary HTTP receiver so a receiver startup
-// issue can never prevent the bot from connecting to Discord.
 logger.info("[DISCORD] Starting Discord login...");
 client.login(process.env.DISCORD_TOKEN)
-  .then(() => {
-    logger.info("[DISCORD] Login request accepted; waiting for clientReady...");
-    nexusEvents.emit("nexus.login", { service: "discord" });
-  })
+  .then(() => logger.info("[DISCORD] Login request accepted; waiting for clientReady..."))
   .catch(err => {
     readiness.markNotReady("discord", { required: true, error: err.message });
-    logger.error(`[LOGIN ERROR] ${err.message}`);
+    logger.error(`[LOGIN ERROR] ${err.stack || err.message}`);
     nexusEvents.emit("nexus.login_error", { service: "discord", error: err.message });
   });
 
 intelReceiver.start();
 
-// Keep Render free tier alive
 const https = require("https");
 setInterval(() => {
-  https.get("https://utopia-nexus.onrender.com", (res) => {
+  https.get("https://utopia-nexus.onrender.com", res => {
     console.log("[KEEP-ALIVE] Pinged self, status:", res.statusCode);
-  }).on("error", (e) => {
-    console.error("[KEEP-ALIVE] Error:", e.message);
-  });
+  }).on("error", e => console.error("[KEEP-ALIVE] Error:", e.message));
 }, 10 * 60 * 1000);
