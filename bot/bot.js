@@ -136,11 +136,11 @@ client.on("raw", payload => riffyMusicAdapter.forwardVoiceState(payload));
 nexusEvents.emit("nexus.starting", { service: "utopia-nexus" });
 intelReceiver.start();
 client.login(process.env.DISCORD_TOKEN)
-  .then(() => nexusEvents.emit("nexus.login", { service: "discord" }))
+  .then(() => nexusEvents.emit("nexus.login", { service: "utopia-nexus" }))
   .catch(err => {
     readiness.markNotReady("discord", { required: true, error: err.message });
     logger.error(`[LOGIN ERROR] ${err.message}`);
-    nexusEvents.emit("nexus.login_error", { service: "discord", error: err.message });
+    nexusEvents.emit("nexus.login_error", { service: "utopia-nexus", error: err.message });
   });
 
 // Keep Render free tier alive
@@ -152,12 +152,3 @@ setInterval(() => {
     console.error("[KEEP-ALIVE] Error:", e.message);
   });
 }, 10 * 60 * 1000);
-
-// Keep Lavalink alive
-setInterval(() => {
-  https.get("https://utopia-nexus-lavalink.onrender.com", (res) => {
-    console.log("[KEEP-ALIVE] Pinged Lavalink, status:", res.statusCode);
-  }).on("error", (e) => {
-    console.error("[KEEP-ALIVE] Lavalink error:", e.message);
-  });
-}, 5 * 60 * 1000);
