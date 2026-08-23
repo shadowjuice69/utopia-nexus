@@ -22,17 +22,30 @@ function requireAdapter() {
   return adapter;
 }
 
+function isUsablePlayer(player) {
+  if (!player) return false;
+  if (player.connected === false) return false;
+  if (typeof player.isAlive === "function" && !player.isAlive()) return false;
+  return true;
+}
+
 async function createPlayer({ guildId, voiceChannelId, textChannelId }) {
   if (!guildId || !voiceChannelId) throw new Error("Guild and voice channel are required.");
+
   const existing = getPlayer(guildId);
-  if (existing) return existing;
+  if (isUsablePlayer(existing)) return existing;
+  if (existing) players.delete(guildId);
+
   const player = await requireAdapter().createPlayer({ guildId, voiceChannelId, textChannelId });
   players.set(guildId, player);
   return player;
 }
 
 async function getOrCreatePlayer(options) {
-  return getPlayer(options.guildId) || createPlayer(options);
+  const existing = getPlayer(options.guildId);
+  if (isUsablePlayer(existing)) return existing;
+  if (existing) players.delete(options.guildId);
+  return createPlayer(options);
 }
 
 async function destroyPlayer(guildId) {
@@ -43,7 +56,10 @@ async function destroyPlayer(guildId) {
 
 function requirePlayer(guildId) {
   const player = getPlayer(guildId);
-  if (!player) throw new Error("No active music player in this server.");
+  if (!isUsablePlayer(player)) {
+    if (player) players.delete(guildId);
+    throw new Error("No active music player in this server.");
+  }
   return player;
 }
 
