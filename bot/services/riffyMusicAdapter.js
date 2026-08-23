@@ -23,14 +23,16 @@ function queueItems(raw) { return raw?.queue ? Array.from(raw.queue) : []; }
 function wrap(raw) {
   return {
     raw,
-    get connected() { return raw.connected !== false; },
-    get playing() { return raw.playing === true; },
-    get paused() { return raw.paused === true; },
+    get connected() { return raw?.connected === true && raw?.connection != null; },
+    get playing() { return raw?.playing === true; },
+    get paused() { return raw?.paused === true; },
     get currentTrack() { return currentTrack(raw); },
     get queueSize() { return queueSize(raw); },
     get queue() { return queueItems(raw); },
+    isAlive() { return Boolean(raw?.connection) && raw?.connected !== false; },
 
     async addQuery(query, requester) {
+      if (!this.isAlive()) throw new Error("Voice player connection was lost. Please retry /music play.");
       const result = await riffy.resolve({ query, requester });
       const tracks = result?.tracks || [];
       const loadType = String(result?.loadType || "").toLowerCase();
@@ -41,7 +43,10 @@ function wrap(raw) {
         if (track?.info) track.info.requester = requester;
         raw.queue.add(track);
       }
-      if (!raw.playing && !raw.paused) await raw.play();
+      if (!raw.playing && !raw.paused) {
+        if (!raw.connection) throw new Error("Voice connection was lost before playback started. Please retry /music play.");
+        await raw.play();
+      }
       return { loadType, tracks, playlistName: result?.playlistInfo?.name || null };
     },
 
@@ -115,13 +120,6 @@ async function createPlayer(options) {
     voiceChannel: options.voiceChannelId,
     textChannel: options.textChannelId,
     deaf: true
-  });
-
-  await new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => reject(new Error("Voice connection timed out.")), 10000);
-    if (raw.connected) { clearTimeout(timeout); return resolve(); }
-    raw.once("connectionReady", () => { clearTimeout(timeout); resolve(); });
-    raw.once("connectionError", (err) => { clearTimeout(timeout); reject(err); });
   });
 
   return wrap(raw);
