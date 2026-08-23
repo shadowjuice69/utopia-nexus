@@ -10,6 +10,7 @@
   "dependencies": {
     "@discord-player/extractor": "^7.2.0",
     "@discordjs/rest": "^2.6.3",
+    "@snazzah/davey": "*",
     "@supabase/supabase-js": "^2.110.6",
     "axios": "^1.19.0",
     "discord-api-types": "^0.38.49",
