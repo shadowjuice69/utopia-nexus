@@ -134,14 +134,22 @@ client.once("clientReady", () => {
 client.on("raw", payload => riffyMusicAdapter.forwardVoiceState(payload));
 
 nexusEvents.emit("nexus.starting", { service: "utopia-nexus" });
-intelReceiver.start();
+
+// Start Discord login before the auxiliary HTTP receiver so a receiver startup
+// issue can never prevent the bot from connecting to Discord.
+logger.info("[DISCORD] Starting Discord login...");
 client.login(process.env.DISCORD_TOKEN)
-  .then(() => nexusEvents.emit("nexus.login", { service: "discord" }))
+  .then(() => {
+    logger.info("[DISCORD] Login request accepted; waiting for clientReady...");
+    nexusEvents.emit("nexus.login", { service: "discord" });
+  })
   .catch(err => {
     readiness.markNotReady("discord", { required: true, error: err.message });
     logger.error(`[LOGIN ERROR] ${err.message}`);
     nexusEvents.emit("nexus.login_error", { service: "discord", error: err.message });
   });
+
+intelReceiver.start();
 
 // Keep Render free tier alive
 const https = require("https");
