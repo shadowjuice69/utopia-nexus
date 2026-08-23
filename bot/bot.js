@@ -30,6 +30,37 @@ errorHandler.attach(client);
 loadEvents(client);
 logger.info("🚀 Utopia Nexus Bot Starting...");
 
+// Discord Gateway diagnostics. These are intentionally lightweight and filtered
+// so Render can show exactly where a connection stalls without flooding logs.
+client.on("debug", message => {
+  if (/heartbeat acknowledged|sending heartbeat/i.test(message)) return;
+  logger.info(`[DISCORD DEBUG] ${message}`);
+});
+
+client.on("warn", message => {
+  logger.warn(`[DISCORD WARN] ${message}`);
+});
+
+client.on("error", error => {
+  logger.error(`[DISCORD CLIENT ERROR] ${error?.stack || error?.message || error}`);
+});
+
+client.on("shardError", (error, shardId) => {
+  logger.error(`[DISCORD SHARD ${shardId} ERROR] ${error?.stack || error?.message || error}`);
+});
+
+client.on("shardDisconnect", (event, shardId) => {
+  logger.warn(`[DISCORD SHARD ${shardId} DISCONNECT] code=${event?.code} reason=${event?.reason || "none"}`);
+});
+
+client.on("shardReconnecting", shardId => {
+  logger.warn(`[DISCORD SHARD ${shardId} RECONNECTING]`);
+});
+
+client.on("shardReady", (shardId, unavailableGuilds) => {
+  logger.info(`[DISCORD SHARD ${shardId} READY] unavailableGuilds=${unavailableGuilds?.size ?? 0}`);
+});
+
 readiness.markNotReady("configuration", { required: true });
 readiness.markNotReady("database", { required: true });
 readiness.markNotReady("discord", { required: true });
@@ -87,7 +118,10 @@ async function registerMusicCommand() {
   }
 }
 
+let discordReady = false;
+
 client.once("clientReady", async () => {
+  discordReady = true;
   readiness.markReady("discord", { required: true, user: client.user.tag });
   logger.info(`✅ Bot online as ${client.user.tag}`);
   nexusEvents.emit("nexus.ready", { botUser: client.user.tag });
@@ -114,9 +148,31 @@ client.once("clientReady", async () => {
 
 nexusEvents.emit("nexus.starting", { service: "utopia-nexus" });
 logger.info("[DISCORD] Starting Discord login...");
+
+// A stuck Gateway handshake otherwise leaves Render reporting a healthy process
+// while Discord sees the application as unavailable. Keep the process alive, but
+// emit a useful diagnostic snapshot instead of failing silently.
+const discordReadyWatchdog = setTimeout(() => {
+  if (discordReady) return;
+
+  const wsStatus = client.ws?.status;
+  logger.error(`[DISCORD READY TIMEOUT] clientReady was not received within 30s. wsStatus=${wsStatus ?? "unknown"}`);
+  readiness.markNotReady("discord", {
+    required: true,
+    error: `clientReady timeout; wsStatus=${wsStatus ?? "unknown"}`
+  });
+  nexusEvents.emit("nexus.discord_ready_timeout", {
+    service: "discord",
+    wsStatus: wsStatus ?? "unknown"
+  });
+}, 30_000);
+
+discordReadyWatchdog.unref?.();
+
 client.login(process.env.DISCORD_TOKEN)
   .then(() => logger.info("[DISCORD] Login request accepted; waiting for clientReady..."))
   .catch(err => {
+    clearTimeout(discordReadyWatchdog);
     readiness.markNotReady("discord", { required: true, error: err.message });
     logger.error(`[LOGIN ERROR] ${err.stack || err.message}`);
     nexusEvents.emit("nexus.login_error", { service: "discord", error: err.message });
