@@ -12,7 +12,7 @@ RUN apt-get update \
     && apt-get purge -y --auto-remove curl \
     && rm -rf /var/lib/apt/lists/*
 
-COPY lavalink/application.yml ./application.yml
+COPY lavalink/application-ytdlp.yml ./application.yml
 
 EXPOSE 10000
 ENTRYPOINT ["java", "-jar", "Lavalink.jar"]
