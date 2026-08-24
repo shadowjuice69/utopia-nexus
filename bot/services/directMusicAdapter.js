@@ -15,9 +15,11 @@ const {
 const YTDLP_PATH = path.join("/tmp", "nexus-yt-dlp");
 const YTDLP_URL = "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp";
 const FFMPEG = process.env.FFMPEG_PATH || "ffmpeg";
+const COOKIE_PATH = "/tmp/nexus-youtube-cookies.txt";
 
 const players = new Map();
 let downloadPromise = null;
+let cookiePathPromise = null;
 
 function downloadFile(url, destination) {
   return new Promise((resolve, reject) => {
@@ -58,6 +60,37 @@ async function ensureYtdlp() {
   return downloadPromise;
 }
 
+async function ensureCookieFile() {
+  if (cookiePathPromise) return cookiePathPromise;
+  cookiePathPromise = (async () => {
+    if (process.env.YTDLP_COOKIES_PATH && fs.existsSync(process.env.YTDLP_COOKIES_PATH)) {
+      return process.env.YTDLP_COOKIES_PATH;
+    }
+    if (process.env.YTDLP_COOKIES_B64) {
+      const decoded = Buffer.from(process.env.YTDLP_COOKIES_B64, "base64");
+      if (!decoded.length) throw new Error("YTDLP_COOKIES_B64 is empty");
+      await fs.promises.writeFile(COOKIE_PATH, decoded, { mode: 0o600 });
+      console.log(`[MUSIC] YouTube cookies loaded (${decoded.length} bytes)`);
+      return COOKIE_PATH;
+    }
+    console.warn("[MUSIC] No YouTube cookies configured; extraction may fail on YouTube");
+    return null;
+  })().catch(error => {
+    cookiePathPromise = null;
+    throw error;
+  });
+  return cookiePathPromise;
+}
+
+function commonYtdlpArgs(cookiePath) {
+  const args = [
+    "--js-runtimes", "node",
+    "--remote-components", "ejs:github",
+  ];
+  if (cookiePath) args.push("--cookies", cookiePath);
+  return args;
+}
+
 function execYtdlp(binary, args) {
   return new Promise((resolve, reject) => {
     const child = spawn(binary, args, { stdio: ["ignore", "pipe", "pipe"] });
@@ -77,6 +110,7 @@ function execYtdlp(binary, args) {
 
 async function resolveTrack(query) {
   const binary = await ensureYtdlp();
+  const cookiePath = await ensureCookieFile();
   const target = /^https?:\/\//i.test(query) ? query : `ytsearch1:${query}`;
   const clients = [
     "web_safari,tv,android_vr",
@@ -88,6 +122,7 @@ async function resolveTrack(query) {
   for (const clientsArg of clients) {
     try {
       const output = await execYtdlp(binary, [
+        ...commonYtdlpArgs(cookiePath),
         "--dump-single-json",
         "--flat-playlist",
         "--no-warnings",
@@ -114,10 +149,12 @@ async function resolveTrack(query) {
   throw new Error(`YouTube extraction failed: ${lastError?.message || "unknown yt-dlp error"}`);
 }
 
-function spawnAudioStream(track) {
-  const binary = process.env.YTDLP_PATH || YTDLP_PATH;
+async function spawnAudioStream(track) {
+  const binary = await ensureYtdlp();
+  const cookiePath = await ensureCookieFile();
   const clients = "web_safari,tv,android_vr";
-  const ytdlp = spawn(binary, [
+  const args = [
+    ...commonYtdlpArgs(cookiePath),
     "--no-warnings",
     "--no-playlist",
     "--quiet",
@@ -125,7 +162,8 @@ function spawnAudioStream(track) {
     "--extractor-args", `youtube:player_client=${clients}`,
     "-o", "-",
     track.url,
-  ], { stdio: ["ignore", "pipe", "pipe"] });
+  ];
+  const ytdlp = spawn(binary, args, { stdio: ["ignore", "pipe", "pipe"] });
 
   const ffmpeg = spawn(FFMPEG, [
     "-hide_banner",
@@ -185,7 +223,7 @@ function makePlayerState(guildId, voiceChannelId, textChannelId, connection) {
 
 async function playTrack(state, track) {
   state.current = track;
-  const audio = spawnAudioStream(track);
+  const audio = await spawnAudioStream(track);
   state.currentCleanup = audio.cleanup;
   const resource = createAudioResource(audio.stream, {
     inputType: StreamType.Raw,
