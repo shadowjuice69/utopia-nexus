@@ -63,17 +63,40 @@ async function registerMusicCommand() {
       { name: "seek", description: "Seek within the current track", type: 1, options: [{ name: "seconds", description: "Position in seconds", type: 4, required: true, min_value: 0 }] }
     ]
   };
+
+  const playlistCommand = {
+    name: "playlist",
+    description: "Manage saved YouTube playlists",
+    options: [
+      { name: "save", description: "Save or replace a YouTube playlist", type: 1,
+        options: [
+          { name: "name", description: "Saved playlist name", type: 3, required: true },
+          { name: "url", description: "YouTube playlist URL", type: 3, required: true }
+        ] },
+      { name: "list", description: "List your saved playlists", type: 1 },
+      { name: "info", description: "Show saved playlist information", type: 1,
+        options: [{ name: "name", description: "Saved playlist name", type: 3, required: true }] },
+      { name: "play", description: "Play a saved playlist", type: 1,
+        options: [{ name: "name", description: "Saved playlist name", type: 3, required: true }] },
+      { name: "refresh", description: "Refresh a saved playlist from YouTube", type: 1,
+        options: [{ name: "name", description: "Saved playlist name", type: 3, required: true }] },
+      { name: "delete", description: "Delete a saved playlist", type: 1,
+        options: [{ name: "name", description: "Saved playlist name", type: 3, required: true }] }
+    ]
+  };
+
   const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
   const requestedGuildIds = [process.env.GUILD_ID, "1534817549374455848"].filter(Boolean);
   const guildIds = [...new Set(requestedGuildIds)].filter(guildId => client.guilds.cache.has(guildId));
   const skippedGuildIds = requestedGuildIds.filter(guildId => !client.guilds.cache.has(guildId));
-  for (const guildId of skippedGuildIds) logger.warn(`🎵 Music command skipped for guild ${guildId}: bot is not currently a member of that guild.`);
+  for (const guildId of skippedGuildIds) logger.warn(`🎵 Commands skipped for guild ${guildId}: bot is not currently a member of that guild.`);
   for (const guildId of guildIds) {
     try {
       const route = Routes.applicationGuildCommands(process.env.CLIENT_ID, guildId);
       const existing = await rest.get(route);
-      await rest.put(route, { body: [...existing.filter(command => command.name !== "music"), musicCommand] });
-      logger.info(`🎵 Music command registered for guild ${guildId}`);
+      const preservedCommands = existing.filter(command => !["music", "playlist"].includes(command.name));
+      await rest.put(route, { body: [...preservedCommands, musicCommand, playlistCommand] });
+      logger.info(`🎵 Music + playlist commands registered for guild ${guildId}`);
     } catch (err) {
       logger.error(`[MUSIC COMMAND REGISTRATION ERROR] guild=${guildId} ${err.message}`);
     }
