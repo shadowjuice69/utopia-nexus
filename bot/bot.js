@@ -15,13 +15,14 @@ const { detectAndResetAge, AGE_WATCH_INTERVAL_MS } = require("./services/ageWatc
 const scheduler = require("./services/schedulerService");
 const intelReceiver = require("./services/intelReceiver");
 const nexusEvents = require("./services/nexusEventBus");
-const musicService = require("./services/musicService");
 const musicPlayer = require("./services/musicPlayerService");
-const riffyMusicAdapter = require("./services/riffyMusicAdapter");
+const directMusicAdapter = require("./services/directMusicAdapter");
 
 const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.GuildVoiceStates, GatewayIntentBits.MessageContent]
 });
+
+global.__NEXUS_DISCORD_CLIENT = client;
 
 client.ws.fetchGatewayInformation = async () => ({
   url: "wss://gateway.discord.gg",
@@ -86,18 +87,13 @@ client.once("clientReady", async () => {
   logger.info(`✅ Bot online as ${client.user.tag}`);
   nexusEvents.emit("nexus.ready", { botUser: client.user.tag });
 
-  if (musicService.isEnabled()) {
-    try {
-      riffyMusicAdapter.initialize(client);
-      riffyMusicAdapter.initClient(client);
-      musicPlayer.setAdapter(riffyMusicAdapter);
-      logger.info("🎵 Music backend ready: Riffy/Lavalink");
-    } catch (err) {
-      musicPlayer.clearAdapter();
-      logger.error(`[MUSIC INIT ERROR] ${err.stack || err.message}`);
-    }
-  } else {
-    logger.warn("🎵 Music disabled or Lavalink not configured");
+  try {
+    directMusicAdapter.initialize(client);
+    musicPlayer.setAdapter(directMusicAdapter);
+    logger.info("🎵 Music backend ready: Direct Discord Voice / yt-dlp / FFmpeg");
+  } catch (err) {
+    musicPlayer.clearAdapter();
+    logger.error(`[MUSIC INIT ERROR] ${err.stack || err.message}`);
   }
 
   registerMusicCommand().catch(err => logger.error(`[MUSIC COMMAND REGISTRATION ERROR] ${err.message}`));
@@ -105,8 +101,6 @@ client.once("clientReady", async () => {
   scheduler.register("age-watch", () => detectAndResetAge(client), AGE_WATCH_INTERVAL_MS, { initialDelayMs: AGE_WATCH_INTERVAL_MS });
   scheduler.start();
 });
-
-client.on("raw", payload => riffyMusicAdapter.forwardVoiceState(payload));
 
 nexusEvents.emit("nexus.starting", { service: "utopia-nexus" });
 logger.info("[DISCORD] Starting Discord login...");
