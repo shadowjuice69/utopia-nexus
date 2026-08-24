@@ -15,13 +15,24 @@ function requireAdapter() {
 async function createPlayer({ guildId, voiceChannelId, textChannelId }) {
   if (!guildId || !voiceChannelId) throw new Error("Guild and voice channel are required.");
   const existing = getPlayer(guildId);
-  if (existing) return existing;
+  if (existing) {
+    if (existing.connected === true) return existing;
+    players.delete(guildId);
+    try { if (typeof existing.destroy === "function") await existing.destroy(); } catch (error) {
+      console.warn(`[MUSIC] Discarding stale player for guild ${guildId}: ${error.message}`);
+    }
+  }
   const player = await requireAdapter().createPlayer({ guildId, voiceChannelId, textChannelId });
+  if (!player) throw new Error("Music player could not be created.");
   players.set(guildId, player);
   return player;
 }
 
-async function getOrCreatePlayer(options) { return getPlayer(options.guildId) || createPlayer(options); }
+async function getOrCreatePlayer(options) {
+  const existing = getPlayer(options.guildId);
+  if (existing?.connected === true) return existing;
+  return createPlayer(options);
+}
 
 async function destroyPlayer(guildId) {
   const player = players.get(guildId);
