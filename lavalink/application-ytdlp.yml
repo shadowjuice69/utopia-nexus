@@ -52,7 +52,7 @@ plugins:
       mixPlaylistLoadLimit: 25
       playlistLoadLimit: 1000
       customLoadArgs: ["-q", "--no-warnings", "--flat-playlist", "--skip-download", "-J"]
-      customPlaybackArgs: ["-q", "--no-warnings", "-f", "bestaudio", "-J"]
+      customPlaybackArgs: ["-q", "--no-warnings", "-f", "bestaudio", "-J", "--extractor-args", "youtubepot-bgutilhttp:base_url=http://127.0.0.1:4416", "--extractor-args", "youtube:player-client=mweb"]
 
 logging:
   level:
