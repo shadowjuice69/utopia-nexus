@@ -18,13 +18,9 @@ async function initialize(client) {
     setFFmpegPath(ffmpegPath);
     console.log(`[MUSIC] Using FFmpeg: ${ffmpegPath}`);
 
-    // Force FFmpeg transcoding. Discord Player can bypass FFmpeg for demuxable
-    // streams, but on the Termux voice path that raw-stream route was producing
-    // intermittent audio. The system FFmpeg binary is already available.
     player = new Player(client, {
-      ffmpegPath,
-      skipFFmpeg: false,
-      lagMonitor: 5000
+      skipFFmpeg: true,
+      lagMonitor: 0
     });
 
     await player.extractors.register(YouTubeDlpExtractor, {
@@ -36,13 +32,10 @@ async function initialize(client) {
       playlistTimeoutMs: 25000,
       ytdlpTimeoutMs: 25000,
       infoCacheTtlMs: 120000,
-      debug: true
+      debug: false
     });
 
     await player.extractors.register(SpotifyExtractor, {});
-
-    player.on("debug", message => console.log(`[MUSIC DEBUG] ${message}`));
-    player.events.on("debug", (queue, message) => console.log(`[MUSIC DEBUG ${queue.guild.id}] ${message}`));
     player.events.on("playerStart", (queue, track) => console.log(`[MUSIC] Playing: ${track.title}`));
     player.events.on("playerError", (queue, error, track) => console.error(`[MUSIC ERROR] ${track?.title || "track"}: ${error.message}`));
     player.events.on("error", (queue, error) => console.error(`[MUSIC QUEUE ERROR] ${error.message}`));

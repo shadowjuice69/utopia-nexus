@@ -10,7 +10,7 @@
   "dependencies": {
     "@discord-player/extractor": "^7.2.0",
     "@discordjs/rest": "^2.6.3",
-    "@snazzah/davey": "*",
+    "@snazzah/davey": "^0.1.12",
     "@supabase/supabase-js": "^2.110.6",
     "axios": "^1.19.0",
     "discord-api-types": "^0.38.49",
@@ -19,10 +19,12 @@
     "discord.js": "^14.27.0",
     "dotenv": "^17.4.2",
     "lowdb": "^1.0.0",
-    "pdf-parse": "^2.4.5",
-    "ws": "^8.21.3"
+    "pdf-parse": "^2.4.5"
   },
   "keywords": [],
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "allowScripts": {
+    "ytdlp-nodejs@3.4.5": true
+  }
 }

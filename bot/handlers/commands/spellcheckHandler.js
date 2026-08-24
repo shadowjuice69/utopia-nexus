@@ -11,14 +11,14 @@ const RACE_WPA_MODS = {
   halfling: { off: 1.0,  def: 1.0,  name: "Halfling" },
   human:    { off: 1.0,  def: 1.0,  name: "Human" },
   orc:      { off: 1.0,  def: 1.0,  name: "Orc" },
-  undead:   { off: 1.0,  def: 1.0,  name: "Undead" },
+  undead:   { off: 1.25, def: 1.0,  name: "Undead" },
 };
 
 const PERS_WPA_MODS = {
   none:        { off: 1.0,  name: "None" },
-  heretic:     { off: 1.35, name: "Heretic" },
-  mystic:      { off: 1.25, name: "Mystic" },
-  necromancer: { off: 1.25, name: "Necromancer" },
+  heretic:     { off: 1.15, name: "Heretic" },
+  mystic:      { off: 1.0,  name: "Mystic" },  // base; +20% WPA via Focused Channelling if above 40% mana
+  necromancer: { off: 1.35, name: "Necromancer" },
   cleric:      { off: 1.0,  name: "Cleric" },
   general:     { off: 1.0,  name: "General" },
   artisan:     { off: 1.0,  name: "Artisan" },
@@ -61,6 +61,7 @@ module.exports = async function spellcheckHandler(interaction) {
   const myScience = interaction.options.getNumber("my_channeling") || 1.0;
   const myHonor   = interaction.options.getNumber("my_honor_mod") || 1.0;
   const myMagesFury = interaction.options.getBoolean("mages_fury") || false;
+  const focusedChannelling = interaction.options.getBoolean("focused_channelling") || false;
   const theirWizards = interaction.options.getInteger("their_wizards");
   const theirLand    = interaction.options.getInteger("their_land");
   const theirRace    = interaction.options.getString("their_race")?.toLowerCase() || "avian";
@@ -76,8 +77,9 @@ module.exports = async function spellcheckHandler(interaction) {
   const myRawWPA    = myWizards / myLand;
   const theirRawWPA = theirWizards / theirLand;
   const magesFuryMod   = myMagesFury ? 1.25 : 1.0;
+  const focusedChannellingMod = (myPers === "mystic" && focusedChannelling) ? 1.20 : 1.0;
   const magicShieldMod = theirMagicShield ? 1.20 : 1.0;
-  const myModWPA    = myRawWPA * myScience * myRaceMod.off * myPersMod.off * myHonor * magesFuryMod;
+  const myModWPA    = myRawWPA * myScience * myRaceMod.off * myPersMod.off * myHonor * magesFuryMod * focusedChannellingMod;
   const theirModWPA = theirRawWPA * 1.0 * theirRaceMod.def * magicShieldMod;
   const ratio = theirModWPA > 0 ? myModWPA / theirModWPA : 999;
 
@@ -117,6 +119,7 @@ module.exports = async function spellcheckHandler(interaction) {
           `× Channeling Science: **${myScience}x**`,
           `× Honor Mod: **${myHonor}x**`,
           `× Mage's Fury: **${magesFuryMod}x**`,
+          `× Focused Channelling: **${focusedChannellingMod}x**`,
           `\n**Your Mod WPA: ${myModWPA.toFixed(3)}**`,
         ].join("\n"),
         inline: false

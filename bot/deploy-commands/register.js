@@ -135,6 +135,7 @@ const calcCommand = {
         { name: "my_channeling",      description: "Channeling science bonus (e.g. 1.15)", type: 10, required: false },
         { name: "my_honor_mod",       description: "Honor modifier (e.g. 1.05)",          type: 10, required: false },
         { name: "mages_fury",         description: "Mages Fury active?",                  type: 5,  required: false },
+        { name: "focused_channelling", description: "Mystic: above 40% mana?",            type: 5,  required: false },
         { name: "their_magic_shield", description: "Their Magic Shield active?",          type: 5,  required: false },
         { name: "my_nw",              description: "Your networth",                       type: 4,  required: false },
         { name: "their_nw",           description: "Their networth",                      type: 4,  required: false },
