@@ -63,12 +63,19 @@ async function registerMusicCommand() {
     ]
   };
   const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
-  const guildIds = [process.env.GUILD_ID, "1534817549374455848"].filter(Boolean);
+  const requestedGuildIds = [process.env.GUILD_ID, "1534817549374455848"].filter(Boolean);
+  const guildIds = [...new Set(requestedGuildIds)].filter(guildId => client.guilds.cache.has(guildId));
+  const skippedGuildIds = requestedGuildIds.filter(guildId => !client.guilds.cache.has(guildId));
+  for (const guildId of skippedGuildIds) logger.warn(`🎵 Music command skipped for guild ${guildId}: bot is not currently a member of that guild.`);
   for (const guildId of guildIds) {
-    const route = Routes.applicationGuildCommands(process.env.CLIENT_ID, guildId);
-    const existing = await rest.get(route);
-    await rest.put(route, { body: [...existing.filter(command => command.name !== "music"), musicCommand] });
-    logger.info(`🎵 Music command registered for guild ${guildId}`);
+    try {
+      const route = Routes.applicationGuildCommands(process.env.CLIENT_ID, guildId);
+      const existing = await rest.get(route);
+      await rest.put(route, { body: [...existing.filter(command => command.name !== "music"), musicCommand] });
+      logger.info(`🎵 Music command registered for guild ${guildId}`);
+    } catch (err) {
+      logger.error(`[MUSIC COMMAND REGISTRATION ERROR] guild=${guildId} ${err.message}`);
+    }
   }
 }
 
