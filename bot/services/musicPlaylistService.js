@@ -1,5 +1,5 @@
 const supabase = require("./supabase").getClient();
-const musicAdapter = require("./directMusicAdapter");
+const playlistResolver = require("./musicPlaylistResolver");
 
 function requireClient() {
   if (!supabase) throw new Error("Supabase is not configured for playlist storage.");
@@ -20,8 +20,7 @@ function ownerId(user) {
 }
 
 async function resolveSource(sourceUrl) {
-  if (!musicAdapter.resolveQuery) throw new Error("Music resolver is unavailable.");
-  const result = await musicAdapter.resolveQuery(sourceUrl);
+  const result = await playlistResolver.resolvePlaylist(sourceUrl);
   if (!result?.tracks?.length) throw new Error("No playable tracks were found in that playlist.");
   return result;
 }
