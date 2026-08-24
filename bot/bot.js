@@ -15,14 +15,14 @@ const { detectAndResetAge, AGE_WATCH_INTERVAL_MS } = require("./services/ageWatc
 const scheduler = require("./services/schedulerService");
 const intelReceiver = require("./services/intelReceiver");
 const nexusEvents = require("./services/nexusEventBus");
+const musicService = require("./services/musicService");
 const musicPlayer = require("./services/musicPlayerService");
+const riffyMusicAdapter = require("./services/riffyMusicAdapter");
 
 const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.GuildVoiceStates, GatewayIntentBits.MessageContent]
 });
 
-// Render was hanging before discord.js could fetch Gateway Information.
-// Override the manager method directly so login does not depend on /gateway/bot.
 client.ws.fetchGatewayInformation = async () => ({
   url: "wss://gateway.discord.gg",
   shards: 1,
@@ -78,13 +78,28 @@ client.once("clientReady", async () => {
   readiness.markReady("discord", { required: true, user: client.user.tag });
   logger.info(`✅ Bot online as ${client.user.tag}`);
   nexusEvents.emit("nexus.ready", { botUser: client.user.tag });
-  try { await musicPlayer.initialize(client); logger.info("🎵 Music backend ready: Discord Player"); }
-  catch (err) { logger.error(`[MUSIC INIT ERROR] ${err.stack || err.message}`); }
+
+  if (musicService.isEnabled()) {
+    try {
+      riffyMusicAdapter.initialize(client);
+      riffyMusicAdapter.initClient(client);
+      musicPlayer.setAdapter(riffyMusicAdapter);
+      logger.info("🎵 Music backend ready: Riffy/Lavalink");
+    } catch (err) {
+      musicPlayer.clearAdapter();
+      logger.error(`[MUSIC INIT ERROR] ${err.stack || err.message}`);
+    }
+  } else {
+    logger.warn("🎵 Music disabled or Lavalink not configured");
+  }
+
   registerMusicCommand().catch(err => logger.error(`[MUSIC COMMAND REGISTRATION ERROR] ${err.message}`));
   scheduler.register("tick-alerts", () => runAlertJob(client), TICK_INTERVAL_MS, { initialDelayMs: msUntilNextTick() + 2000 });
   scheduler.register("age-watch", () => detectAndResetAge(client), AGE_WATCH_INTERVAL_MS, { initialDelayMs: AGE_WATCH_INTERVAL_MS });
   scheduler.start();
 });
+
+client.on("raw", payload => riffyMusicAdapter.forwardVoiceState(payload));
 
 nexusEvents.emit("nexus.starting", { service: "utopia-nexus" });
 logger.info("[DISCORD] Starting Discord login...");
