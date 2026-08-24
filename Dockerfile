@@ -16,7 +16,7 @@ ARG LAVALINK_VERSION=4.2.2
 WORKDIR /opt/lavalink
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends curl ca-certificates python3 python3-pip libatomic1 libcairo2 libpango-1.0-0 libjpeg62-turbo libgif7 librsvg2-2 \
+    && apt-get install -y --no-install-recommends curl ca-certificates python3 python3-pip libatomic1 libcairo2 libpango-1.0-0 \
     && curl -fsSL -o Lavalink.jar "https://github.com/lavalink-devs/Lavalink/releases/download/${LAVALINK_VERSION}/Lavalink.jar" \
     && curl -fsSL -o /usr/local/bin/yt-dlp "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp" \
     && chmod +x /usr/local/bin/yt-dlp \
