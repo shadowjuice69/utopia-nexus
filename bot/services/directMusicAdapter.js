@@ -16,6 +16,7 @@ const YTDLP_PATH = path.join("/tmp", "nexus-yt-dlp");
 const YTDLP_URL = "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp";
 const FFMPEG = process.env.FFMPEG_PATH || "ffmpeg";
 const COOKIE_PATH = "/tmp/nexus-youtube-cookies.txt";
+const MAX_PLAYLIST_TRACKS = 500;
 
 const players = new Map();
 let downloadPromise = null;
@@ -108,7 +109,21 @@ function execYtdlp(binary, args) {
   });
 }
 
-async function resolveTrack(query) {
+function normalizeEntry(entry, fallbackTitle = "Unknown track") {
+  if (!entry?.id && !entry?.url) return null;
+  const id = entry.id || null;
+  const url = entry.webpage_url || entry.original_url || (id ? `https://www.youtube.com/watch?v=${id}` : entry.url);
+  return {
+    id,
+    title: entry.title || fallbackTitle,
+    url,
+    duration: Number(entry.duration || 0),
+    thumbnail: entry.thumbnail || null,
+    source: entry.extractor_key || entry.extractor || "youtube",
+  };
+}
+
+async function resolveQuery(query) {
   const binary = await ensureYtdlp();
   const cookiePath = await ensureCookieFile();
   const target = /^https?:\/\//i.test(query) ? query : `ytsearch1:${query}`;
@@ -125,21 +140,20 @@ async function resolveTrack(query) {
         ...commonYtdlpArgs(cookiePath),
         "--dump-single-json",
         "--flat-playlist",
+        "--playlist-end", String(MAX_PLAYLIST_TRACKS),
         "--no-warnings",
         "--skip-download",
         "--extractor-args", `youtube:player_client=${clientsArg}`,
         target,
       ]);
       const data = JSON.parse(output);
-      const entry = data.entries?.[0] || data;
-      if (!entry?.id && !entry?.url) throw new Error("yt-dlp returned no playable result");
+      const isPlaylist = Array.isArray(data.entries);
+      const entries = isPlaylist ? data.entries : [data];
+      const tracks = entries.map(entry => normalizeEntry(entry, data.title || query)).filter(Boolean);
+      if (!tracks.length) throw new Error("yt-dlp returned no playable tracks");
       return {
-        id: entry.id || null,
-        title: entry.title || query,
-        url: entry.webpage_url || entry.original_url || (entry.id ? `https://www.youtube.com/watch?v=${entry.id}` : entry.url),
-        duration: Number(entry.duration || 0),
-        thumbnail: entry.thumbnail || null,
-        source: entry.extractor_key || entry.extractor || "youtube",
+        tracks,
+        playlistName: isPlaylist ? (data.title || "YouTube playlist") : null,
       };
     } catch (error) {
       lastError = error;
@@ -147,6 +161,11 @@ async function resolveTrack(query) {
     }
   }
   throw new Error(`YouTube extraction failed: ${lastError?.message || "unknown yt-dlp error"}`);
+}
+
+async function resolveTrack(query) {
+  const result = await resolveQuery(query);
+  return result.tracks[0];
 }
 
 async function spawnAudioStream(track) {
@@ -284,11 +303,11 @@ function wrap(state) {
     get queue() { return state.queue.slice(); },
 
     async addQuery(query, requester) {
-      const track = await resolveTrack(query);
-      track.requester = requester;
-      state.queue.push(track);
+      const result = await resolveQuery(query);
+      for (const track of result.tracks) track.requester = requester;
+      state.queue.push(...result.tracks);
       if (state.audioPlayer.state.status === AudioPlayerStatus.Idle && !state.current) await playNext(state);
-      return { loadType: "track", tracks: [track], playlistName: null };
+      return { loadType: result.playlistName ? "playlist" : "track", tracks: result.tracks, playlistName: result.playlistName };
     },
     async pause() { state.audioPlayer.pause(true); },
     async resume() { state.audioPlayer.unpause(); },
