@@ -64,9 +64,7 @@ async function ensureYtdlp() {
 async function ensureCookieFile() {
   if (cookiePathPromise) return cookiePathPromise;
   cookiePathPromise = (async () => {
-    if (process.env.YTDLP_COOKIES_PATH && fs.existsSync(process.env.YTDLP_COOKIES_PATH)) {
-      return process.env.YTDLP_COOKIES_PATH;
-    }
+    if (process.env.YTDLP_COOKIES_PATH && fs.existsSync(process.env.YTDLP_COOKIES_PATH)) return process.env.YTDLP_COOKIES_PATH;
     if (process.env.YTDLP_COOKIES_B64) {
       const decoded = Buffer.from(process.env.YTDLP_COOKIES_B64, "base64");
       if (!decoded.length) throw new Error("YTDLP_COOKIES_B64 is empty");
@@ -84,10 +82,7 @@ async function ensureCookieFile() {
 }
 
 function commonYtdlpArgs(cookiePath) {
-  const args = [
-    "--js-runtimes", "node",
-    "--remote-components", "ejs:github",
-  ];
+  const args = ["--js-runtimes", "node", "--remote-components", "ejs:github"];
   if (cookiePath) args.push("--cookies", cookiePath);
   return args;
 }
@@ -123,20 +118,25 @@ function normalizeEntry(entry, fallbackTitle = "Unknown track") {
   };
 }
 
+function parsePlaylistJson(output) {
+  const data = JSON.parse(output);
+  const isPlaylist = Array.isArray(data.entries);
+  const entries = isPlaylist ? data.entries : [data];
+  const tracks = entries.map(entry => normalizeEntry(entry, data.title || "YouTube playlist")).filter(Boolean).slice(0, MAX_PLAYLIST_TRACKS);
+  return { tracks, playlistName: isPlaylist ? (data.title || "YouTube playlist") : null };
+}
+
 async function resolveQuery(query) {
   const binary = await ensureYtdlp();
   const cookiePath = await ensureCookieFile();
   const target = /^https?:\/\//i.test(query) ? query : `ytsearch1:${query}`;
-  const clients = [
-    "web_safari,tv,android_vr",
-    "tv,android_vr,web_embedded",
-    "web_embedded,android_vr",
-  ];
+  const looksLikePlaylist = /[?&]list=/i.test(query);
+  const clients = ["web_safari,tv,android_vr", "tv,android_vr,web_embedded", "web_embedded,android_vr"];
   let lastError = null;
 
   for (const clientsArg of clients) {
     try {
-      const output = await execYtdlp(binary, [
+      const args = [
         ...commonYtdlpArgs(cookiePath),
         "--dump-single-json",
         "--flat-playlist",
@@ -144,17 +144,15 @@ async function resolveQuery(query) {
         "--no-warnings",
         "--skip-download",
         "--extractor-args", `youtube:player_client=${clientsArg}`,
-        target,
-      ]);
-      const data = JSON.parse(output);
-      const isPlaylist = Array.isArray(data.entries);
-      const entries = isPlaylist ? data.entries : [data];
-      const tracks = entries.map(entry => normalizeEntry(entry, data.title || query)).filter(Boolean);
-      if (!tracks.length) throw new Error("yt-dlp returned no playable tracks");
-      return {
-        tracks,
-        playlistName: isPlaylist ? (data.title || "YouTube playlist") : null,
-      };
+      ];
+      if (looksLikePlaylist) args.push("--yes-playlist");
+      args.push(target);
+
+      const output = await execYtdlp(binary, args);
+      const result = parsePlaylistJson(output);
+      console.log(`[MUSIC] yt-dlp resolved ${result.tracks.length} track(s)${result.playlistName ? ` from playlist: ${result.playlistName}` : ""}`);
+      if (!result.tracks.length) throw new Error("yt-dlp returned no playable tracks");
+      return result;
     } catch (error) {
       lastError = error;
       console.warn(`[MUSIC] yt-dlp resolve client ${clientsArg} failed: ${error.message}`);
@@ -163,80 +161,33 @@ async function resolveQuery(query) {
   throw new Error(`YouTube extraction failed: ${lastError?.message || "unknown yt-dlp error"}`);
 }
 
-async function resolveTrack(query) {
-  const result = await resolveQuery(query);
-  return result.tracks[0];
-}
-
 async function spawnAudioStream(track) {
   const binary = await ensureYtdlp();
   const cookiePath = await ensureCookieFile();
   const clients = "web_safari,tv,android_vr";
   const args = [
-    ...commonYtdlpArgs(cookiePath),
-    "--no-warnings",
-    "--no-playlist",
-    "--quiet",
-    "-f", "bestaudio/best",
-    "--extractor-args", `youtube:player_client=${clients}`,
-    "-o", "-",
-    track.url,
+    ...commonYtdlpArgs(cookiePath), "--no-warnings", "--no-playlist", "--quiet",
+    "-f", "bestaudio/best", "--extractor-args", `youtube:player_client=${clients}`, "-o", "-", track.url,
   ];
   const ytdlp = spawn(binary, args, { stdio: ["ignore", "pipe", "pipe"] });
-
-  const ffmpeg = spawn(FFMPEG, [
-    "-hide_banner",
-    "-loglevel", "error",
-    "-i", "pipe:0",
-    "-f", "s16le",
-    "-ar", "48000",
-    "-ac", "2",
-    "pipe:1",
-  ], { stdio: ["pipe", "pipe", "pipe"] });
-
+  const ffmpeg = spawn(FFMPEG, ["-hide_banner", "-loglevel", "error", "-i", "pipe:0", "-f", "s16le", "-ar", "48000", "-ac", "2", "pipe:1"], { stdio: ["pipe", "pipe", "pipe"] });
   ytdlp.stdout.pipe(ffmpeg.stdin);
   ytdlp.stderr.setEncoding("utf8");
   ffmpeg.stderr.setEncoding("utf8");
   ytdlp.stderr.on("data", data => console.warn(`[MUSIC] yt-dlp: ${data.trim()}`));
   ffmpeg.stderr.on("data", data => console.warn(`[MUSIC] ffmpeg: ${data.trim()}`));
-
-  const cleanup = () => {
-    try { ytdlp.kill("SIGKILL"); } catch {}
-    try { ffmpeg.kill("SIGKILL"); } catch {}
-  };
+  const cleanup = () => { try { ytdlp.kill("SIGKILL"); } catch {} try { ffmpeg.kill("SIGKILL"); } catch {} };
   ffmpeg.on("close", () => { try { ytdlp.kill("SIGKILL"); } catch {} });
-  ytdlp.on("close", code => {
-    if (code !== 0) console.warn(`[MUSIC] yt-dlp playback exited with code ${code}`);
-  });
-
+  ytdlp.on("close", code => { if (code !== 0) console.warn(`[MUSIC] yt-dlp playback exited with code ${code}`); });
   return { stream: ffmpeg.stdout, cleanup };
 }
 
 function makePlayerState(guildId, voiceChannelId, textChannelId, connection) {
   const audioPlayer = createAudioPlayer();
   connection.subscribe(audioPlayer);
-  const state = {
-    guildId,
-    voiceChannelId,
-    textChannelId,
-    connection,
-    audioPlayer,
-    queue: [],
-    current: null,
-    currentResource: null,
-    currentCleanup: null,
-    volume: 1,
-    loop: false,
-    destroyed: false,
-  };
-
-  audioPlayer.on("error", error => {
-    console.error(`[MUSIC] Direct audio player error guild=${guildId}: ${error.message}`);
-    if (!state.destroyed) playNext(state).catch(err => console.error(`[MUSIC] Playback recovery failed: ${err.message}`));
-  });
-  audioPlayer.on(AudioPlayerStatus.Idle, () => {
-    if (!state.destroyed) playNext(state).catch(err => console.error(`[MUSIC] Next track failed: ${err.message}`));
-  });
+  const state = { guildId, voiceChannelId, textChannelId, connection, audioPlayer, queue: [], current: null, currentResource: null, currentCleanup: null, volume: 1, loop: false, destroyed: false };
+  audioPlayer.on("error", error => { console.error(`[MUSIC] Direct audio player error guild=${guildId}: ${error.message}`); if (!state.destroyed) playNext(state).catch(err => console.error(`[MUSIC] Playback recovery failed: ${err.message}`)); });
+  audioPlayer.on(AudioPlayerStatus.Idle, () => { if (!state.destroyed) playNext(state).catch(err => console.error(`[MUSIC] Next track failed: ${err.message}`)); });
   return state;
 }
 
@@ -244,11 +195,7 @@ async function playTrack(state, track) {
   state.current = track;
   const audio = await spawnAudioStream(track);
   state.currentCleanup = audio.cleanup;
-  const resource = createAudioResource(audio.stream, {
-    inputType: StreamType.Raw,
-    inlineVolume: true,
-    metadata: track,
-  });
+  const resource = createAudioResource(audio.stream, { inputType: StreamType.Raw, inlineVolume: true, metadata: track });
   resource.volume.setVolume(state.volume);
   state.currentResource = resource;
   state.audioPlayer.play(resource);
@@ -257,17 +204,10 @@ async function playTrack(state, track) {
 
 async function playNext(state) {
   if (state.destroyed) return;
-  if (state.currentCleanup) {
-    try { state.currentCleanup(); } catch {}
-    state.currentCleanup = null;
-  }
+  if (state.currentCleanup) { try { state.currentCleanup(); } catch {} state.currentCleanup = null; }
   if (state.loop && state.current) return playTrack(state, state.current);
   const next = state.queue.shift();
-  if (!next) {
-    state.current = null;
-    state.currentResource = null;
-    return;
-  }
+  if (!next) { state.current = null; state.currentResource = null; return; }
   return playTrack(state, next);
 }
 
@@ -277,14 +217,7 @@ async function createPlayer({ guildId, voiceChannelId, textChannelId }) {
   const client = global.__NEXUS_DISCORD_CLIENT;
   const guild = client?.guilds?.cache?.get(guildId);
   if (!guild) throw new Error("Guild is not available to the bot.");
-
-  const connection = joinVoiceChannel({
-    channelId: voiceChannelId,
-    guildId,
-    adapterCreator: guild.voiceAdapterCreator,
-    selfDeaf: true,
-    selfMute: false,
-  });
+  const connection = joinVoiceChannel({ channelId: voiceChannelId, guildId, adapterCreator: guild.voiceAdapterCreator, selfDeaf: true, selfMute: false });
   await entersState(connection, VoiceConnectionStatus.Ready, 20000);
   const state = makePlayerState(guildId, voiceChannelId, textChannelId, connection);
   players.set(guildId, state);
@@ -301,11 +234,11 @@ function wrap(state) {
     get currentTrack() { return state.current; },
     get queueSize() { return state.queue.length; },
     get queue() { return state.queue.slice(); },
-
     async addQuery(query, requester) {
       const result = await resolveQuery(query);
       for (const track of result.tracks) track.requester = requester;
       state.queue.push(...result.tracks);
+      console.log(`[MUSIC] Queued ${result.tracks.length} track(s). Queue now: ${state.queue.length}`);
       if (state.audioPlayer.state.status === AudioPlayerStatus.Idle && !state.current) await playNext(state);
       return { loadType: result.playlistName ? "playlist" : "track", tracks: result.tracks, playlistName: result.playlistName };
     },
@@ -313,18 +246,10 @@ function wrap(state) {
     async resume() { state.audioPlayer.unpause(); },
     async skip() { state.audioPlayer.stop(true); },
     async stop() { await destroyPlayer(state.guildId); },
-    async setVolume(value) {
-      state.volume = Math.max(0, Math.min(1, Number(value) / 100));
-      if (state.currentResource?.volume) state.currentResource.volume.setVolume(state.volume);
-    },
+    async setVolume(value) { state.volume = Math.max(0, Math.min(1, Number(value) / 100)); if (state.currentResource?.volume) state.currentResource.volume.setVolume(state.volume); },
     async seek() { throw new Error("Seek is not available in direct yt-dlp mode yet."); },
     async setLoop(enabled) { state.loop = Boolean(enabled); },
-    shuffle() {
-      for (let i = state.queue.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [state.queue[i], state.queue[j]] = [state.queue[j], state.queue[i]];
-      }
-    },
+    shuffle() { for (let i = state.queue.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [state.queue[i], state.queue[j]] = [state.queue[j], state.queue[i]]; } },
     clearQueue() { state.queue.length = 0; },
     async destroy() { await destroyPlayer(state.guildId); },
   };
@@ -340,14 +265,8 @@ async function destroyPlayer(guildId) {
   try { state.connection.destroy(); } catch {}
 }
 
-function initialize(client) {
-  global.__NEXUS_DISCORD_CLIENT = client;
-  console.log("[MUSIC] Direct yt-dlp/FFmpeg music backend initialized");
-}
+function initialize(client) { global.__NEXUS_DISCORD_CLIENT = client; console.log("[MUSIC] Direct yt-dlp/FFmpeg music backend initialized"); }
 function initClient() {}
 function forwardVoiceState() {}
-function destroy() {
-  for (const guildId of players.keys()) destroyPlayer(guildId);
-}
-
+function destroy() { for (const guildId of players.keys()) destroyPlayer(guildId); }
 module.exports = { initialize, initClient, forwardVoiceState, createPlayer, destroy };
