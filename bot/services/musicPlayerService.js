@@ -1,171 +1,62 @@
-const { Player } = require("discord-player");
-const { SpotifyExtractor } = require("@discord-player/extractor");
-const { YouTubeDlpExtractor, setFFmpegPath } = require("discord-player-youtubedlp");
 const musicService = require("./musicService");
 
-let player = null;
-let initialized = false;
-let initializationPromise = null;
+let adapter = null;
+const players = new Map();
 
-async function initialize(client) {
-  if (initialized) return player;
-  if (initializationPromise) return initializationPromise;
+function setAdapter(nextAdapter) { adapter = nextAdapter || null; }
+function clearAdapter() { adapter = null; }
+function getPlayer(guildId) { return players.get(guildId) || null; }
 
-  initializationPromise = (async () => {
-    // Use the system FFmpeg binary. This works on Render/Linux and Termux/Android
-    // without requiring the incompatible ffmpeg-static npm binary.
-    const ffmpegPath = process.env.FFMPEG_PATH || "ffmpeg";
-    setFFmpegPath(ffmpegPath);
-    console.log(`[MUSIC] Using FFmpeg: ${ffmpegPath}`);
-
-    player = new Player(client, {
-      skipFFmpeg: true,
-      lagMonitor: 0
-    });
-
-    await player.extractors.register(YouTubeDlpExtractor, {
-      searchLimit: 3,
-      playlistSearchLimit: 200,
-      relatedLimit: 5,
-      searchTimeoutMs: 6000,
-      videoTimeoutMs: 7000,
-      playlistTimeoutMs: 25000,
-      ytdlpTimeoutMs: 25000,
-      infoCacheTtlMs: 120000,
-      debug: false
-    });
-
-    await player.extractors.register(SpotifyExtractor, {});
-    player.events.on("playerStart", (queue, track) => console.log(`[MUSIC] Playing: ${track.title}`));
-    player.events.on("playerError", (queue, error, track) => console.error(`[MUSIC ERROR] ${track?.title || "track"}: ${error.message}`));
-    player.events.on("error", (queue, error) => console.error(`[MUSIC QUEUE ERROR] ${error.message}`));
-    player.events.on("disconnect", queue => console.log(`[MUSIC] Disconnected from ${queue.guild.id}`));
-
-    initialized = true;
-    console.log("🎵 Music backend initialized (Discord Player / YouTube-DLP / Spotify)");
-    return player;
-  })();
-
-  try {
-    return await initializationPromise;
-  } catch (error) {
-    initializationPromise = null;
-    player = null;
-    throw error;
-  }
+function requireAdapter() {
+  if (!adapter || typeof adapter.createPlayer !== "function") throw new Error("Music backend is unavailable.");
+  return adapter;
 }
 
-async function requirePlayer() {
-  if (!initialized || !player) throw new Error("Music backend is still initializing.");
+async function createPlayer({ guildId, voiceChannelId, textChannelId }) {
+  if (!guildId || !voiceChannelId) throw new Error("Guild and voice channel are required.");
+  const existing = getPlayer(guildId);
+  if (existing) return existing;
+  const player = await requireAdapter().createPlayer({ guildId, voiceChannelId, textChannelId });
+  players.set(guildId, player);
   return player;
 }
 
-async function getOrCreatePlayer({ guildId, voiceChannelId, textChannelId }) {
-  const instance = await requirePlayer();
-  const guild = await instance.client.guilds.fetch(guildId);
-  const voice = guild.channels.cache.get(voiceChannelId) || await guild.channels.fetch(voiceChannelId);
-  if (!voice) throw new Error("Voice channel could not be found.");
-
-  let queue = instance.nodes.get(guildId);
-  if (!queue) {
-    queue = instance.nodes.create(guildId, {
-      metadata: {
-        channelId: textChannelId,
-        send: message => guild.channels.cache.get(textChannelId)?.send(message)
-      },
-      leaveOnEnd: false,
-      leaveOnStop: true,
-      leaveOnEmpty: true,
-      leaveOnEmptyCooldown: 300000,
-      bufferingTimeout: 15000
-    });
-  }
-
-  await queue.connect(voice, { deaf: true });
-  return queue;
-}
-
-function getPlayer(guildId) {
-  return player?.nodes.get(guildId) || null;
-}
-
-function requireQueue(guildId) {
-  const queue = getPlayer(guildId);
-  if (!queue) throw new Error("No active music player in this server.");
-  return queue;
-}
-
-async function play(guildId, query, requester, voiceChannelId, textChannelId) {
-  const instance = await requirePlayer();
-  const guild = await instance.client.guilds.fetch(guildId);
-  const voice = guild.channels.cache.get(voiceChannelId) || await guild.channels.fetch(voiceChannelId);
-  if (!voice) throw new Error("Voice channel could not be found.");
-
-  const result = await instance.play(voice, query, {
-    requestedBy: requester,
-    nodeOptions: {
-      metadata: {
-        channelId: textChannelId,
-        send: message => guild.channels.cache.get(textChannelId)?.send(message)
-      },
-      leaveOnEnd: false,
-      leaveOnStop: true,
-      leaveOnEmpty: true,
-      leaveOnEmptyCooldown: 300000,
-      bufferingTimeout: 15000,
-      skipOnNoStream: true
-    }
-  });
-
-  return result;
-}
+async function getOrCreatePlayer(options) { return getPlayer(options.guildId) || createPlayer(options); }
 
 async function destroyPlayer(guildId) {
-  const queue = getPlayer(guildId);
-  if (queue) queue.delete();
+  const player = players.get(guildId);
+  players.delete(guildId);
+  if (player?.destroy) await player.destroy();
 }
 
-async function pause(guildId) { requireQueue(guildId).node.pause(); }
-async function resume(guildId) { requireQueue(guildId).node.resume(); }
-async function skip(guildId) { requireQueue(guildId).node.skip(); }
-async function stop(guildId) { requireQueue(guildId).node.stop(true); }
-async function volume(guildId, value) { requireQueue(guildId).node.setVolume(value); }
-async function seek(guildId, positionMs) { await requireQueue(guildId).node.seek(positionMs); }
-async function loop(guildId, enabled) { requireQueue(guildId).setRepeatMode(enabled ? 1 : 0); }
-function shuffle(guildId) { requireQueue(guildId).tracks.shuffle(); }
-function clearQueue(guildId) { requireQueue(guildId).clear(); }
+function requirePlayer(guildId) {
+  const player = getPlayer(guildId);
+  if (!player) throw new Error("No active music player in this server.");
+  return player;
+}
+
+async function play(guildId, query, requester) { return requirePlayer(guildId).addQuery(query, requester); }
+async function pause(guildId) { return requirePlayer(guildId).pause(); }
+async function resume(guildId) { return requirePlayer(guildId).resume(); }
+async function skip(guildId) { return requirePlayer(guildId).skip(); }
+async function stop(guildId) { return requirePlayer(guildId).stop(); }
+async function volume(guildId, value) { return requirePlayer(guildId).setVolume(value); }
+async function seek(guildId, positionMs) { return requirePlayer(guildId).seek(positionMs); }
+async function loop(guildId, enabled) { return requirePlayer(guildId).setLoop(enabled); }
+function shuffle(guildId) { return requirePlayer(guildId).shuffle(); }
+function clearQueue(guildId) { return requirePlayer(guildId).clearQueue(); }
 
 function snapshot() {
-  if (!player) return [];
-  return player.nodes.cache.map(queue => ({
-    guildId: queue.guild.id,
-    connected: Boolean(queue.connection),
-    playing: queue.node.isPlaying(),
-    paused: queue.node.isPaused(),
-    queueSize: queue.tracks.size
+  return [...players.entries()].map(([guildId, player]) => ({
+    guildId,
+    connected: player?.connected === true,
+    playing: player?.playing === true,
+    paused: player?.paused === true,
+    queueSize: Number(player?.queueSize || 0)
   }));
 }
 
 function backendStatus() { return musicService.status(); }
-function clearAll() { player?.nodes.cache.forEach(queue => queue.delete()); }
+function clearAll() { players.clear(); }
 
-module.exports = {
-  initialize,
-  getPlayer,
-  getOrCreatePlayer,
-  play,
-  pause,
-  resume,
-  skip,
-  stop,
-  volume,
-  seek,
-  loop,
-  shuffle,
-  clearQueue,
-  destroyPlayer,
-  requireQueue,
-  snapshot,
-  backendStatus,
-  clearAll
-};
+module.exports = { setAdapter, clearAdapter, getPlayer, createPlayer, getOrCreatePlayer, destroyPlayer, requirePlayer, play, pause, resume, skip, stop, volume, seek, loop, shuffle, clearQueue, snapshot, backendStatus, clearAll };
