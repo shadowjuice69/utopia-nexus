@@ -16,7 +16,6 @@ const YTDLP_PATH = path.join("/tmp", "nexus-yt-dlp");
 const YTDLP_URL = "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp";
 const FFMPEG = process.env.FFMPEG_PATH || "ffmpeg";
 const COOKIE_PATH = "/tmp/nexus-youtube-cookies.txt";
-const MAX_PLAYLIST_TRACKS = 500;
 
 const players = new Map();
 let downloadPromise = null;
@@ -122,7 +121,7 @@ function parsePlaylistJson(output) {
   const data = JSON.parse(output);
   const isPlaylist = Array.isArray(data.entries);
   const entries = isPlaylist ? data.entries : [data];
-  const tracks = entries.map(entry => normalizeEntry(entry, data.title || "YouTube playlist")).filter(Boolean).slice(0, MAX_PLAYLIST_TRACKS);
+  const tracks = entries.map(entry => normalizeEntry(entry, data.title || "YouTube playlist")).filter(Boolean);
   return { tracks, playlistName: isPlaylist ? (data.title || "YouTube playlist") : null };
 }
 
@@ -140,7 +139,6 @@ async function resolveQuery(query) {
         ...commonYtdlpArgs(cookiePath),
         "--dump-single-json",
         "--flat-playlist",
-        "--playlist-end", String(MAX_PLAYLIST_TRACKS),
         "--no-warnings",
         "--skip-download",
         "--extractor-args", `youtube:player_client=${clientsArg}`,
