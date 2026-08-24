@@ -9,6 +9,7 @@ const helpHandler           = require("./commands/helpHandler");
 const askHandler            = require("./commands/askHandler");
 const registerHandler       = require("./commands/registerHandler");
 const musicHandler          = require("./commands/musicHandler");
+const playlistHandler       = require("./commands/playlistHandler");
 
 const analyzeWarHandler     = require("./commands/analyzeWarHandler");
 const warSummaryHandler     = require("./commands/warSummaryHandler");
@@ -73,6 +74,14 @@ const COMMAND_GROUPS = {
     clear: musicHandler,
     loop: musicHandler,
     seek: musicHandler
+  },
+  playlist: {
+    save: playlistHandler,
+    list: playlistHandler,
+    info: playlistHandler,
+    play: playlistHandler,
+    refresh: playlistHandler,
+    delete: playlistHandler
   },
   war: {
     analyze: analyzeWarHandler,
