@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@discordjs/rest": "^2.6.3",
+    "@discordjs/voice": "^0.19.2",
     "@snazzah/davey": "^0.1.12",
     "@supabase/supabase-js": "^2.110.6",
     "axios": "^1.19.0",
