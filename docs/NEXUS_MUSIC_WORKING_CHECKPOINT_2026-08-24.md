@@ -47,6 +47,83 @@ The local verification succeeded with:
 
 This proved that the YouTube extraction/challenge-solving problem was resolved.
 
+## How we solved the no-sound problem
+
+The final solution came from troubleshooting the entire playback chain instead of continuing to swap music backends.
+
+### 1. Established that Discord voice was connecting
+
+The bot could connect to the voice channel, but there was no audio. This ruled out a simple Discord connection problem.
+
+### 2. Moved to the direct yt-dlp playback path
+
+Instead of depending on Lavalink for the final playback path, Nexus was configured to use:
+
+```text
+yt-dlp → FFmpeg → @discordjs/voice → Discord
+```
+
+This gave us direct control over YouTube extraction and Discord audio transport.
+
+### 3. Fixed the Opus dependency
+
+The direct Discord voice implementation initially failed on Render because `@discordjs/voice` could not find an Opus implementation (`@discordjs/opus`, `node-opus`, or `opusscript`). Opus support was added so the direct voice pipeline could actually encode/send Discord audio.
+
+### 4. Tested yt-dlp locally on Android/Termux
+
+We created a private Firefox YouTube cookie export and saved it locally as `cookies.txt`. The file was approximately 17 KB (16,588 bytes) and protected with:
+
+```bash
+chmod 600 cookies.txt
+```
+
+The first yt-dlp test showed:
+
+```text
+Signature solving failed
+n challenge solving failed
+The page needs to be reloaded.
+```
+
+This was the key diagnostic result: **the cookies were not the primary failure; yt-dlp was missing an active JavaScript challenge solver/runtime.**
+
+### 5. Installed Node.js and explicitly enabled it for yt-dlp
+
+Node.js was available in Termux (`v26.4.0`), but yt-dlp was not automatically using it. The decisive test was:
+
+```bash
+yt-dlp --js-runtimes node --remote-components ejs:github --cookies cookies.txt --simulate --skip-download "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+```
+
+That changed the result to:
+
+```text
+[jsc:node] Solving JS challenges using node
+[info] dQw4w9WgXcQ: Downloading 1 format(s): 401+251
+```
+
+That proved YouTube extraction was working and playable formats were being resolved.
+
+### 6. Deployed the exact working configuration to Render
+
+Commit `8525ab5` enabled the yt-dlp EJS runtime configuration and private cookie authentication in Nexus.
+
+The YouTube cookies were converted to base64 locally and supplied to Render through the private environment variable:
+
+```text
+YTDLP_COOKIES_B64
+```
+
+The actual cookie contents were never committed to GitHub.
+
+### 7. Verified the production deployment
+
+Render reported the deployment for commit `8525ab5` as **LIVE**. The user then tested Nexus music in Discord and confirmed:
+
+> "It's working perfectly"
+
+Therefore the final fix was not a Lavalink change. The decisive issue was **YouTube's current JavaScript challenge solving**, combined with the need for an authenticated cookie session, followed by the direct Discord Voice/FFmpeg path.
+
 ## Cookie handling
 
 - Firefox was used to export the YouTube cookies.
@@ -76,12 +153,6 @@ The direct Discord voice implementation is the active playback path.
 The current configuration has been tested by the user and confirmed:
 
 > "It's working perfectly"
-
-## What was fixed
-
-The music system went through multiple connection/no-audio failures. The decisive fix was identifying that YouTube extraction was failing because yt-dlp was not solving the current JavaScript challenges.
-
-Adding Node.js EJS challenge solving and authenticated YouTube cookies produced a successful playable format selection. The same configuration was then deployed to Render.
 
 ## Next-chat continuation
 
