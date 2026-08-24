@@ -47,6 +47,33 @@ describe("musicPlayerService", () => {
     assert.deepEqual(service.snapshot(), []);
   });
 
+  it("recreates a stale disconnected player instead of reusing it", async () => {
+    const players = [];
+    service.setAdapter({
+      createPlayer: async () => {
+        const player = {
+          connected: true,
+          playing: false,
+          paused: false,
+          queueSize: 0,
+          queue: [],
+          async destroy() { this.destroyed = true; }
+        };
+        players.push(player);
+        return player;
+      }
+    });
+
+    const first = await service.createPlayer({ guildId: "g", voiceChannelId: "v", textChannelId: "t" });
+    first.connected = false;
+    const second = await service.getOrCreatePlayer({ guildId: "g", voiceChannelId: "v", textChannelId: "t" });
+
+    assert.notEqual(second, first);
+    assert.equal(first.destroyed, true);
+    assert.equal(players.length, 2);
+    assert.equal(service.getPlayer("g"), second);
+  });
+
   it("routes playback controls to the active player", async () => {
     const calls = [];
     const player = {
