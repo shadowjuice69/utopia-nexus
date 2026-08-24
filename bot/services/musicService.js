@@ -1,29 +1,35 @@
 /**
- * Discord Player music service.
- * No Lavalink, Riffy, or external music node is required.
+ * Nexus music service boundary.
+ * Music remains disabled until explicitly enabled and a complete Lavalink
+ * connection is configured.
  */
 
-function isConfigured() {
-  return true;
+function isConfigured(env = process.env) {
+  return Boolean(env.LAVALINK_HOST && env.LAVALINK_PASSWORD);
 }
 
-function isEnabled() {
-  return true;
+function isEnabled(env = process.env) {
+  return env.MUSIC_ENABLED === "true" && isConfigured(env);
 }
 
-function status() {
+function status(env = process.env) {
   return {
-    enabled: true,
-    provider: "discord-player",
-    adapter: "youtube-dlp + spotify bridge",
-    configured: true
+    enabled: isEnabled(env),
+    provider: "lavalink",
+    adapter: "riffy",
+    configured: isConfigured(env)
   };
 }
 
 function unavailable() {
-  const error = new Error("Music service is unavailable.");
+  const error = new Error("Music service is not enabled or configured.");
   error.code = "MUSIC_UNAVAILABLE";
   return error;
 }
 
-module.exports = { isConfigured, isEnabled, status, unavailable };
+module.exports = {
+  isConfigured,
+  isEnabled,
+  status,
+  unavailable
+};
