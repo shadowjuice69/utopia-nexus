@@ -1,4 +1,4 @@
-const DEFAULT_SEARCH_PLATFORM = process.env.LAVALINK_SEARCH_PLATFORM || "ytmsearch";
+const DEFAULT_SEARCH_PLATFORM = process.env.LAVALINK_SEARCH_PLATFORM || "ytsearch";
 
 function getConfig(env = process.env) {
   const host = env.LAVALINK_HOST;
