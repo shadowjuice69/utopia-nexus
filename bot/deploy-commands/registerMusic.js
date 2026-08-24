@@ -25,6 +25,27 @@ const musicCommand = {
   ]
 };
 
+const playlistCommand = {
+  name: "playlist",
+  description: "Manage saved YouTube playlists",
+  options: [
+    { name: "save", description: "Save or replace a YouTube playlist", type: 1,
+      options: [
+        { name: "name", description: "Saved playlist name", type: 3, required: true },
+        { name: "url", description: "YouTube playlist URL", type: 3, required: true }
+      ] },
+    { name: "list", description: "List your saved playlists", type: 1 },
+    { name: "info", description: "Show saved playlist information", type: 1,
+      options: [{ name: "name", description: "Saved playlist name", type: 3, required: true }] },
+    { name: "play", description: "Play a saved playlist", type: 1,
+      options: [{ name: "name", description: "Saved playlist name", type: 3, required: true }] },
+    { name: "refresh", description: "Refresh a saved playlist from YouTube", type: 1,
+      options: [{ name: "name", description: "Saved playlist name", type: 3, required: true }] },
+    { name: "delete", description: "Delete a saved playlist", type: 1,
+      options: [{ name: "name", description: "Saved playlist name", type: 3, required: true }] }
+  ]
+};
+
 const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
 const guildIds = [process.env.GUILD_ID, "1534817549374455848"].filter(Boolean);
 
@@ -32,10 +53,10 @@ const guildIds = [process.env.GUILD_ID, "1534817549374455848"].filter(Boolean);
   for (const guildId of guildIds) {
     const route = Routes.applicationGuildCommands(process.env.CLIENT_ID, guildId);
     const existing = await rest.get(route);
-    const commands = existing.filter(command => command.name !== "music");
-    commands.push(musicCommand);
+    const commands = existing.filter(command => !["music", "playlist"].includes(command.name));
+    commands.push(musicCommand, playlistCommand);
     await rest.put(route, { body: commands });
-    console.log(`✅ Music commands registered for guild ${guildId}`);
+    console.log(`✅ Music + playlist commands registered for guild ${guildId}`);
   }
 })().catch(error => {
   console.error(error);
