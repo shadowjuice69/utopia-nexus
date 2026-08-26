@@ -26,6 +26,12 @@ global.__NEXUS_DISCORD_CLIENT = client;
 
 const intel7 = music7.initialize(client);
 
+client.on('raw', packet => {
+  if (packet?.t === 'MESSAGE_CREATE') {
+    logger.info(`[DISCORD RAW MESSAGE_CREATE] channel=${packet.d?.channel_id || 'unknown'} guild=${packet.d?.guild_id || 'DM'} author=${packet.d?.author?.username || 'unknown'} id=${packet.d?.id || 'unknown'}`);
+  }
+});
+
 client.on('interactionCreate', interaction => {
   interactions.handle(interaction).catch(error => {
     logger.error(`[INTERACTION ERROR] ${error.stack || error.message}`);
@@ -69,8 +75,6 @@ client.once('clientReady', async () => {
   }
 });
 
-// Render web services must bind a port. This health endpoint does not affect
-// Discord, Intel 7, or the protected music backend.
 const port = Number(process.env.PORT || 10000);
 const healthServer = http.createServer((req, res) => {
   res.writeHead(200, { 'Content-Type': 'text/plain' });
