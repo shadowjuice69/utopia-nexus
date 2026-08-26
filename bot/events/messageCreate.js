@@ -61,15 +61,20 @@ module.exports = {
     const isBotSpamChannel = channelId === config.botSpamChannelId;
     if (!channelType && !isBotSpamChannel) return;
 
-    if (message.author.bot) {
-      if (!UTOPIABOT_IDS.has(message.author.id)) return;
-    } else {
+    // Intel channels are dedicated ingestion feeds. Accept bot-authored messages
+    // in these channels without requiring a hard-coded UTOPIABOT_IDS value.
+    // This prevents the new seven-channel feed from being silently discarded
+    // when the source bot changes or its ID is not configured in Render.
+    if (message.author.bot && !channelType && !UTOPIABOT_IDS.has(message.author.id)) return;
+
+    if (!message.author.bot) {
       await userService.getOrCreateUser(message.author);
       const xpResult = await xpService.addXP(message.author.id, config.xp.amountPerMessage);
       if (xpResult && xpResult.leveledUp) await message.reply(`🎉 ${message.author.username} reached Level ${xpResult.user.level}!`);
     }
 
     if (channelType) {
+      logger.info(`[INTEL ${channelType.toUpperCase()}] received message ${message.id}`);
       const intelEvents = parseChannelMessage({ id: message.id, content: message.content, timestamp: message.createdAt.toISOString(), channelType });
       if (intelEvents.length) {
         logger.info(`[INTEL ${channelType.toUpperCase()}] parsed ${intelEvents.length} event(s)`);
@@ -78,6 +83,8 @@ module.exports = {
           else if (event.type === "offensive_spell" || event.type === "self_spell") await saveSpell(event);
           else await saveChannelEvent(event);
         }
+      } else {
+        logger.warn(`[INTEL ${channelType.toUpperCase()}] no event parsed for message ${message.id}`);
       }
 
       // Preserve the established parser for the original thievery feed and as a fallback for legacy attack/self-spell formatting.
