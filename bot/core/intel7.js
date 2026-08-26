@@ -31,7 +31,6 @@ function parseMessage(type, content) {
   const data = { format: 'intel7', channel_type: type, province_refs: provinceMatches(text) };
 
   if (type === 'attacks') {
-    // Standard loot / land-capture lines.
     const direct = text.match(/^(.*?)\s+\((\d+:\d+)\)\s+(?:attacked\s+and\s+looted\s+([\d,]+)\s+(.+?)\s+from|captured\s+([\d,]+)\s+acres?\s+of\s+land\s+from)\s+(.*?)\s+\((\d+:\d+)\)/i);
     if (direct) {
       data.attacker_name = cleanProvinceName(direct[1]);
@@ -48,18 +47,14 @@ function parseMessage(type, content) {
       data.target_name = cleanProvinceName(direct[6]);
       data.target_kd = direct[7];
     } else {
-      // Province Logs / battle report format:
-      // "⚔ Bhaal (6:9) — #16 - Alt: Your forces arrive at Return to OZ (1:7). ..."
-      const header = text.match(/(?:^|\n)\s*⚔\s*(.*?)\s+\((\d+:\d+)\)\s*(?:—|-)\s*#?\s*\d+\s*-\s*[^:]+:/i);
-      const arrival = text.match(/Your forces arrive at\s+(.+?)\s+\((\d+:\d+)\)\s*\./i);
+      const header = text.match(/(?:^|\n)\s*⚔\s*([^\r\n(]+?)\s*\((\d+:\d+)\)\s*(?:—|-)\s*#?\s*\d+\s*-\s*[^\r\n:]+:/i);
+      const arrival = text.match(/Your forces arrive at\s+([^\r\n]+?)\s+\((\d+:\d+)\)\s*\./i);
       if (header && arrival) {
         data.attacker_name = cleanProvinceName(header[1]);
         data.attacker_kd = header[2];
         data.target_name = cleanProvinceName(arrival[1]);
         data.target_kd = arrival[2];
-
-        const victory = /managed\s+a\s+victory|victory/i.test(text);
-        data.result = victory ? 'victory' : (/defeat|lost\s+the\s+battle/i.test(text) ? 'defeat' : null);
+        data.result = /managed\s+a\s+victory|victory/i.test(text) ? 'victory' : (/defeat|lost\s+the\s+battle/i.test(text) ? 'defeat' : null);
         const massacred = text.match(/massacred\s+([\d,]+)\s+peasants?,?\s*thieves?,?\s*and\s*wizards?/i);
         if (massacred) data.enemy_civilians_killed = Number(massacred[1].replace(/,/g, ''));
         const losses = text.match(/We lost\s+(.+?)\s+in this battle\./i);
@@ -68,6 +63,8 @@ function parseMessage(type, content) {
         if (killed) data.enemy_troops_killed = Number(killed[1].replace(/,/g, ''));
         const available = text.match(/available again in\s+([\d.]+)\s+days/i);
         if (available) data.army_return_days = Number(available[1]);
+        const acres = text.match(/army has taken\s+([\d,]+)\s+acres?/i);
+        if (acres) data.acres = Number(acres[1].replace(/,/g, ''));
         data.event = 'battle_report';
       }
     }
