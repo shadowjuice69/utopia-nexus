@@ -12,6 +12,7 @@ const CHANNELS = {
 };
 
 const KD_CODE = process.env.INTEL7_KD || '6:9';
+const POLL_MS = 5000;
 
 function configuredChannels() {
   const result = new Map();
@@ -36,12 +37,10 @@ function parseMessage(type, content) {
   const text = String(content || '').trim();
   const provinces = provinceMatches(text);
   const data = { format: 'intel7', channel_type: type, province_refs: provinces };
-
   if (type === 'attacks') {
     const attack = text.match(/^(.*?)\s+\((\d+:\d+)\)\s+attacked\s+and\s+looted\s+([\d,]+)\s+(.+?)\s+from\s+(.*?)\s+\((\d+:\d+)\)/i);
-    if (attack) {
-      data.attacker_name = attack[1].trim(); data.attacker_kd = attack[2]; data.loot_amount = Number(attack[3].replace(/,/g, '')); data.loot_resource = attack[4].trim(); data.target_name = attack[5].trim(); data.target_kd = attack[6]; data.event = 'attack';
-    } else { data.event = 'attack'; data.amount = numberAfter(text, /(?:looted|captured|gained)\s+([\d,]+)/i); }
+    if (attack) { data.attacker_name = attack[1].trim(); data.attacker_kd = attack[2]; data.loot_amount = Number(attack[3].replace(/,/g, '')); data.loot_resource = attack[4].trim(); data.target_name = attack[5].trim(); data.target_kd = attack[6]; data.event = 'attack'; }
+    else { data.event = 'attack'; data.amount = numberAfter(text, /(?:looted|captured|gained)\s+([\d,]+)/i); }
   } else if (type === 'ops') {
     data.event = 'thievery';
     const op = text.match(/^(.*?)\s+\((\d+:\d+)\).*?(?:on|from|against)\s+(.*?)\s+\((\d+:\d+)\)/i);
@@ -70,6 +69,14 @@ async function save(message, type, parsed) {
   logger.info(`[INTEL7 SAVED] ${type} message=${message.id}`); return true;
 }
 
+async function processMessage(message, type) {
+  if (!message?.id || !message.channelId) return;
+  logger.info(`[INTEL7 RECEIVED] type=${type} channel=${message.channelId} message=${message.id}`);
+  const parsed = parseMessage(type, message.content || '');
+  logger.info(`[INTEL7 PARSED] type=${type} event=${parsed.event || type} message=${message.id}`);
+  await save(message, type, parsed);
+}
+
 async function verifyChannels(client, channels) {
   for (const [id, type] of channels) {
     try {
@@ -82,20 +89,54 @@ async function verifyChannels(client, channels) {
   }
 }
 
+function startRestPoller(client, channels) {
+  const seen = new Map();
+  let first = true;
+  const poll = async () => {
+    for (const [id, type] of channels) {
+      try {
+        const channel = await client.channels.fetch(id);
+        const messages = await channel.messages.fetch({ limit: 10 });
+        const ordered = [...messages.values()].sort((a, b) => a.createdTimestamp - b.createdTimestamp);
+        if (first) {
+          const newest = ordered.at(-1);
+          if (newest) seen.set(id, newest.id);
+          continue;
+        }
+        const last = seen.get(id);
+        for (const message of ordered) {
+          if (last && message.id === last) {
+            continue;
+          }
+          if (!last || message.createdTimestamp > (channel.messages.cache.get(last)?.createdTimestamp || 0)) {
+            logger.info(`[INTEL7 POLL] new message channel=${id} type=${type} message=${message.id}`);
+            await processMessage(message, type);
+            seen.set(id, message.id);
+          }
+        }
+      } catch (error) {
+        logger.error(`[INTEL7 POLL ERROR] ${type} ${id} ${error.code || ''} ${error.message}`);
+      }
+    }
+    first = false;
+  };
+  poll().catch(error => logger.error(`[INTEL7 POLL ERROR] ${error.stack || error.message}`));
+  setInterval(() => poll().catch(error => logger.error(`[INTEL7 POLL ERROR] ${error.stack || error.message}`)), POLL_MS);
+  logger.info(`[INTEL7] REST fallback poller active interval=${POLL_MS}ms`);
+}
+
 function initialize(client) {
   const channels = configuredChannels();
   logger.info(`[INTEL7] clean listener starting; channels=${JSON.stringify(Object.fromEntries(channels))}; kd=${KD_CODE}`);
-  client.once('clientReady', () => verifyChannels(client, channels).catch(error => logger.error(`[INTEL7 CHANNEL CHECK ERROR] ${error.stack || error.message}`)));
+  client.once('clientReady', async () => {
+    await verifyChannels(client, channels);
+    startRestPoller(client, channels);
+  });
   client.on('messageCreate', async message => {
-    logger.info(`[INTEL7 EVENT] messageCreate channel=${message.channelId} guild=${message.guildId || 'DM'} author=${message.author?.tag || message.author?.username || 'unknown'}`);
     const type = channels.get(message.channelId);
     if (!type) return;
-    logger.info(`[INTEL7 RECEIVED] type=${type} channel=${message.channelId} message=${message.id}`);
-    try {
-      const parsed = parseMessage(type, message.content);
-      logger.info(`[INTEL7 PARSED] type=${type} event=${parsed.event || type} message=${message.id}`);
-      await save(message, type, parsed);
-    } catch (error) { logger.error(`[INTEL7 ERROR] type=${type} message=${message.id} ${error.stack || error.message}`); }
+    logger.info(`[INTEL7 EVENT] messageCreate channel=${message.channelId} guild=${message.guildId || 'DM'} author=${message.author?.tag || message.author?.username || 'unknown'}`);
+    try { await processMessage(message, type); } catch (error) { logger.error(`[INTEL7 ERROR] type=${type} message=${message.id} ${error.stack || error.message}`); }
   });
   return { channels, kd: KD_CODE };
 }
