@@ -2,8 +2,6 @@ const logger = require("../services/logger");
 const config = require("../config/config");
 const userService = require("../services/userService");
 const xpService = require("../services/xpService");
-const supabaseService = require("../services/supabase");
-const { processMessage } = require("../intel7");
 const axios = require("axios");
 const pdfParse = require("pdf-parse");
 const { saveAgeUpdate } = require("../services/ageUpdateService");
@@ -60,29 +58,10 @@ module.exports = {
     const isBotSpamChannel = channelId === config.botSpamChannelId;
     if (!channelType && !isBotSpamChannel) return;
 
-    // Dedicated Intel 7 channels are isolated from all legacy parsers.
-    if (channelType) {
-      if (!message.author.bot) {
-        await userService.getOrCreateUser(message.author);
-        const xpResult = await xpService.addXP(message.author.id, config.xp.amountPerMessage);
-        if (xpResult && xpResult.leveledUp) await message.reply(`🎉 ${message.author.username} reached Level ${xpResult.user.level}!`);
-      }
+    // Intel 7 has its own messageCreate listener. The legacy handler must never
+    // parse or save messages from the seven dedicated Intel channels.
+    if (channelType) return;
 
-      const supabase = supabaseService.getClient();
-      if (!supabase) {
-        logger.error(`[INTEL7] Supabase unavailable; message ${message.id} not stored`);
-        return;
-      }
-
-      try {
-        await processMessage({ message, channelType, supabase, logger });
-      } catch (error) {
-        logger.error(`[INTEL7 ${channelType.toUpperCase()}] processing error: ${error.message}`);
-      }
-      return;
-    }
-
-    // Legacy bot-spam / command handling remains unchanged and separate.
     if (message.author.bot && !UTOPIABOT_IDS.has(message.author.id)) return;
     if (message.author.bot) return;
     if (!message.content.startsWith(config.prefix)) return;
