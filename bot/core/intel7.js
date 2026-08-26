@@ -24,14 +24,31 @@ function configuredChannels() {
 
 function provinceMatches(text) { return [...String(text || '').matchAll(/\((\d+:\d+)\)/g)].map(m => m[1]); }
 function numberAfter(text, pattern) { const m = String(text || '').match(pattern); return m ? Number(m[1].replace(/,/g, '')) : null; }
+function cleanProvinceName(name) { return String(name || '').trim().replace(/^\d+\s*-\s*/, '').trim(); }
 
 function parseMessage(type, content) {
   const text = String(content || '').trim();
   const data = { format: 'intel7', channel_type: type, province_refs: provinceMatches(text) };
   if (type === 'attacks') {
-    const m = text.match(/^(.*?)\s+\((\d+:\d+)\)\s+attacked\s+and\s+looted\s+([\d,]+)\s+(.+?)\s+from\s+(.*?)\s+\((\d+:\d+)\)/i);
-    if (m) { data.attacker_name=m[1].trim(); data.attacker_kd=m[2]; data.loot_amount=Number(m[3].replace(/,/g,'')); data.loot_resource=m[4].trim(); data.target_name=m[5].trim(); data.target_kd=m[6]; }
-    data.event='attack';
+    // Handles both standard loot attacks and land captures, including Utopia's
+    // province-number prefix: "9 - Jan (4:10) ... from 24 - Work work (6:9)."
+    const m = text.match(/^(.*?)\s+\((\d+:\d+)\)\s+(?:attacked\s+and\s+looted\s+([\d,]+)\s+(.+?)\s+from|captured\s+([\d,]+)\s+acres?\s+of\s+land\s+from)\s+(.*?)\s+\((\d+:\d+)\)/i);
+    if (m) {
+      data.attacker_name = cleanProvinceName(m[1]);
+      data.attacker_kd = m[2];
+      if (m[3] != null) {
+        data.loot_amount = Number(m[3].replace(/,/g, ''));
+        data.loot_resource = m[4].trim();
+      } else {
+        data.acres = Number(m[5].replace(/,/g, ''));
+        data.loot_amount = data.acres;
+        data.loot_resource = 'acres';
+        data.event = 'land_capture';
+      }
+      data.target_name = cleanProvinceName(m[6]);
+      data.target_kd = m[7];
+    }
+    data.event = data.event || 'attack';
   } else if (type === 'ops') {
     data.event='thievery';
     const m=text.match(/^(.*?)\s+\((\d+:\d+)\).*?(?:on|from|against)\s+(.*?)\s+\((\d+:\d+)\)/i);
