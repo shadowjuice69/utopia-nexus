@@ -23,7 +23,7 @@ function ago(value) {
 
 function normalize(type, row) {
   const ts = row.timestamp || row.updated_at || row.last_seen || row.created_at;
-  if (type === "thieves") return { ts, title: row.operation || "Operation", detail: `${row.province || "?"} → ${row.target_province || "?"}${row.kd_code ? ` (${row.kd_code})` : ""}`, status: row.success === false ? "FAILED" : "" };
+  if (type === "thieves") return { ts, title: row.operation || "Operation", detail: `${row.attacker_province || row.province || "?"} → ${row.target_province || "?"}${row.target_kingdom ? ` (${row.target_kingdom})` : row.kd_code ? ` (${row.kd_code})` : ""}`, status: row.success === false ? "FAILED" : "" };
   if (type === "offensive" || type === "self") return { ts, title: row.spell_name || "Spell", detail: `${row.caster_province || "?"}${row.target_province ? ` → ${row.target_province}` : ""}`, status: row.success === false ? "FAILED" : "" };
   if (type === "dragon") return { ts, title: row.event_type || row.dragon_name || "Dragon event", detail: `${row.province || "?"}${row.kingdom ? ` (${row.kingdom})` : ""}`, status: row.dragon_name || "" };
   if (type === "ritual") return { ts, title: "Ritual", detail: row.caster_province || "?", status: row.success === false ? "FAILED" : row.success ? "SUCCESS" : "" };
@@ -44,7 +44,7 @@ export default function Intel7() {
 
   async function fetchAll() {
     const queries = await Promise.all([
-      supabase.from("intel_ops").select("*").order("last_seen", { ascending: false }).limit(100),
+      supabase.from("hostile_ops").select("*").order("timestamp", { ascending: false }).limit(100),
       supabase.from("spell_events").select("*").order("timestamp", { ascending: false }).limit(100),
       supabase.from("spell_events").select("*").order("timestamp", { ascending: false }).limit(100),
       supabase.from("dragon_events").select("*").order("timestamp", { ascending: false }).limit(100),
