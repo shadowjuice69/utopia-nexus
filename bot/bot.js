@@ -1,4 +1,5 @@
 require('dotenv').config();
+const http = require('http');
 const { WebSocket: NodeWebSocket } = require('ws');
 globalThis.WebSocket = NodeWebSocket;
 
@@ -66,6 +67,17 @@ client.once('clientReady', async () => {
   } catch (error) {
     logger.error(`[COMMAND REGISTRATION ERROR] ${error.stack || error.message}`);
   }
+});
+
+// Render web services must bind a port. This health endpoint does not affect
+// Discord, Intel 7, or the protected music backend.
+const port = Number(process.env.PORT || 10000);
+const healthServer = http.createServer((req, res) => {
+  res.writeHead(200, { 'Content-Type': 'text/plain' });
+  res.end('Utopia Nexus online');
+});
+healthServer.listen(port, '0.0.0.0', () => {
+  logger.info(`[HTTP] Health server listening on port ${port}`);
 });
 
 logger.info('🚀 Nexus clean core starting');
