@@ -4,7 +4,7 @@ import { supabase } from "../services/supabase";
 const CHANNELS = [
   ["thieves", "🗡️ Thieves Operations"],
   ["offensive", "🔥 Offensive Spells"],
-  ["self", "🛡️ Self Spells"],
+  ["self_spells", "🛡️ Self Spells"],
   ["dragon", "🐉 Dragon"],
   ["ritual", "🔮 Ritual"],
   ["aid", "🤝 Aid"],
@@ -22,14 +22,16 @@ function ago(value) {
 }
 
 function normalize(row) {
-  const d = row.data || {};
-  const type = row.channel_type;
-  if (type === "thieves") return { title: d.operation || row.operation || "Operation", detail: `${d.attackerProvince || row.attacker_province || "?"} → ${d.targetProvince || row.target_province || "?"}${d.targetKingdom || row.target_kingdom ? ` (${d.targetKingdom || row.target_kingdom})` : ""}`, status: row.success === false ? "FAILED" : "" };
-  if (type === "offensive" || type === "self") return { title: d.spellName || row.spell_name || "Spell", detail: `${d.attackerProvince || row.attacker_province || "?"}${d.targetProvince || row.target_province ? ` → ${d.targetProvince || row.target_province}` : ""}`, status: row.success === false ? "FAILED" : "" };
-  if (type === "dragon") return { title: row.event_type || "Dragon event", detail: `${d.targetProvince || row.target_province || "?"}${d.targetKingdom || row.target_kingdom ? ` (${d.targetKingdom || row.target_kingdom})` : ""}`, status: d.dragonName || "" };
-  if (type === "ritual") return { title: "Ritual", detail: d.attackerProvince || row.attacker_province || "?", status: row.success === false ? "FAILED" : row.success ? "SUCCESS" : "" };
-  if (type === "aid") return { title: row.resource_type || d.resourceType || "Aid", detail: `${d.attackerProvince || row.attacker_province || "?"} → ${d.targetProvince || row.target_province || "?"}`, status: row.amount != null ? Number(row.amount).toLocaleString() : "" };
-  return { title: row.event_type || "Attack", detail: `${d.attackerProvince || row.attacker_province || "?"} → ${d.targetProvince || row.target_province || "?"}${d.targetKingdom || row.target_kingdom ? ` (${d.targetKingdom || row.target_kingdom})` : ""}`, status: d.acresCaptured != null ? `${d.acresCaptured} acres` : "" };
+  const p = row.parsed || {};
+  const refs = Array.isArray(p.province_refs) ? p.province_refs : [];
+  const refText = refs.length ? refs.join(" → ") : "";
+  const content = row.content || "";
+  const title = row.event_type ? row.event_type.replace(/_/g, " ") : "Intel";
+  return {
+    title: title.charAt(0).toUpperCase() + title.slice(1),
+    detail: refText || content || "Intel received",
+    status: p.success === false ? "FAILED" : p.success === true ? "SUCCESS" : "",
+  };
 }
 
 export default function Intel7() {
@@ -46,10 +48,10 @@ export default function Intel7() {
 
   async function fetchRows() {
     const { data, error: queryError } = await supabase
-      .from("intel7_events")
+      .from("intel7_ingest")
       .select("*")
-      .eq("kingdom", "6:9")
-      .order("timestamp", { ascending: false })
+      .eq("kd_code", "6:9")
+      .order("message_created_at", { ascending: false })
       .limit(500);
     if (queryError) setError(queryError.message);
     else { setRows(data || []); setError(""); }
@@ -75,8 +77,8 @@ export default function Intel7() {
         {current.length === 0 ? <p style={{ color: "#64748b", textAlign: "center", padding: 28 }}>No new 6:9 events recorded for this channel yet.</p> : (
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {current.map((row, i) => { const item = normalize(row); return <div key={row.id || i} style={{ padding: "9px 12px", border: "1px solid rgba(255,255,255,.07)", borderRadius: 7 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}><strong>{item.title}</strong><span style={{ color: "#64748b", fontSize: 11 }}>{ago(row.timestamp)}</span></div>
-              <div style={{ color: "#94a3b8", fontSize: 12, marginTop: 3 }}>{item.detail}</div>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}><strong>{item.title}</strong><span style={{ color: "#64748b", fontSize: 11 }}>{ago(row.message_created_at || row.received_at)}</span></div>
+              <div style={{ color: "#94a3b8", fontSize: 12, marginTop: 3, whiteSpace: "pre-wrap" }}>{item.detail}</div>
               {item.status && <div style={{ color: "#facc15", fontSize: 11, marginTop: 3 }}>{item.status}</div>}
             </div>; })}
           </div>
