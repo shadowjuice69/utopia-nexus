@@ -60,13 +60,62 @@ function parseMessage(type, content) {
 async function save(message, type, parsed) {
   const client = supabaseService.getClient();
   if (!client) { logger.error('[INTEL7] Supabase is not configured'); return false; }
-  const messageRow = { discord_message_id: message.id, channel_id: message.channelId, channel_type: type, guild_id: message.guildId || null, author_id: message.author?.id || message.author?.username || null, author_name: message.author?.tag || message.author?.username || null, content: message.content || '', message_created_at: message.createdAt ? new Date(message.createdAt).toISOString() : null, kd_code: KD_CODE, parsed: true };
+
+  // Keep both the legacy schema columns and the new Intel7 identifiers populated.
+  // The production database still has message_id as NOT NULL, while the rebuilt
+  // Intel7 schema uses discord_message_id as its canonical identifier.
+  const messageRow = {
+    message_id: message.id,
+    discord_message_id: message.id,
+    channel_id: message.channelId,
+    channel_type: type,
+    kingdom: KD_CODE,
+    guild_id: message.guildId || null,
+    author_id: message.author?.id || message.author?.username || null,
+    author_name: message.author?.tag || message.author?.username || null,
+    content: message.content || '',
+    message_created_at: message.createdAt ? new Date(message.createdAt).toISOString() : null,
+    created_at: message.createdAt ? new Date(message.createdAt).toISOString() : new Date().toISOString(),
+    kd_code: KD_CODE,
+    parsed: true,
+  };
   const { error: messageError } = await client.from('intel7_messages').upsert(messageRow, { onConflict: 'discord_message_id' });
   if (messageError) { logger.error(`[INTEL7] message save failed: ${messageError.message}`); return false; }
-  const eventRow = { discord_message_id: message.id, channel_type: type, event_type: parsed.event || type, kd_code: KD_CODE, province_name: parsed.attacker_name || null, province_kd: parsed.attacker_kd || null, target_name: parsed.target_name || null, target_kd: parsed.target_kd || null, action: parsed.spell || parsed.event || type, quantity: parsed.loot_amount ?? parsed.amount ?? parsed.thieves_sent ?? null, resource: parsed.loot_resource || null, raw_content: message.content || '', data: parsed };
+
+  const eventRow = {
+    message_id: message.id,
+    discord_message_id: message.id,
+    channel_id: message.channelId,
+    channel_type: type,
+    kingdom: KD_CODE,
+    event_type: parsed.event || type,
+    attacker_province: parsed.attacker_name || null,
+    attacker_kingdom: parsed.attacker_kd || null,
+    target_province: parsed.target_name || null,
+    target_kingdom: parsed.target_kd || null,
+    operation: parsed.event === 'thievery' ? 'thievery' : null,
+    spell_name: parsed.spell || null,
+    resource_type: parsed.loot_resource || null,
+    amount: parsed.loot_amount ?? parsed.amount ?? parsed.thieves_sent ?? null,
+    success: parsed.success ?? null,
+    data: parsed,
+    raw: message.content || '',
+    raw_content: message.content || '',
+    timestamp: message.createdAt ? new Date(message.createdAt).toISOString() : new Date().toISOString(),
+    kd_code: KD_CODE,
+    province_name: parsed.attacker_name || null,
+    province_kd: parsed.attacker_kd || null,
+    target_name: parsed.target_name || null,
+    target_kd: parsed.target_kd || null,
+    action: parsed.spell || parsed.event || type,
+    quantity: parsed.loot_amount ?? parsed.amount ?? parsed.thieves_sent ?? null,
+    resource: parsed.loot_resource || null,
+  };
   const { error: eventError } = await client.from('intel7_events').upsert(eventRow, { onConflict: 'discord_message_id' });
   if (eventError) { logger.error(`[INTEL7] event save failed: ${eventError.message}`); return false; }
-  logger.info(`[INTEL7 SAVED] ${type} message=${message.id}`); return true;
+
+  logger.info(`[INTEL7 SAVED] ${type} message=${message.id}`);
+  return true;
 }
 
 async function processMessage(message, type) {
@@ -105,9 +154,7 @@ function startRestPoller(client, channels) {
         }
         const last = seen.get(id);
         for (const message of ordered) {
-          if (last && message.id === last) {
-            continue;
-          }
+          if (last && message.id === last) continue;
           if (!last || message.createdTimestamp > (channel.messages.cache.get(last)?.createdTimestamp || 0)) {
             logger.info(`[INTEL7 POLL] new message channel=${id} type=${type} message=${message.id}`);
             await processMessage(message, type);
