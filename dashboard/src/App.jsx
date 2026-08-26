@@ -18,6 +18,7 @@ import EnemyKingdoms from "./components/EnemyKingdoms";
 import IntelQueue from "./components/IntelQueue";
 import OpsIntel from "./components/OpsIntel";
 import SpellTracker from "./components/SpellTracker";
+import Intel7 from "./components/Intel7";
 import AlertPanel from "./components/AlertPanel";
 import AttackCalc from "./components/AttackCalc";
 import AIWarReport from "./components/AIWarReport";
@@ -43,6 +44,7 @@ const GROUPS = [
     { id: "queue", label: "Intel Queue", component: IntelQueue },
   ] },
   { id: "ops", label: "OPS", color: "#a78bfa", tabs: [
+    { id: "intel7", label: "Intel 7", component: Intel7 },
     { id: "hostileops", label: "Hostile Ops", component: OpsIntel },
     { id: "spells", label: "Spells", component: SpellTracker },
     { id: "alerts", label: "Alerts", component: AlertPanel },
@@ -68,14 +70,12 @@ export default function App() {
 
   useEffect(() => {
     let cancelled = false;
-
     async function restoreAuthorization() {
       const saved = sessionStorage.getItem("nexus_auth") === "true";
       if (!saved) {
         if (!cancelled) setAuthReady(true);
         return;
       }
-
       const registration = await getDashboardRegistration();
       const allowed = registration.registered || registration.owner;
       if (!cancelled) {
@@ -84,7 +84,6 @@ export default function App() {
         setAuthReady(true);
       }
     }
-
     restoreAuthorization().catch(() => {
       if (!cancelled) {
         sessionStorage.removeItem("nexus_auth");
@@ -92,13 +91,11 @@ export default function App() {
         setAuthReady(true);
       }
     });
-
     return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {
     if (!authed) return undefined;
-
     let cancelled = false;
     loadNexusConfig().finally(() => {
       if (!cancelled) setConfigReady(true);
@@ -107,31 +104,19 @@ export default function App() {
   }, [authed]);
 
   useEffect(() => {
-    function calcTick() {
-      setTick(getTickState());
-    }
+    function calcTick() { setTick(getTickState()); }
     calcTick();
     const iv = setInterval(calcTick, 1000);
     return () => clearInterval(iv);
   }, []);
 
-  if (!authReady) {
-    return <div className="loading">Checking Nexus authorization...</div>;
-  }
-
-  if (!authed) {
-    return <Login onAuth={(result) => {
-      sessionStorage.setItem("nexus_auth", "true");
-      if (result?.province?.name) {
-        sessionStorage.setItem("nexus_province", result.province.name);
-      }
-      setAuthed(true);
-    }} />;
-  }
-
-  if (!configReady) {
-    return <div className="loading">Loading current kingdom context...</div>;
-  }
+  if (!authReady) return <div className="loading">Checking Nexus authorization...</div>;
+  if (!authed) return <Login onAuth={(result) => {
+    sessionStorage.setItem("nexus_auth", "true");
+    if (result?.province?.name) sessionStorage.setItem("nexus_province", result.province.name);
+    setAuthed(true);
+  }} />;
+  if (!configReady) return <div className="loading">Loading current kingdom context...</div>;
 
   const currentGroup = GROUPS.find(g => g.id === activeGroup);
   const currentTab = currentGroup?.tabs.find(t => t.id === activeTab);
@@ -154,37 +139,24 @@ export default function App() {
           </div>
         </div>
         <div className="header-tick">
-          {tick && (
-            <>
-              <span className="tick-label">TICK</span>
-              <span className="tick-num">{tick.current}</span>
-              <span className="tick-time">
-                {String(tick.minLeft).padStart(2, "0")}:{String(tick.secLeft).padStart(2, "0")}
-              </span>
-            </>
-          )}
+          {tick && <>
+            <span className="tick-label">TICK</span>
+            <span className="tick-num">{tick.current}</span>
+            <span className="tick-time">{String(tick.minLeft).padStart(2, "0")}:{String(tick.secLeft).padStart(2, "0")}</span>
+          </>}
         </div>
       </header>
-
       <nav className="group-nav">
         {GROUPS.map(g => (
-          <button key={g.id} className={`group-btn ${activeGroup === g.id ? "group-btn-active" : ""}`} style={activeGroup === g.id ? { borderColor: g.color, color: g.color } : {}} onClick={() => switchGroup(g.id)}>
-            {g.label}
-          </button>
+          <button key={g.id} className={`group-btn ${activeGroup === g.id ? "group-btn-active" : ""}`} style={activeGroup === g.id ? { borderColor: g.color, color: g.color } : {}} onClick={() => switchGroup(g.id)}>{g.label}</button>
         ))}
       </nav>
-
       <nav className="tab-nav">
         {currentGroup?.tabs.map(t => (
-          <button key={t.id} className={`tab-btn ${activeTab === t.id ? "tab-btn-active" : ""}`} style={activeTab === t.id ? { color: currentGroup.color, borderBottomColor: currentGroup.color } : {}} onClick={() => setActiveTab(t.id)}>
-            {t.label}
-          </button>
+          <button key={t.id} className={`tab-btn ${activeTab === t.id ? "tab-btn-active" : ""}`} style={activeTab === t.id ? { color: currentGroup.color, borderBottomColor: currentGroup.color } : {}} onClick={() => setActiveTab(t.id)}>{t.label}</button>
         ))}
       </nav>
-
-      <main className="content">
-        {TabComponent && <TabComponent />}
-      </main>
+      <main className="content">{TabComponent && <TabComponent />}</main>
     </div>
   );
 }
