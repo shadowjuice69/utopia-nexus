@@ -24,8 +24,29 @@ async function saveSpell(spell) {
 async function saveAttack(atk) {
   if (!supabase) return;
   try {
-    const loot = atk.loot || {};
-    const { error } = await supabase.from("attacks").insert({ message_id: atk.msgId || atk.messageId, timestamp: atk.timestamp || new Date().toISOString(), attacker_province: atk.attackerProvince, target_province: atk.targetProvince, target_kingdom: atk.targetKingdom, attack_type: atk.attack_type || atk.attackType, acres_captured: atk.acresCaptured ?? atk.acresRecaptured ?? null, offense_sent: atk.offenseSent ?? null, peasants: atk.peasants ?? null, spec_creds: atk.specCredits ?? null, kills: atk.kills ?? null, prisoners: atk.prisoners ?? null, losses: atk.losses || null, sent: atk.sent ?? atk.offenseSent ?? null, books_captured: loot.books ?? null });
+    const { error } = await supabase.from("attacks").insert({
+      message_id: atk.msgId || atk.messageId,
+      timestamp: atk.timestamp || new Date().toISOString(),
+      attacker_province: atk.attackerProvince,
+      attacker_kingdom: atk.attackerKingdom || null,
+      target_province: atk.targetProvince,
+      target_kingdom: atk.targetKingdom,
+      attack_type: atk.attack_type || atk.attackType,
+      acres_captured: atk.acresCaptured ?? null,
+      acres_recaptured: atk.acresRecaptured ?? null,
+      acres_destroyed: atk.acresDestroyed ?? null,
+      offense_sent: atk.offenseSent ?? null,
+      peasants: atk.peasants ?? null,
+      spec_creds: atk.specCredits ?? null,
+      kills: atk.kills ?? null,
+      prisoners: atk.prisoners ?? null,
+      losses: atk.losses || null,
+      sent: atk.sent ?? atk.offenseSent ?? null,
+      books_captured: atk.loot?.books ?? null,
+      enemy_defense: atk.enemyDefense ?? null,
+      return_days: atk.returnDays ?? null,
+      loot: atk.loot || null
+    });
     if (error) throw error;
     logger.info(`[ATTACK SAVED] ${atk.attackerProvince} → ${atk.targetProvince}`);
   } catch (err) { logger.error(`[ATTACK SERVICE ERROR] ${err.message}`); }
