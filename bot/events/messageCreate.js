@@ -2,8 +2,9 @@ const logger = require("../services/logger");
 const config = require("../config/config");
 const userService = require("../services/userService");
 const xpService = require("../services/xpService");
-const { saveOpsMessage, saveAttack, saveHostileOp, saveSpell } = require("../services/opsService");
+const { saveOpsMessage, saveAttack, saveHostileOp, saveSpell, saveChannelEvent } = require("../services/opsService");
 const { parseOpsMessage } = require("../parsers/opsParser");
+const { parseChannelMessage } = require("../parsers/intelChannelParser");
 const axios = require("axios");
 const pdfParse = require("pdf-parse");
 const { saveAgeUpdate } = require("../services/ageUpdateService");
@@ -14,128 +15,89 @@ const UTOPIABOT_IDS = new Set((process.env.UTOPIABOT_IDS || "").split(",").map(s
 module.exports = {
   name: "messageCreate",
   async execute(message) {
-
     const isAgeUpdateChannel = message.channel.id === process.env.AGE_UPDATE_CHANNEL_ID;
 
     if (isAgeUpdateChannel) {
-      console.log("📘 Age update channel message detected");
       let updateText = message.content || "";
       let ageUpdateFilename = null;
-
       if (message.attachments.size > 0) {
         const attachment = message.attachments.first();
         ageUpdateFilename = attachment.name;
-        console.log("📎 Attachments:", message.attachments.size);
-        console.log("📄 File name:", attachment.name);
-
         try {
           const response = await axios.get(attachment.url, { responseType: "arraybuffer" });
           const buffer = Buffer.from(response.data);
-
-          // Detect PDF by magic bytes
-          const isPdf = buffer.slice(0, 4).toString("ascii") === "%PDF";
-
-          if (isPdf) {
-            console.log("📄 Detected PDF — extracting text with pdf-parse");
+          if (buffer.slice(0, 4).toString("ascii") === "%PDF") {
             const parsed = await pdfParse(buffer);
             updateText += "\n" + parsed.text;
-          } else {
-            updateText += "\n" + buffer.toString("utf8");
-          }
-
-          console.log("📏 Age Update Text Length:", updateText.length);
+          } else updateText += "\n" + buffer.toString("utf8");
         } catch (err) {
           logger.error(`[AGE UPDATE] File download/parse error: ${err.message}`);
           return message.reply("⚠️ Failed to read the attachment. Make sure it's a valid PDF or TXT file.");
         }
       }
-
-      if (!updateText || updateText.trim().length === 0) {
-        logger.info("[AGE UPDATE] Skipping empty file");
-        return message.reply("⚠️ Age update file contained no readable text. Upload the TXT or PDF file.");
-      }
-
+      if (!updateText.trim()) return;
       const savedUpdate = await saveAgeUpdate(updateText, message.author.id, ageUpdateFilename);
-
-      if (!savedUpdate || savedUpdate.error) {
-        logger.info(`[AGE UPDATE] Skipping approval window: ${savedUpdate?.error || "unknown error"}`);
-        return;
-      }
-
-      if (savedUpdate.error === "no_age_number") {
-        return message.reply("⚠️ Could not detect age number from filename. Name your file like `Age_116_changes.txt`.");
-      }
-
-      if (savedUpdate.error === "duplicate") {
-        return message.reply(`⚠️ Age update already exists and is **${savedUpdate.status}**. No duplicate created.`);
-      }
-
+      if (!savedUpdate || savedUpdate.error) return;
+      if (savedUpdate.error === "no_age_number") return message.reply("⚠️ Could not detect age number from filename. Name your file like `Age_116_changes.txt`.");
+      if (savedUpdate.error === "duplicate") return message.reply(`⚠️ Age update already exists and is **${savedUpdate.status}**. No duplicate created.`);
       const buttons = new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setCustomId(`age_apply_${savedUpdate.id}`)
-          .setLabel("✅ Apply")
-          .setStyle(ButtonStyle.Success),
-        new ButtonBuilder()
-          .setCustomId(`age_revoke_${savedUpdate.id}`)
-          .setLabel("❌ Revoke")
-          .setStyle(ButtonStyle.Danger)
+        new ButtonBuilder().setCustomId(`age_apply_${savedUpdate.id}`).setLabel("✅ Apply").setStyle(ButtonStyle.Success),
+        new ButtonBuilder().setCustomId(`age_revoke_${savedUpdate.id}`).setLabel("❌ Revoke").setStyle(ButtonStyle.Danger)
       );
-
-      await message.reply({
-        content: [
-          `📘 **Age ${savedUpdate.age_number} Update — Pending Review**`,
-          ``,
-          savedUpdate.parsedSummary || "Parsing summary unavailable.",
-          ``,
-          `Click **Apply** to write all rules to the database.`
-        ].join('\n'),
-        components: [buttons]
-      });
-
+      await message.reply({ content: [`📘 **Age ${savedUpdate.age_number} Update — Pending Review**`, ``, savedUpdate.parsedSummary || "Parsing summary unavailable.", ``, `Click **Apply** to write all rules to the database.`].join("\n"), components: [buttons] });
       return;
     }
 
-    const isOpsChannel = config.opsChannelIds.includes(message.channel.id);
-    const isAttackChannel = config.attackChannelIds.includes(message.channel.id);
-    const isSelfOpsChannel = config.selfOpsChannelIds.includes(message.channel.id);
-    const isBotSpamChannel = message.channel.id === config.botSpamChannelId;
+    const channelId = message.channel.id;
+    const channelType =
+      config.opsChannelIds.includes(channelId) ? "ops" :
+      config.offensiveSpellChannelIds.includes(channelId) ? "offensive_spells" :
+      config.selfOpsChannelIds.includes(channelId) ? "self_spells" :
+      config.dragonChannelIds.includes(channelId) ? "dragon" :
+      config.ritualChannelIds.includes(channelId) ? "ritual" :
+      config.aidChannelIds.includes(channelId) ? "aid" :
+      config.attackChannelIds.includes(channelId) ? "attacks" : null;
 
-    if (!isOpsChannel && !isAttackChannel && !isSelfOpsChannel && !isBotSpamChannel) return;
+    const isBotSpamChannel = channelId === config.botSpamChannelId;
+    if (!channelType && !isBotSpamChannel) return;
 
     if (message.author.bot) {
       if (!UTOPIABOT_IDS.has(message.author.id)) return;
     } else {
       await userService.getOrCreateUser(message.author);
       const xpResult = await xpService.addXP(message.author.id, config.xp.amountPerMessage);
-      if (xpResult && xpResult.leveledUp) {
-        await message.reply(`🎉 ${message.author.username} reached Level ${xpResult.user.level}!`);
-      }
+      if (xpResult && xpResult.leveledUp) await message.reply(`🎉 ${message.author.username} reached Level ${xpResult.user.level}!`);
     }
 
-    const parsed = parseOpsMessage({
-      id: message.id,
-      content: message.content,
-      timestamp: message.createdAt.toISOString()
-    });
+    if (channelType) {
+      const intelEvents = parseChannelMessage({ id: message.id, content: message.content, timestamp: message.createdAt.toISOString(), channelType });
+      if (intelEvents.length) {
+        logger.info(`[INTEL ${channelType.toUpperCase()}] parsed ${intelEvents.length} event(s)`);
+        for (const event of intelEvents) {
+          if (event.type === "attack") await saveAttack(event);
+          else if (event.type === "offensive_spell" || event.type === "self_spell") await saveSpell(event);
+          else await saveChannelEvent(event);
+        }
+      }
 
-    console.log(`[OPS PARSED] ${parsed.ops.length} ops, ${parsed.atks.length} attacks, ${parsed.spells.length} spells, ${(parsed.incomingAtks||[]).length} incoming`);
-          console.log("[MSG CONTENT]", message.content.substring(0, 200));
-    for (const attack of parsed.atks) await saveAttack(attack);
-          for (const attack of (parsed.incomingAtks || [])) await saveAttack({ ...attack, attack_type: "incoming" });
-    for (const op of parsed.ops) await saveHostileOp(op);
-    for (const spell of parsed.spells) await saveSpell(spell);
-    for (const spell of (parsed.selfSpells || [])) await saveSpell({ ...spell, op: spell.spell });
-
-    await saveOpsMessage({ msgId: message.id, message: message.content });
+      // Preserve the established parser for the original thievery feed and as a fallback for legacy attack/self-spell formatting.
+      if (channelType === "ops" || !intelEvents.length && ["attacks", "self_spells"].includes(channelType)) {
+        const parsed = parseOpsMessage({ id: message.id, content: message.content, timestamp: message.createdAt.toISOString() });
+        for (const attack of parsed.atks) await saveAttack(attack);
+        for (const attack of parsed.incomingAtks || []) await saveAttack({ ...attack, attack_type: "incoming" });
+        for (const op of parsed.ops) await saveHostileOp(op);
+        for (const spell of parsed.spells) await saveSpell(spell);
+        for (const spell of parsed.selfSpells || []) await saveSpell({ ...spell, op: spell.spell });
+      }
+      await saveOpsMessage({ msgId: message.id, message: message.content });
+    }
 
     if (message.author.bot) return;
     if (!message.content.startsWith(config.prefix)) return;
-
     const args = message.content.slice(config.prefix.length).trim().split(/ +/);
     const commandName = args.shift().toLowerCase();
     const command = message.client.commands.get(commandName);
     if (!command) return;
-
     try {
       await command.execute(message, args);
       setTimeout(() => { message.delete().catch(() => {}); }, 90000);
