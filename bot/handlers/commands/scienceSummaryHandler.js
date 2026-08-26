@@ -21,9 +21,13 @@ const PERS_SCIENCE_MODS = {
   warrior:     { _all: 1.0 },
 };
 
-function calcBonus(books, multiplier, persMod = 1.0, allMod = 1.0) {
+const RACE_SCIENCE_MODS = {
+  undead: 0.90,
+};
+
+function calcBonus(books, multiplier, persMod = 1.0, allMod = 1.0, raceMod = 1.0) {
   if (!books || books === 0 || !multiplier) return 0;
-  return Math.pow(books, 1 / 2.125) * parseFloat(multiplier) * persMod * allMod;
+  return Math.pow(books, 1 / 2.125) * parseFloat(multiplier) * persMod * allMod * raceMod;
 }
 
 module.exports = async function scienceSummaryHandler(interaction) {
@@ -77,13 +81,14 @@ module.exports = async function scienceSummaryHandler(interaction) {
     if (!ruleMap[key]) ruleMap[key] = r;
   }
 
-  const persMods   = PERS_SCIENCE_MODS[personality] || { _all: 1.0 };
-  const allMod     = (persMods._all || 1.0) * (1 + librariesPct / 100);
+  const persMods = PERS_SCIENCE_MODS[personality] || { _all: 1.0 };
+  const allMod   = (persMods._all || 1.0) * (1 + librariesPct / 100);
+  const raceMod  = RACE_SCIENCE_MODS[race] ?? 1.0;
 
   const scienceKeys = [
-    'alchemy','artisan','bookkeeping','channeling','crime','finesse',
-    'heroism','housing','production','resilience','shielding','siege',
-    'strategy','tactics','tools','valor','arcana'
+    'alchemy','artisan','bookkeeping','channeling','crime','cunning',
+    'finesse','heroism','housing','production','resilience','shielding',
+    'siege','sorcery','strategy','tactics','tools','valor','arcana'
   ];
 
   const grouped = {};
@@ -97,7 +102,7 @@ module.exports = async function scienceSummaryHandler(interaction) {
     const gameEffect = effects[key];
     const bonusStr = gameEffect
       ? gameEffect.replace('%', '')
-      : calcBonus(bookCount, rule.multiplier, persMod, allMod).toFixed(1);
+      : calcBonus(bookCount, rule.multiplier, persMod, allMod, raceMod).toFixed(1);
     const cat = rule.category;
     if (!grouped[cat]) grouped[cat] = [];
     grouped[cat].push({

@@ -29,8 +29,10 @@ const SCIENCE_KEYS = [
   { key: "arcana",      category: "arcane_arts", name: "Arcana" },
   { key: "channeling",  category: "arcane_arts", name: "Channeling" },
   { key: "crime",       category: "arcane_arts", name: "Crime" },
+  { key: "cunning",     category: "arcane_arts", name: "Cunning" },
   { key: "finesse",     category: "arcane_arts", name: "Finesse" },
   { key: "shielding",   category: "arcane_arts", name: "Shielding" },
+  { key: "sorcery",     category: "arcane_arts", name: "Sorcery" },
 ];
 
 function ScienceBar({ value, max, color }) {
