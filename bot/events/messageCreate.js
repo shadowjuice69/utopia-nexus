@@ -2,9 +2,8 @@ const logger = require("../services/logger");
 const config = require("../config/config");
 const userService = require("../services/userService");
 const xpService = require("../services/xpService");
-const { saveOpsMessage, saveAttack, saveHostileOp, saveSpell, saveChannelEvent } = require("../services/opsService");
-const { parseOpsMessage } = require("../parsers/opsParser");
-const { parseChannelMessage } = require("../parsers/intelChannelParser");
+const supabaseService = require("../services/supabase");
+const { processMessage } = require("../intel7");
 const axios = require("axios");
 const pdfParse = require("pdf-parse");
 const { saveAgeUpdate } = require("../services/ageUpdateService");
@@ -61,44 +60,30 @@ module.exports = {
     const isBotSpamChannel = channelId === config.botSpamChannelId;
     if (!channelType && !isBotSpamChannel) return;
 
-    // Intel channels are dedicated ingestion feeds. Accept bot-authored messages
-    // in these channels without requiring a hard-coded UTOPIABOT_IDS value.
-    // This prevents the new seven-channel feed from being silently discarded
-    // when the source bot changes or its ID is not configured in Render.
-    if (message.author.bot && !channelType && !UTOPIABOT_IDS.has(message.author.id)) return;
-
-    if (!message.author.bot) {
-      await userService.getOrCreateUser(message.author);
-      const xpResult = await xpService.addXP(message.author.id, config.xp.amountPerMessage);
-      if (xpResult && xpResult.leveledUp) await message.reply(`🎉 ${message.author.username} reached Level ${xpResult.user.level}!`);
-    }
-
+    // Dedicated Intel 7 channels are isolated from all legacy parsers.
     if (channelType) {
-      logger.info(`[INTEL ${channelType.toUpperCase()}] received message ${message.id}`);
-      const intelEvents = parseChannelMessage({ id: message.id, content: message.content, timestamp: message.createdAt.toISOString(), channelType });
-      if (intelEvents.length) {
-        logger.info(`[INTEL ${channelType.toUpperCase()}] parsed ${intelEvents.length} event(s)`);
-        for (const event of intelEvents) {
-          if (event.type === "attack") await saveAttack(event);
-          else if (event.type === "offensive_spell" || event.type === "self_spell") await saveSpell(event);
-          else await saveChannelEvent(event);
-        }
-      } else {
-        logger.warn(`[INTEL ${channelType.toUpperCase()}] no event parsed for message ${message.id}`);
+      if (!message.author.bot) {
+        await userService.getOrCreateUser(message.author);
+        const xpResult = await xpService.addXP(message.author.id, config.xp.amountPerMessage);
+        if (xpResult && xpResult.leveledUp) await message.reply(`🎉 ${message.author.username} reached Level ${xpResult.user.level}!`);
       }
 
-      // Preserve the established parser for the original thievery feed and as a fallback for legacy attack/self-spell formatting.
-      if (channelType === "ops" || !intelEvents.length && ["attacks", "self_spells"].includes(channelType)) {
-        const parsed = parseOpsMessage({ id: message.id, content: message.content, timestamp: message.createdAt.toISOString() });
-        for (const attack of parsed.atks) await saveAttack(attack);
-        for (const attack of parsed.incomingAtks || []) await saveAttack({ ...attack, attack_type: "incoming" });
-        for (const op of parsed.ops) await saveHostileOp(op);
-        for (const spell of parsed.spells) await saveSpell(spell);
-        for (const spell of parsed.selfSpells || []) await saveSpell({ ...spell, op: spell.spell });
+      const supabase = supabaseService.getClient();
+      if (!supabase) {
+        logger.error(`[INTEL7] Supabase unavailable; message ${message.id} not stored`);
+        return;
       }
-      await saveOpsMessage({ msgId: message.id, message: message.content });
+
+      try {
+        await processMessage({ message, channelType, supabase, logger });
+      } catch (error) {
+        logger.error(`[INTEL7 ${channelType.toUpperCase()}] processing error: ${error.message}`);
+      }
+      return;
     }
 
+    // Legacy bot-spam / command handling remains unchanged and separate.
+    if (message.author.bot && !UTOPIABOT_IDS.has(message.author.id)) return;
     if (message.author.bot) return;
     if (!message.content.startsWith(config.prefix)) return;
     const args = message.content.slice(config.prefix.length).trim().split(/ +/);
