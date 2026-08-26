@@ -29,24 +29,47 @@ function cleanProvinceName(name) { return String(name || '').trim().replace(/^\d
 function parseMessage(type, content) {
   const text = String(content || '').trim();
   const data = { format: 'intel7', channel_type: type, province_refs: provinceMatches(text) };
+
   if (type === 'attacks') {
-    // Handles both standard loot attacks and land captures, including Utopia's
-    // province-number prefix: "9 - Jan (4:10) ... from 24 - Work work (6:9)."
-    const m = text.match(/^(.*?)\s+\((\d+:\d+)\)\s+(?:attacked\s+and\s+looted\s+([\d,]+)\s+(.+?)\s+from|captured\s+([\d,]+)\s+acres?\s+of\s+land\s+from)\s+(.*?)\s+\((\d+:\d+)\)/i);
-    if (m) {
-      data.attacker_name = cleanProvinceName(m[1]);
-      data.attacker_kd = m[2];
-      if (m[3] != null) {
-        data.loot_amount = Number(m[3].replace(/,/g, ''));
-        data.loot_resource = m[4].trim();
+    // Standard loot / land-capture lines.
+    const direct = text.match(/^(.*?)\s+\((\d+:\d+)\)\s+(?:attacked\s+and\s+looted\s+([\d,]+)\s+(.+?)\s+from|captured\s+([\d,]+)\s+acres?\s+of\s+land\s+from)\s+(.*?)\s+\((\d+:\d+)\)/i);
+    if (direct) {
+      data.attacker_name = cleanProvinceName(direct[1]);
+      data.attacker_kd = direct[2];
+      if (direct[3] != null) {
+        data.loot_amount = Number(direct[3].replace(/,/g, ''));
+        data.loot_resource = direct[4].trim();
       } else {
-        data.acres = Number(m[5].replace(/,/g, ''));
+        data.acres = Number(direct[5].replace(/,/g, ''));
         data.loot_amount = data.acres;
         data.loot_resource = 'acres';
         data.event = 'land_capture';
       }
-      data.target_name = cleanProvinceName(m[6]);
-      data.target_kd = m[7];
+      data.target_name = cleanProvinceName(direct[6]);
+      data.target_kd = direct[7];
+    } else {
+      // Province Logs / battle report format:
+      // "⚔ Bhaal (6:9) — #16 - Alt: Your forces arrive at Return to OZ (1:7). ..."
+      const header = text.match(/(?:^|\n)\s*⚔\s*(.*?)\s+\((\d+:\d+)\)\s*(?:—|-)\s*#?\s*\d+\s*-\s*[^:]+:/i);
+      const arrival = text.match(/Your forces arrive at\s+(.+?)\s+\((\d+:\d+)\)\s*\./i);
+      if (header && arrival) {
+        data.attacker_name = cleanProvinceName(header[1]);
+        data.attacker_kd = header[2];
+        data.target_name = cleanProvinceName(arrival[1]);
+        data.target_kd = arrival[2];
+
+        const victory = /managed\s+a\s+victory|victory/i.test(text);
+        data.result = victory ? 'victory' : (/defeat|lost\s+the\s+battle/i.test(text) ? 'defeat' : null);
+        const massacred = text.match(/massacred\s+([\d,]+)\s+peasants?,?\s*thieves?,?\s*and\s*wizards?/i);
+        if (massacred) data.enemy_civilians_killed = Number(massacred[1].replace(/,/g, ''));
+        const losses = text.match(/We lost\s+(.+?)\s+in this battle\./i);
+        if (losses) data.our_losses = losses[1].trim();
+        const killed = text.match(/We killed about\s+([\d,]+)\s+enemy troops?/i);
+        if (killed) data.enemy_troops_killed = Number(killed[1].replace(/,/g, ''));
+        const available = text.match(/available again in\s+([\d.]+)\s+days/i);
+        if (available) data.army_return_days = Number(available[1]);
+        data.event = 'battle_report';
+      }
     }
     data.event = data.event || 'attack';
   } else if (type === 'ops') {
