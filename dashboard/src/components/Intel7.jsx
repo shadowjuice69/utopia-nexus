@@ -24,14 +24,48 @@ function ago(value) {
 function normalize(row) {
   const p = row.parsed || {};
   const refs = Array.isArray(p.province_refs) ? p.province_refs : [];
-  const refText = refs.length ? refs.join(" → ") : "";
   const content = row.content || "";
-  const title = row.event_type ? row.event_type.replace(/_/g, " ") : "Intel";
-  return {
-    title: title.charAt(0).toUpperCase() + title.slice(1),
-    detail: refText || content || "Intel received",
-    status: p.success === false ? "FAILED" : p.success === true ? "SUCCESS" : "",
-  };
+
+  if (row.channel_type === "attacks") {
+    const attacker = p.attacker_name || "Unknown attacker";
+    const attackerKd = p.attacker_kd || "?";
+    const target = p.target_name || "Unknown target";
+    const targetKd = p.target_kd || "?";
+    const title = "Attack";
+    const parts = [`${attacker} (${attackerKd}) → ${target} (${targetKd})`];
+    if (p.acres_captured != null) parts.push(`${Number(p.acres_captured).toLocaleString()} acres`);
+    if (p.loot_amount != null && p.loot_resource) parts.push(`${Number(p.loot_amount).toLocaleString()} ${p.loot_resource}`);
+    return { title, detail: parts.join(" • "), fallback: content, status: p.success === false ? "FAILED" : "" };
+  }
+
+  if (row.channel_type === "thieves") {
+    const attacker = p.attacker_name || "Unknown attacker";
+    const attackerKd = p.attacker_kd || "?";
+    const target = p.target_name || "Unknown target";
+    const targetKd = p.target_kd || "?";
+    const detail = `${attacker} (${attackerKd}) → ${target} (${targetKd})${p.thieves_sent != null ? ` • ${Number(p.thieves_sent).toLocaleString()} thieves` : ""}`;
+    return { title: "Thievery", detail, fallback: content, status: p.success === false ? "FAILED" : "" };
+  }
+
+  if (row.channel_type === "offensive_spells" || row.channel_type === "self_spells") {
+    const detail = p.spell || (refs.length ? refs.join(" → ") : content || "Intel received");
+    return { title: p.spell || "Spell", detail, fallback: content, status: p.success === false ? "FAILED" : p.success === true ? "SUCCESS" : "" };
+  }
+
+  if (row.channel_type === "dragon") {
+    return { title: row.event_type || "Dragon event", detail: refs.length ? refs.join(" → ") : content || "Intel received", fallback: content, status: p.dragonName || "" };
+  }
+
+  if (row.channel_type === "ritual") {
+    return { title: "Ritual", detail: refs.length ? refs.join(" → ") : content || "Intel received", fallback: content, status: p.success === false ? "FAILED" : p.success ? "SUCCESS" : "" };
+  }
+
+  if (row.channel_type === "aid") {
+    const amount = p.amount != null ? Number(p.amount).toLocaleString() : "";
+    return { title: "Aid", detail: refs.length ? `${refs.join(" → ")}${amount ? ` • ${amount}` : ""}` : content || "Intel received", fallback: content, status: "" };
+  }
+
+  return { title: row.event_type ? row.event_type.replace(/_/g, " ") : "Intel", detail: refs.length ? refs.join(" → ") : content || "Intel received", fallback: content, status: "" };
 }
 
 export default function Intel7() {
@@ -80,6 +114,7 @@ export default function Intel7() {
               <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}><strong>{item.title}</strong><span style={{ color: "#64748b", fontSize: 11 }}>{ago(row.message_created_at || row.received_at)}</span></div>
               <div style={{ color: "#94a3b8", fontSize: 12, marginTop: 3, whiteSpace: "pre-wrap" }}>{item.detail}</div>
               {item.status && <div style={{ color: "#facc15", fontSize: 11, marginTop: 3 }}>{item.status}</div>}
+              {item.fallback && item.fallback !== item.detail && <div style={{ color: "#64748b", fontSize: 11, marginTop: 4, whiteSpace: "pre-wrap" }}>{item.fallback}</div>}
             </div>; })}
           </div>
         )}
