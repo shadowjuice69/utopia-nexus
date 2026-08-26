@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../services/supabase";
 
+// Must match backend channel_type values in intel7_ingest.
 const CHANNELS = [
-  ["thieves", "🗡️ Thieves Operations"],
-  ["offensive", "🔥 Offensive Spells"],
+  ["ops", "🗡️ Thieves Operations"],
+  ["offensive_spells", "🔥 Offensive Spells"],
   ["self_spells", "🛡️ Self Spells"],
   ["dragon", "🐉 Dragon"],
   ["ritual", "🔮 Ritual"],
@@ -31,14 +32,13 @@ function normalize(row) {
     const attackerKd = p.attacker_kd || "?";
     const target = p.target_name || "Unknown target";
     const targetKd = p.target_kd || "?";
-    const title = "Attack";
     const parts = [`${attacker} (${attackerKd}) → ${target} (${targetKd})`];
     if (p.acres_captured != null) parts.push(`${Number(p.acres_captured).toLocaleString()} acres`);
     if (p.loot_amount != null && p.loot_resource) parts.push(`${Number(p.loot_amount).toLocaleString()} ${p.loot_resource}`);
-    return { title, detail: parts.join(" • "), fallback: content, status: p.success === false ? "FAILED" : "" };
+    return { title: "Attack", detail: parts.join(" • "), fallback: content, status: p.success === false ? "FAILED" : "" };
   }
 
-  if (row.channel_type === "thieves") {
+  if (row.channel_type === "ops") {
     const attacker = p.attacker_name || "Unknown attacker";
     const attackerKd = p.attacker_kd || "?";
     const target = p.target_name || "Unknown target";
@@ -69,7 +69,7 @@ function normalize(row) {
 }
 
 export default function Intel7() {
-  const [active, setActive] = useState("thieves");
+  const [active, setActive] = useState("ops");
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
