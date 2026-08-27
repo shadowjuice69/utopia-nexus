@@ -115,7 +115,7 @@ export default function WaveTracker() {
     const { data } = await supabase
       .from("intel_military")
       .select("province, armies, updated_at")
-      .eq("kd_code", "3:2");
+      .eq("kd_code", "6:9");
     setArmies((data || []).filter(d => d.armies && d.armies.length > 0));
   }
 

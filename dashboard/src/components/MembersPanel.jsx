@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../services/supabase";
 
-const MY_KD = "3:2";
+const MY_KD = "6:9";
 
 export default function MembersPanel() {
   const [members, setMembers] = useState([]);

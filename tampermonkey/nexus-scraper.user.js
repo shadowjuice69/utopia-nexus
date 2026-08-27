@@ -18,7 +18,7 @@
 
 const ENDPOINT = "https://utopia-nexus.onrender.com/intel";
 const KEY = "NikkoAce";
-const MY_KD = "3:2";
+const MY_KD = "6:9";
 
 // Cycler state (persisted via GM_setValue)
 let cyclerRunning = false;

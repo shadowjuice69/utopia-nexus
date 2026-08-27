@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { supabase } from "../services/supabase";
 
-const MY_KD = "3:2";
+const MY_KD = "6:9";
 
 export default function AIAssistant() {
   const [messages, setMessages] = useState([
@@ -27,7 +27,7 @@ export default function AIAssistant() {
       ]);
 
       const context = `
-Kingdom Judo (3:2) current state:
+Kingdom Relentless Recruiting (6:9) current state:
 Provinces: ${(provinces || []).map(p => `${p.name} (${p.race}, ${p.acres}a, ${p.nw}gc NW, Off:${p.off}, Def:${p.def})`).join("; ")}
 
 Recent attacks: ${(attacks || []).map(a => `${a.attacker} vs ${a.defender}: ${a.acres_captured || 0}ac (${a.attack_type})`).join("; ")}

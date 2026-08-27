@@ -70,7 +70,7 @@ export default function CSVImport() {
   const [status, setStatus] = useState([]);
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
-  const [kdCode, setKdCode] = useState("3:2");
+  const [kdCode, setKdCode] = useState("6:9");
 
   // Paste Intel state
   const [pasteProvince, setPasteProvince] = useState("");

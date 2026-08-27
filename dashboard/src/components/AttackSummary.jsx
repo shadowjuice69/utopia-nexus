@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { supabase } from "../services/supabase";
 
-const MY_KD = "3:2";
+const MY_KD = "6:9";
 
 const OUTGOING = ["outgoing_attack","outgoing_ambush","outgoing_recapture"];
 const INCOMING = ["incoming_attack","incoming_ambush"];
