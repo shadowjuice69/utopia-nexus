@@ -17,4 +17,6 @@ module.exports = {
     cooldown: 60000,
     xpPerLevel: 200,
   },
+
+  intel7KdCode: process.env.INTEL7_KD || '6:9',
 };

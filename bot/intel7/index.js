@@ -1,4 +1,5 @@
 const { parseIntel7 } = require("./parsers");
+const config = require("../config/config");
 
 const CHANNEL_TYPES = {
   ops: "thieves",
@@ -25,7 +26,7 @@ async function processMessage({ message, channelType, supabase, logger }) {
     message_id: message.id,
     channel_id: message.channel.id,
     channel_type: intelType,
-    kingdom: "6:9",
+    kingdom: config.intel7KdCode,
     content: raw,
     author_id: message.author?.id || null,
     created_at: message.createdAt?.toISOString?.() || new Date().toISOString(),
@@ -37,7 +38,7 @@ async function processMessage({ message, channelType, supabase, logger }) {
     message_id: message.id,
     channel_id: message.channel.id,
     channel_type: intelType,
-    kingdom: "6:9",
+    kingdom: config.intel7KdCode,
     event_type: event.eventType || event.type || "unknown",
     attacker_province: event.attackerProvince || null,
     attacker_kingdom: event.attackerKingdom || null,
