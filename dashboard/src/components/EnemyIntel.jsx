@@ -110,7 +110,7 @@ export default function EnemyIntel() {
 
   async function fetchAll() {
     const { data: settings } = await supabase.from("bot_settings").select("value").eq("key", "kingdom_code").single();
-    const myKd = settings?.value || "3:2";
+    const myKd = settings?.value || "6:9";
     const { data: throne } = await supabase.from("intel_throne").select("*").neq("kd_code", myKd).order("updated_at", { ascending: false });
     const { data: me } = await supabase.from("provinces").select("nw").eq("name", "Sumi Gaeshi").single();
     if (me && me.nw) setMyNw(parseNum(me.nw));
