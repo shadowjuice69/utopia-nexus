@@ -96,6 +96,49 @@ function parseAttack(raw) {
       continue;
     }
 
+    // No-header format: "- ProvinceName: Your forces arrive at Target (kd)..."
+    // e.g. "- Kx: Your forces arrive at Omega (1:7)."
+    const noHeaderMatch = line.match(/^(?:#?\d+\s*-\s*)?(.+?)\s*:\s*Your forces arrive at\s+(.+?)\s*\((\d+:\d+)\)/i);
+    if (noHeaderMatch) {
+      const provinceName = noHeaderMatch[1].trim();
+      const rest = lines.slice(i, i + 15).join(" ");
+      const acresMatch = rest.match(/(?:has taken|captured|took|recaptured)\s+([\d,]+)\s+acres/i);
+      const creditsMatch = rest.match(/gained\s+([\d,]+)\s+specialist training credits/i);
+      const peasantsMatch = rest.match(/([\d,]+)\s+peasants\s+settled/i);
+      const killsMatch = rest.match(/killed\s+about\s+([\d,]+)\s+enemy\s+troops/i);
+      const imprisonedMatch = rest.match(/imprisoned\s+([\d,]+)/i);
+      const returnMatch = rest.match(/available again in\s+([\d.]+)\s+days/i);
+      const defMatch = rest.match(/vs\s+([\d,]+)\s+def/i);
+      const offMatch = rest.match(/⚔\s*~?([\d,]+(?:\s+[\w\s]+?\+)*)/i);
+      const kdMatch = rest.match(/\((\d+:\d+)\)\s*$/);
+      const lostMatch = rest.match(/We lost\s+(.+?)(?:\.|in this battle)/i);
+      const losses = {};
+      for (const m of rest.matchAll(/lost\s+([\d,]+)\s+([A-Za-z ]+?)(?=,|\s+and\s+|\s+in this battle)/gi)) {
+        losses[m[2].trim().toLowerCase()] = num(m[1]);
+      }
+      const isRecapture = /recaptured/i.test(rest);
+      out.push({
+        type: "attack",
+        eventType: isRecapture ? "recapture" : "attack",
+        attackerProvince: provinceName,
+        attackerKingdom: kdMatch?.[1] || null,
+        targetProvince: noHeaderMatch[2].trim(),
+        targetKingdom: noHeaderMatch[3],
+        acresCaptured: acresMatch ? num(acresMatch[1]) : null,
+        credits: creditsMatch ? num(creditsMatch[1]) : null,
+        peasants: peasantsMatch ? num(peasantsMatch[1]) : null,
+        kills: killsMatch ? num(killsMatch[1]) : null,
+        imprisoned: imprisonedMatch ? num(imprisonedMatch[1]) : null,
+        troopsLost: Object.keys(losses).length ? losses : null,
+        troopsLostRaw: lostMatch ? lostMatch[1].trim() : null,
+        returnDays: returnMatch ? Number(returnMatch[1]) : null,
+        enemyDefense: defMatch ? num(defMatch[1]) : null,
+        success: true,
+      });
+      i++;
+      continue;
+    }
+
     // Incoming failed attack: "4 - Omega (1:7) attempted to invade 23 - The First Sire (6:9)"
     let m = line.match(/^(?:#?\d+\s*-\s*)?(.+?)\s*\((\d+:\d+)\)\s+attempted\s+to\s+invade\s+(?:#?\d+\s*-\s*)?(.+?)\s*\((\d+:\d+)\)/i);
     if (m) {
@@ -136,6 +179,13 @@ function parseAttack(raw) {
       });
       i++;
       continue;
+    }
+
+    // "N - Attacker (kd) captured N acres of land from N - Target (kd)"
+    m = line.match(/^(?:#?\d+\s*-\s*)?(.+?)\s*\((\d+:\d+)\)\s+captured\s+([\d,]+)\s+acres?\s+of\s+land\s+from\s+(?:#?\d+\s*-\s*)?(.+?)\s*\((\d+:\d+)\)/i);
+    if (m) {
+      out.push({type:"attack",eventType:"attack",attackerProvince:m[1].trim(),attackerKingdom:m[2],targetProvince:m[4].trim(),targetKingdom:m[5],acresCaptured:num(m[3]),success:true});
+      i++; continue;
     }
 
     // "Attacker (kd) attacked and looted N books/acres from Target (kd)"
