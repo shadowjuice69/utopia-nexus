@@ -1,352 +1,356 @@
+'use strict';
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
 function clean(value) {
-  return String(value || "").replace(/[\u0000-\u001F\uFFFD]/g, " ").replace(/\s+/g, " ").trim();
+  return String(value || '')
+    .replace(/[\u0000-\u001F\uFFFD]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 function num(value) {
   if (value == null) return null;
-  const m = String(value).replace(/,/g, "").match(/-?\d+(?:\.\d+)?/);
+  const m = String(value).replace(/,/g, '').match(/-?\d+(?:\.\d+)?/);
   return m ? Number(m[0]) : null;
 }
 
-// ─── THIEVES ─────────────────────────────────────────────────────────────────
-
-function parseThieves(raw) {
-  const t = clean(raw), out = [];
-  for (const line of t.split(/\n+/)) {
-    const s = clean(line);
-    let m = s.match(/^(?:#?\d+\s*-\s*)?(.+?)\s*\((\d+:\d+)\)\s+(?:performed|used|attempted)\s+(.+?)\s+(?:on|against|at)\s+(?:#?\d+\s*-\s*)?(.+?)\s*\((\d+:\d+)\).*$/i);
-    if (m) {
-      out.push({
-        type: "thieves", eventType: "operation",
-        attackerProvince: m[1].trim(), attackerKingdom: m[2],
-        operation: m[3].trim(),
-        targetProvince: m[4].trim(), targetKingdom: m[5],
-        success: !/fail|failed/i.test(s),
-      });
-      continue;
-    }
-    // Bot-relay format: Province <<__OP__ **| Target (kd)**>>
-    m = s.match(/^(?:#?\d+\s*-\s*)?(.+?)\s*<<__(.+?)__\s+\*\*\|\s*(.+?)\s+\((\d+:\d+)\)\*\*>>\s*(.*)$/i);
-    if (m) {
-      out.push({
-        type: "thieves", eventType: "operation",
-        attackerProvince: m[1].trim(), operation: m[2].trim(),
-        targetProvince: m[3].trim(), targetKingdom: m[4],
-        success: !/FAIL/i.test(m[5]),
-      });
-    }
-  }
-  return out;
+// Strip Discord markdown bold/italic from a string
+function stripMd(s) {
+  return String(s || '').replace(/\*\*/g, '').replace(/__/g, '').trim();
 }
 
-// ─── ATTACKS ─────────────────────────────────────────────────────────────────
-
+// ---------------------------------------------------------------------------
+// ATTACKS
+// Outgoing format:
+//   ⚔ KdName (kd) — #N ProvinceName:\n
+//   Your forces arrive at Target (kd). ... taken N acres! ...
+//   We lost N X and N Y in this battle.
+//   We killed about N enemy troops. We also imprisoned N additional troops ...
+//   Our forces will be available again in N days ...
+//   ⚔ ~N X + N Y ... vs N,NNN def ...
+//
+// Incoming format:
+//   N - Province (kd) attempted to invade N - Province (kd).\nWe lost ...
+//   OR: N - Province (kd) invaded N - Province (kd) and captured N acres
+// ---------------------------------------------------------------------------
 function parseAttack(raw) {
-  const t = clean(raw), out = [];
-  const lines = t.split(/\n+/);
-  let i = 0;
+  const t = clean(raw);
+  const out = [];
 
-  while (i < lines.length) {
-    const line = lines[i];
+  // ── Outgoing battle result (starts with ⚔ KdName (kd) — #N Province:) ──
+  const outgoingHeader = t.match(/^⚔\s+(.+?)\s*\((\d+:\d+)\)\s*[—-]\s*#?\d+\s+(.+?):/i);
+  if (outgoingHeader && /Your forces arrive at/i.test(t)) {
+    const attackerKingdom = outgoingHeader[2];
+    const attackerProvince = stripMd(outgoingHeader[3]);
+    const targetMatch = t.match(/Your forces arrive at\s+(.+?)\s*\((\d+:\d+)\)/i);
+    const targetProvince = targetMatch ? stripMd(targetMatch[1]) : null;
+    const targetKingdom = targetMatch ? targetMatch[2] : null;
 
-    // Discord Intel7 header: "⚔ KdName (kd) — #N ProvinceName:"
-    const headerMatch = line.match(/^⚔\s+(.+?)\s*\((\d+:\d+)\)\s*[—-]+\s*#?\d+\s*(.+?)\s*:?\s*$/);
-    if (headerMatch) {
-      const kdAttacker = headerMatch[2];
-      const provinceName = headerMatch[3].trim();
-      const nextLines = lines.slice(i + 1, i + 15).join(" ");
+    const success = /managed a victory|victory!/i.test(t);
+    const acresCaptured = num(t.match(/army has taken\s+([\d,]+)\s+acres/i)?.[1]);
+    const credits = num(t.match(/gained\s+([\d,]+)\s+specialist training credits/i)?.[1]);
+    const peasants = num(t.match(/([\d,]+)\s+peasants settled/i)?.[1]);
+    const buildings = num(t.match(/([\d,]+)\s+acres of buildings survived/i)?.[1]);
+    const killed = num(t.match(/killed about\s+([\d,]+)\s+enemy troops/i)?.[1]);
+    const imprisoned = num(t.match(/imprisoned\s+([\d,]+)\s+additional troops/i)?.[1]);
+    const returnDays = num(t.match(/available again in\s+([\d.]+)\s+days/i)?.[1]);
+    const enemyDefense = num(t.match(/vs\s+([\d,]+)\s+def/i)?.[1]);
 
-      const arriveMatch = nextLines.match(/Your forces arrive at\s+(.+?)\s*\((\d+:\d+)\)/i);
-      const acresMatch = nextLines.match(/(?:has taken|captured|took)\s+([\d,]+)\s+acres/i);
-      const creditsMatch = nextLines.match(/gained\s+([\d,]+)\s+specialist training credits/i);
-      const peasantsMatch = nextLines.match(/([\d,]+)\s+peasants\s+settled/i);
-      const killsMatch = nextLines.match(/killed\s+about\s+([\d,]+)\s+enemy\s+troops/i);
-      const imprisonedMatch = nextLines.match(/imprisoned\s+([\d,]+)/i);
-      const lostMatch = nextLines.match(/We lost\s+(.+?)(?:\.|in this battle)/i);
-      const returnMatch = nextLines.match(/available again in\s+([\d.]+)\s+days/i);
-      const defMatch = nextLines.match(/vs\s+([\d,]+)\s+def/i);
-      const buildingsMatch = nextLines.match(/([\d,]+)\s+acres? of buildings survived/i);
-      const success = /managed a victory|victorious|has taken/i.test(nextLines);
-      const failed = /failed|repelled|driven back/i.test(nextLines);
-
-      // Parse per-troop losses
-      const losses = {};
-      for (const m of nextLines.matchAll(/lost\s+([\d,]+)\s+([A-Za-z ]+?)(?=,|\s+and\s+|\s+in this battle)/gi)) {
-        losses[m[2].trim().toLowerCase()] = num(m[1]);
+    // Parse losses: "We lost 63 Knights and 10 horses in this battle."
+    // Strategy: find the whole "We lost ... in this battle" clause, then split by " and "
+    const losses = {};
+    const lossClause = t.match(/We lost\s+(.+?)\s+in this battle/i)?.[1];
+    if (lossClause) {
+      for (const part of lossClause.split(/\s+and\s+/i)) {
+        const m = part.trim().match(/^([\d,]+)\s+(.+)$/);
+        if (m) losses[m[2].trim().toLowerCase()] = num(m[1]);
       }
-
-      out.push({
-        type: "attack", eventType: "attack",
-        attackerProvince: provinceName, attackerKingdom: kdAttacker,
-        targetProvince: arriveMatch ? arriveMatch[1].trim() : null,
-        targetKingdom: arriveMatch ? arriveMatch[2] : null,
-        acresCaptured: acresMatch ? num(acresMatch[1]) : null,
-        credits: creditsMatch ? num(creditsMatch[1]) : null,
-        peasants: peasantsMatch ? num(peasantsMatch[1]) : null,
-        kills: killsMatch ? num(killsMatch[1]) : null,
-        imprisoned: imprisonedMatch ? num(imprisonedMatch[1]) : null,
-        troopsLost: Object.keys(losses).length ? losses : null,
-        troopsLostRaw: lostMatch ? lostMatch[1].trim() : null,
-        returnDays: returnMatch ? Number(returnMatch[1]) : null,
-        enemyDefense: defMatch ? num(defMatch[1]) : null,
-        buildingsSurvived: buildingsMatch ? num(buildingsMatch[1]) : null,
-        success: success || !failed,
-      });
-      i++;
-      continue;
     }
 
-    // No-header format: "- ProvinceName: Your forces arrive at Target (kd)..."
-    // e.g. "- Kx: Your forces arrive at Omega (1:7)."
-    const noHeaderMatch = line.match(/^(?:#?\d+\s*-\s*)?(.+?)\s*:\s*Your forces arrive at\s+(.+?)\s*\((\d+:\d+)\)/i);
-    if (noHeaderMatch) {
-      const provinceName = noHeaderMatch[1].trim();
-      const rest = lines.slice(i, i + 15).join(" ");
-      const acresMatch = rest.match(/(?:has taken|captured|took|recaptured)\s+([\d,]+)\s+acres/i);
-      const creditsMatch = rest.match(/gained\s+([\d,]+)\s+specialist training credits/i);
-      const peasantsMatch = rest.match(/([\d,]+)\s+peasants\s+settled/i);
-      const killsMatch = rest.match(/killed\s+about\s+([\d,]+)\s+enemy\s+troops/i);
-      const imprisonedMatch = rest.match(/imprisoned\s+([\d,]+)/i);
-      const returnMatch = rest.match(/available again in\s+([\d.]+)\s+days/i);
-      const defMatch = rest.match(/vs\s+([\d,]+)\s+def/i);
-      const offMatch = rest.match(/⚔\s*~?([\d,]+(?:\s+[\w\s]+?\+)*)/i);
-      const kdMatch = rest.match(/\((\d+:\d+)\)\s*$/);
-      const lostMatch = rest.match(/We lost\s+(.+?)(?:\.|in this battle)/i);
-      const losses = {};
-      for (const m of rest.matchAll(/lost\s+([\d,]+)\s+([A-Za-z ]+?)(?=,|\s+and\s+|\s+in this battle)/gi)) {
-        losses[m[2].trim().toLowerCase()] = num(m[1]);
-      }
-      const isRecapture = /recaptured/i.test(rest);
-      out.push({
-        type: "attack",
-        eventType: isRecapture ? "recapture" : "attack",
-        attackerProvince: provinceName,
-        attackerKingdom: kdMatch?.[1] || null,
-        targetProvince: noHeaderMatch[2].trim(),
-        targetKingdom: noHeaderMatch[3],
-        acresCaptured: acresMatch ? num(acresMatch[1]) : null,
-        credits: creditsMatch ? num(creditsMatch[1]) : null,
-        peasants: peasantsMatch ? num(peasantsMatch[1]) : null,
-        kills: killsMatch ? num(killsMatch[1]) : null,
-        imprisoned: imprisonedMatch ? num(imprisonedMatch[1]) : null,
-        troopsLost: Object.keys(losses).length ? losses : null,
-        troopsLostRaw: lostMatch ? lostMatch[1].trim() : null,
-        returnDays: returnMatch ? Number(returnMatch[1]) : null,
-        enemyDefense: defMatch ? num(defMatch[1]) : null,
-        success: true,
-      });
-      i++;
-      continue;
-    }
+    // Acres razed/destroyed
+    const acresRazed = num(t.match(/razed\s+([\d,]+)\s+acres/i)?.[1]);
+    const acresDestroyed = num(t.match(/destroyed\s+([\d,]+)\s+acres/i)?.[1]);
+    const acresRecaptured = num(t.match(/recaptured\s+([\d,]+)\s+acres/i)?.[1]);
 
-    // Incoming failed attack: "4 - Omega (1:7) attempted to invade 23 - The First Sire (6:9)"
-    let m = line.match(/^(?:#?\d+\s*-\s*)?(.+?)\s*\((\d+:\d+)\)\s+attempted\s+to\s+invade\s+(?:#?\d+\s*-\s*)?(.+?)\s*\((\d+:\d+)\)/i);
-    if (m) {
-      out.push({
-        type: "attack", eventType: "incoming",
-        attackerProvince: m[1].trim(), attackerKingdom: m[2],
-        targetProvince: m[3].trim(), targetKingdom: m[4],
-        success: false,
-      });
-      i++;
-      continue;
-    }
-
-    // Population kill: "Attacker (kd) killed N people within Target (kd)"
-    m = line.match(/^(?:#?\d+\s*-\s*)?(.+?)\s*\((\d+:\d+)\)\s+killed\s+([\d,]+)\s+people within\s+(?:#?\d+\s*-\s*)?(.+?)\s*\((\d+:\d+)\)/i);
-    if (m) {
-      out.push({
-        type: "attack", eventType: "massacre",
-        attackerProvince: m[1].trim(), attackerKingdom: m[2],
-        targetProvince: m[4].trim(), targetKingdom: m[5],
-        peasants: num(m[3]),
-      });
-      i++;
-      continue;
-    }
-
-    // Single-line: "Attacker (kd) attacked/invaded/ambushed Target (kd) captured/took/looted N acres/books"
-    m = line.match(/^(?:⚔\s*)?(?:#?\d+\s*-\s*)?(.+?)\s*\((\d+:\d+)\)\s+(attacked|invaded|ambushed armies from)\s+(?:#?\d+\s*-\s*)?(.+?)\s*\((\d+:\d+)\).*?(captured|took|looted)\s+([\d,]+)\s+(acres?|books?)/i);
-    if (m) {
-      const isBooks = /books/i.test(m[8]);
-      out.push({
-        type: "attack",
-        eventType: /ambushed/i.test(m[3]) ? "ambush" : "attack",
-        attackerProvince: m[1].trim(), attackerKingdom: m[2],
-        targetProvince: m[4].trim(), targetKingdom: m[5],
-        acresCaptured: isBooks ? null : num(m[7]),
-        loot: isBooks ? { books: num(m[7]) } : null,
-      });
-      i++;
-      continue;
-    }
-
-    // "N - Attacker (kd) captured N acres of land from N - Target (kd)"
-    m = line.match(/^(?:#?\d+\s*-\s*)?(.+?)\s*\((\d+:\d+)\)\s+captured\s+([\d,]+)\s+acres?\s+of\s+land\s+from\s+(?:#?\d+\s*-\s*)?(.+?)\s*\((\d+:\d+)\)/i);
-    if (m) {
-      out.push({type:"attack",eventType:"attack",attackerProvince:m[1].trim(),attackerKingdom:m[2],targetProvince:m[4].trim(),targetKingdom:m[5],acresCaptured:num(m[3]),success:true});
-      i++; continue;
-    }
-
-    // "Attacker (kd) attacked and looted N books/acres from Target (kd)"
-    m = line.match(/^(?:#?\d+\s*-\s*)?(.+?)\s*\((\d+:\d+)\)\s+attacked\s+and\s+looted\s+([\d,]+)\s+(books?|acres?)\s+from\s+(?:#?\d+\s*-\s*)?(.+?)\s*\((\d+:\d+)\)/i);
-    if (m) {
-      const books = /books?/i.test(m[4]);
-      out.push({
-        type: "attack", eventType: "attack",
-        attackerProvince: m[1].trim(), attackerKingdom: m[2],
-        targetProvince: m[5].trim(), targetKingdom: m[6],
-        acresCaptured: books ? null : num(m[3]),
-        loot: books ? { books: num(m[3]) } : null,
-      });
-      i++;
-      continue;
-    }
-
-    i++;
-  }
-  return out;
-}
-
-// ─── SPELLS ──────────────────────────────────────────────────────────────────
-
-function inferSpellName(t) {
-  const patterns = [
-    [/\bfireball\b/i, "fireball"],
-    [/\bpitfalls\b/i, "pitfalls"],
-    [/\bgluttony\b/i, "gluttony"],
-    [/\bgreedy\b|turn greedy/i, "greed"],
-    [/\billuminated\b.*?exposed the thieves/i, "illuminate"],
-    [/\bruined .*?faith in the military/i, "faith in military"],
-    [/\bvow of chastity/i, "love and peace"],
-    [/\bblessed by nature/i, "nature's blessing"],
-    [/\bfog of war\b/i, "fog of war"],
-    [/\bparanoia\b/i, "paranoia"],
-    [/\bblizzard\b/i, "blizzard"],
-    [/\bvermin\b/i, "vermin"],
-    [/\bplague\b/i, "plague"],
-    [/\bhurricane\b/i, "hurricane"],
-  ];
-  for (const [re, name] of patterns) if (re.test(t)) return name;
-  return null;
-}
-
-function parseSpell(raw, self = false) {
-  const t = clean(raw), out = [];
-  for (const line of t.split(/\n+/)) {
-    const s = clean(line);
-    const runesMatch = s.match(/gather\s+([\d,]+)\s+runes/i);
-    if (!runesMatch) continue;
-
-    // Explicit spell name from "— SpellName: Your wizards gather"
-    const explicitMatch = s.match(/[—-]\s*([^:]+):\s*Your wizards gather/i);
-    const spell = explicitMatch?.[1]?.trim() || inferSpellName(s) || s.split(/Your wizards gather/i)[0].trim();
-
-    const success = !/but the spell fails/i.test(s);
-    const targetKdMatch = s.match(/\((\d+:\d+)\)/g);
-    const targetKingdom = targetKdMatch ? targetKdMatch[targetKdMatch.length - 1]?.replace(/[()]/g, "") : null;
-
-    const targetProvinceMatch = s.match(/Select target province:\s*\d+\s+(.+?)\s*---/i) ||
-      s.match(/targeted at\s+(.+?)\s*\((\d+:\d+)\)/i);
-
-    const duration = num(s.match(/for\s+(\d+)\s+days?/i)?.[1]);
-    const wizardsKilled = num(s.match(/(\d+)\s+wizards?\s+were killed/i)?.[1]);
-
-    // Extract attacker province from "— #N ProvinceName: Your wizards"
-    const attackerMatch = s.match(/[—-]\s*#?\d+\s*[-\s]\s*(.+?)\s*(?:\((\d+:\d+)\))?\s*:\s*Your wizards/i);
+    let attackType = 'offensive';
+    if (acresRecaptured) attackType = 'recapture';
+    else if (/massacred/i.test(t)) attackType = 'massacre';
+    else if (/ambush/i.test(t)) attackType = 'ambush';
+    else if (/pillage/i.test(t)) attackType = 'pillage';
+    else if (/looted/i.test(t) && !acresCaptured) attackType = 'loot';
 
     out.push({
-      type: self ? "self_spell" : "offensive_spell",
-      eventType: "spell",
-      spellName: spell,
-      success,
-      runes: num(runesMatch[1]),
-      attackerProvince: attackerMatch?.[1]?.trim() || null,
-      attackerKingdom: attackerMatch?.[2] || null,
+      type: 'attack',
+      eventType: 'attack',
+      attackType,
+      direction: 'outgoing',
+      attackerProvince,
+      attackerKingdom,
+      targetProvince,
       targetKingdom,
-      targetProvince: targetProvinceMatch?.[1]?.trim() || null,
-      durationDays: duration,
-      wizardsKilled,
+      success,
+      acresCaptured: acresRecaptured ? null : acresCaptured,
+      acresRecaptured: acresRecaptured || null,
+      acresRazed: acresRazed || acresDestroyed || null,
+      credits,
+      peasants,
+      buildingsSurvived: buildings,
+      kills: killed,
+      imprisoned,
+      returnDays,
+      enemyDefense,
+      losses: Object.keys(losses).length ? losses : null,
+    });
+    return out;
+  }
+
+  // ── Incoming: "N - Province (kd) attempted to invade N - Province (kd)" ──
+  const incomingAttempt = t.match(
+    /^#?\d+\s*-\s*(.+?)\s*\((\d+:\d+)\)\s+attempted\s+to\s+invade\s+#?\d+\s*-\s*(.+?)\s*\((\d+:\d+)\)/i
+  );
+  if (incomingAttempt) {
+    out.push({
+      type: 'attack',
+      eventType: 'attack',
+      attackType: 'invasion_failed',
+      direction: 'incoming',
+      attackerProvince: stripMd(incomingAttempt[1]),
+      attackerKingdom: incomingAttempt[2],
+      targetProvince: stripMd(incomingAttempt[3]),
+      targetKingdom: incomingAttempt[4],
+      success: false,
+    });
+    return out;
+  }
+
+  // ── Incoming: "N - Province (kd) invaded N - Province (kd) and captured N acres" ──
+  const incomingCapture = t.match(
+    /^#?\d+\s*-\s*(.+?)\s*\((\d+:\d+)\)\s+(?:invaded|attacked|ambushed armies from)\s+#?\d+\s*-\s*(.+?)\s*\((\d+:\d+)\).*?(?:captured|took)\s+([\d,]+)\s+acres/i
+  );
+  if (incomingCapture) {
+    out.push({
+      type: 'attack',
+      eventType: 'attack',
+      attackType: /ambush/i.test(t) ? 'ambush' : 'invasion',
+      direction: 'incoming',
+      attackerProvince: stripMd(incomingCapture[1]),
+      attackerKingdom: incomingCapture[2],
+      targetProvince: stripMd(incomingCapture[3]),
+      targetKingdom: incomingCapture[4],
+      acresCaptured: num(incomingCapture[5]),
+      success: true,
+    });
+    return out;
+  }
+
+  // ── Incoming pillage/loot (no acres) ──
+  const incomingPillage = t.match(
+    /^#?\d+\s*-\s*(.+?)\s*\((\d+:\d+)\)\s+(?:invaded and pillaged|attacked and pillaged)\s+(?:the lands of\s+)?#?\d+\s*-\s*(.+?)\s*\((\d+:\d+)\)/i
+  );
+  if (incomingPillage) {
+    out.push({
+      type: 'attack',
+      eventType: 'attack',
+      attackType: 'pillage',
+      direction: 'incoming',
+      attackerProvince: stripMd(incomingPillage[1]),
+      attackerKingdom: incomingPillage[2],
+      targetProvince: stripMd(incomingPillage[3]),
+      targetKingdom: incomingPillage[4],
+      success: true,
+    });
+    return out;
+  }
+
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// OPS (thievery/spy)
+// Format: ✅/❌ #N - Province / **#N Province** — OpName → **#N Target** (kd) — result · N sent
+// OR:     ✅/❌ #N - Province / **#N Province** — OpName → **Target** (kd) — result · N sent
+// ---------------------------------------------------------------------------
+function parseOps(raw) {
+  const t = clean(raw);
+  const out = [];
+
+  for (const line of t.split(/\n+/)) {
+    const s = clean(line);
+    if (!s) continue;
+
+    const success = s.startsWith('✅');
+    const fail = s.startsWith('❌');
+    if (!success && !fail) continue;
+
+    // Extract attacker: "#N - Province / **#N Province**"
+    // The format after the emoji is: #N - KdLabel / **#N ProvinceName** — OpName → **Target** (kd) ...
+    const attackerMatch = s.match(/[✅❌]\s+#?\d+\s*-\s*(.+?)\s*\/\s*\*\*#?\d+\s+(.+?)\*\*\s*[—-]/);
+    const attackerProvince = attackerMatch ? stripMd(attackerMatch[2]) : null;
+
+    // Operation name: last "— OpName →" segment (no nested — chars)
+    const opMatch = s.match(/[—-]\s+([^—\-]+?)\s+→/);
+    const operation = opMatch ? stripMd(opMatch[1]) : null;
+
+    // Target: "**#N Target** (kd)" or "**Target** (kd)"
+    const targetMatch = s.match(/→\s+\*\*#?\d*\s*(.+?)\*\*\s*\((\d+:\d+)\)/);
+    const targetProvince = targetMatch ? stripMd(targetMatch[1]) : null;
+    const targetKingdom = targetMatch ? targetMatch[2] : null;
+
+    // Result detail (after the kd): "— off N / def N" or "· foiled — lost N thieves"
+    const thieves = num(s.match(/(\d+)\s+sent/i)?.[1]);
+    const lostThieves = num(s.match(/lost\s+([\d,]+)\s+thieves?/i)?.[1]);
+    const offMil = num(s.match(/off\s+([\d,]+)/i)?.[1]);
+    const defMil = num(s.match(/def\s+([\d,]+)/i)?.[1]);
+
+    out.push({
+      type: 'ops',
+      eventType: 'thievery',
+      attackerProvince,
+      operation,
+      targetProvince,
+      targetKingdom,
+      success: success && !fail,
+      thievesSent: thieves,
+      thievesLost: lostThieves,
+      offenseMil: offMil,
+      defenseMil: defMil,
     });
   }
   return out;
 }
 
-// ─── DRAGON ──────────────────────────────────────────────────────────────────
+// ---------------------------------------------------------------------------
+// SPELLS (self and offensive)
+// Format: #N - KdLabel / **#N Province** — SpellName: Your wizards gather N runes...
+// ---------------------------------------------------------------------------
+function parseSpell(raw, self = true) {
+  const t = clean(raw);
+  const out = [];
 
+  for (const line of t.split(/\n+/)) {
+    const s = clean(line);
+    if (!s) continue;
+    if (!/Your wizards gather/i.test(s)) continue;
+
+    // Caster: "#N - KdLabel / **#N Province**"
+    const casterMatch = s.match(/^#?\d+\s*-\s*(.+?)\s*\/\s*\*\*#?\d+\s+(.+?)\*\*\s*[—-]/);
+    const casterProvince = casterMatch ? stripMd(casterMatch[2]) : null;
+
+    // Spell name: last "— SpellName:" before "Your wizards"
+    // Format: #N - label / **#N Province** — SpellName: Your wizards...
+    const spellMatch = s.match(/[—-]\s+([^—\-:]+?):\s+Your wizards/i);
+    const spellName = spellMatch ? stripMd(spellMatch[1]) : null;
+
+    const runes = num(s.match(/gather\s+([\d,]+)\s+runes/i)?.[1]);
+    const success = /the spell succeeds/i.test(s) && !/spell fails/i.test(s);
+    const duration = num(s.match(/for\s+(\d+)\s+days?/i)?.[1]);
+    const wizardsKilled = num(s.match(/(\d+)\s+wizards?\s+(?:were\s+)?killed/i)?.[1]);
+
+    // Target (for offensive spells): may be in the line
+    const targetMatch = s.match(/Target.*?\((\d+:\d+)\).*?province:\s*\d+\s+(.+?)\s*---/i);
+
+    out.push({
+      type: self ? 'self_spell' : 'offensive_spell',
+      eventType: 'spell',
+      casterProvince,
+      // keep attackerProvince for index.js field mapping
+      attackerProvince: casterProvince,
+      spellName,
+      runes,
+      success,
+      durationDays: duration,
+      wizardsKilled,
+      targetProvince: targetMatch?.[2]?.trim() || null,
+      targetKingdom: targetMatch?.[1] || null,
+    });
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// DRAGON
+// ---------------------------------------------------------------------------
 function parseDragon(raw) {
   const t = clean(raw);
-  if (!/(?:dragon|🐉)/i.test(t)) return [];
+  if (!/dragon|🐉/i.test(t)) return [];
 
-  const development = t.match(/begun development of the\s+(.+?)(?:\s+\([^)]*\))?$/i);
-  const cancelled = t.match(/has cancelled their dragon project targeted at us/i);
+  const development = t.match(/begun development of the\s+(.+?)(?:\s*\([^)]*\))?$/i);
+  const cancelled = /has cancelled their dragon project/i.test(t);
   const completed = t.match(/completed our dragon,\s*(.+?),\s*and it sets flight to ravage\s*(.+?)\s*\((\d+:\d+)\)/i);
-  const incoming = t.match(/Dragon at us\s*[—-]\s*(.+?)\s+(\d[\d,]*)\s+points of strength left/i);
+  const incoming = t.match(/Dragon at us\s*[—-]\s*(.+?)\s+([\d,]+)\s+points of strength left/i);
 
   return [{
-    type: "dragon",
-    eventType: development ? "development" : cancelled ? "cancelled" : completed ? "completed" : incoming ? "incoming" : "unknown",
+    type: 'dragon',
+    eventType: development ? 'development' : cancelled ? 'cancelled' : completed ? 'completed' : incoming ? 'incoming' : 'unknown',
     dragonName: development?.[1]?.trim() || completed?.[1]?.trim() || incoming?.[1]?.trim() || null,
     targetProvince: completed?.[2]?.trim() || null,
     targetKingdom: completed?.[3] || null,
     strength: incoming ? num(incoming[2]) : null,
-    success: !/fail|failed/i.test(t),
   }];
 }
 
-// ─── RITUAL ──────────────────────────────────────────────────────────────────
-
+// ---------------------------------------------------------------------------
+// RITUAL
+// Format: #N - KdLabel / **#N Province** — Ritual: ...cast **N/N**...
+// ---------------------------------------------------------------------------
 function parseRitual(raw) {
   const t = clean(raw);
   if (!/ritual/i.test(t)) return [];
 
-  const who = t.match(/^#?\d+[-\s]+([^/]+?)\s*\/\s*\*\*#?\d+\s+(.+?)\*\*\s*[—-]\s*Ritual:/i);
-  const cast = t.match(/cast\s+\*\*(\d+)\/(\d+)\*\*/i);
-  const simpleWho = t.match(/^#?\d+\s*-\s*(.+?)(?:\s*\/|\s*—|\s*Ritual)/i);
+  const casterMatch = t.match(/^#?\d+\s*-\s*(.+?)\s*\/\s*\*\*#?\d+\s+(.+?)\*\*\s*[—-]\s*Ritual/i);
+  const casterProvince = casterMatch ? stripMd(casterMatch[2]) : null;
+  const cast = t.match(/cast\s+\*?\*?(\d+)\/(\d+)\*?\*?/i);
+  const success = !/spell fails|FAILED/i.test(t);
 
   return [{
-    type: "ritual",
-    eventType: "ritual",
-    casterProvince: who?.[2]?.trim() || simpleWho?.[1]?.trim() || null,
-    casterKingdom: null,
-    success: !/spell fails|FAILED/i.test(t),
+    type: 'ritual',
+    eventType: 'ritual',
+    attackerProvince: casterProvince,
+    casterProvince,
+    success,
     castCount: cast ? Number(cast[1]) : null,
     castNeeded: cast ? Number(cast[2]) : null,
   }];
 }
 
-// ─── AID ─────────────────────────────────────────────────────────────────────
-
+// ---------------------------------------------------------------------------
+// AID
+// Format: #N - KdLabel / **#N Province**: We have sent N X to Province (kd).
+// ---------------------------------------------------------------------------
 function parseAid(raw) {
   const t = clean(raw);
-  const m = t.match(/^(?:#?\d+\s*-\s*)?(.+?)\s*:\s*We have sent\s+([\d,]+)\s+(.+?)\s+to\s+(.+?)\s*\((\d+:\d+)\)/i);
+  // Match: "#N - label / **#N Province**: We have sent N resource to Target (kd)."
+  const m = t.match(
+    /^#?\d+\s*-\s*.+?\s*\/\s*\*\*#?\d+\s+(.+?)\*\*:\s*We have sent\s+([\d,]+)\s+(.+?)\s+to\s+(.+?)\s*\((\d+:\d+)\)/i
+  );
   if (!m) return [];
   return [{
-    type: "aid",
-    eventType: "aid",
-    attackerProvince: m[1].trim(),
-    attackerKingdom: null,
-    targetProvince: m[4].trim(),
+    type: 'aid',
+    eventType: 'aid',
+    attackerProvince: stripMd(m[1]),
+    targetProvince: stripMd(m[4]),
     targetKingdom: m[5],
-    resourceType: m[3].trim().toLowerCase(),
     amount: num(m[2]),
-    surplusGold: num(t.match(/added\s+([\d,]+)\s+gold coins to our aid surplus/i)?.[1]),
+    resourceType: m[3].trim().toLowerCase(),
   }];
 }
 
-// ─── ROUTER ──────────────────────────────────────────────────────────────────
-
+// ---------------------------------------------------------------------------
+// Main dispatcher
+// ---------------------------------------------------------------------------
 function parseIntel7(channelType, raw) {
   switch (channelType) {
-    case "thieves":   return parseThieves(raw);
-    case "attacks":   return parseAttack(raw);
-    case "offensive": return parseSpell(raw, false);
-    case "self":      return parseSpell(raw, true);
-    case "dragon":    return parseDragon(raw);
-    case "ritual":    return parseRitual(raw);
-    case "aid":       return parseAid(raw);
-    default:          return [];
+    case 'thieves': return parseOps(raw);
+    case 'attacks': return parseAttack(raw);
+    case 'offensive': return parseSpell(raw, false);
+    case 'self': return parseSpell(raw, true);
+    case 'dragon': return parseDragon(raw);
+    case 'ritual': return parseRitual(raw);
+    case 'aid': return parseAid(raw);
+    default: return [];
   }
 }
 
-module.exports = { parseIntel7 };
+module.exports = { parseIntel7, parseAttack, parseOps, parseSpell, parseDragon, parseRitual, parseAid };
