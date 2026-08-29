@@ -3,49 +3,83 @@ import { supabase } from "../services/supabase";
 
 const MY_KD = "6:9";
 
-const EVENT_LABELS = {
-  kd_invasion:       { label: "Invasion",      color: "#38bdf8" },
-  kd_ambush:         { label: "Ambush",         color: "#a78bfa" },
-  kd_pillage:        { label: "Pillage",        color: "#fb923c" },
-  kd_loot:           { label: "Loot",           color: "#facc15" },
-  kd_failed:         { label: "Failed",         color: "#64748b" },
-  outgoing_attack:   { label: "Our Attack",     color: "#4ade80" },
-  outgoing_ambush:   { label: "Our Ambush",     color: "#4ade80" },
-  outgoing_failed:   { label: "Our Failed",     color: "#64748b" },
-  outgoing_recapture:{ label: "Recapture",      color: "#4ade80" },
-  incoming_attack:   { label: "Incoming Atk",   color: "#f87171" },
-  incoming_ambush:   { label: "Incoming Amb",   color: "#f87171" },
-  incoming_thief:    { label: "Thieves",        color: "#fb923c" },
-  stolen_food:       { label: "Food Stolen",    color: "#fb923c" },
-  stolen_gold:       { label: "Gold Stolen",    color: "#fb923c" },
-  outgoing_spell:    { label: "Spell Cast",     color: "#a78bfa" },
-  self_spell:        { label: "Self Spell",     color: "#38bdf8" },
-  science_allocation:{ label: "Science",        color: "#64748b" },
-  log:               { label: "Log",            color: "#334155" },
-};
+function timeAgo(ts) {
+  const diff = Date.now() - new Date(ts).getTime();
+  const mins = Math.floor(diff / 60000);
+  const hrs = Math.floor(mins / 60);
+  const days = Math.floor(hrs / 24);
+  if (days > 0) return `${days}d ago`;
+  if (hrs > 0) return `${hrs}h ago`;
+  if (mins > 0) return `${mins}m ago`;
+  return "just now";
+}
 
-const VIEWS = ["KD News", "Province News", "Province Logs"];
+function fmt(n) {
+  return n != null ? Number(n).toLocaleString() : null;
+}
 
-const KD_TYPES = ["kd_invasion","kd_ambush","kd_pillage","kd_loot","kd_failed"];
-const PROV_NEWS_TYPES = ["incoming_attack","incoming_ambush","incoming_thief","stolen_food","stolen_gold"];
-const PROV_LOG_TYPES = ["outgoing_attack","outgoing_ambush","outgoing_failed","outgoing_recapture","outgoing_spell","self_spell","self_spell_fail","science_allocation","log"];
+// Maps intel7_events to a unified event shape for display
+function normalizeIntel7(e) {
+  const data = e.data || {};
+  const direction = data.direction || (e.attacker_kingdom === MY_KD ? "outgoing" : "incoming");
+  return {
+    id: e.id,
+    timestamp: e.timestamp,
+    event_type: e.event_type,
+    direction,
+    attacker: e.attacker_province,
+    attackerKd: e.attacker_kingdom,
+    target: e.target_province,
+    targetKd: e.target_kingdom,
+    success: e.success,
+    acres: data.acresCaptured || data.acresRecaptured || null,
+    kills: data.kills,
+    imprisoned: data.imprisoned,
+    credits: data.credits,
+    returnDays: data.returnDays,
+    losses: data.losses,
+    operation: e.operation,
+    spellName: e.spell_name || data.spellName,
+    thievesSent: data.thievesSent,
+    thievesLost: data.thievesLost,
+    defenseMil: data.defenseMil,
+    attackType: data.attackType,
+    peasantsKilled: data.peasantsKilled,
+    runes: data.runes,
+    _source: "intel7",
+  };
+}
 
-function Badge({ type }) {
-  const cfg = EVENT_LABELS[type] || { label: type, color: "#64748b" };
+function EventBadge({ e }) {
+  let label, color;
+  if (e.event_type === "attack") {
+    if (!e.success) { label = "Repelled"; color = "#64748b"; }
+    else if (e.direction === "incoming") { label = "Incoming"; color = "#ef4444"; }
+    else if (e.attackType === "recapture") { label = "Recapture"; color = "#4ade80"; }
+    else if (e.attackType === "massacre") { label = "Massacre"; color = "#f87171"; }
+    else { label = "Attack"; color = "#4ade80"; }
+  } else if (e.event_type === "thievery") {
+    label = e.success === false ? "Op Failed" : "Op Hit";
+    color = e.success === false ? "#64748b" : "#f59e0b";
+  } else if (e.event_type === "spell") {
+    label = e.success === false ? "Spell Failed" : "Spell Cast";
+    color = "#8b5cf6";
+  } else if (e.event_type === "aid") {
+    label = "Aid Sent"; color = "#38bdf8";
+  } else {
+    label = e.event_type; color = "#64748b";
+  }
   return (
     <span style={{
       fontSize: 11, fontWeight: 600, padding: "2px 7px", borderRadius: 4,
-      background: cfg.color + "22", color: cfg.color, border: "1px solid " + cfg.color + "55",
+      background: color + "22", color, border: "1px solid " + color + "55",
       whiteSpace: "nowrap",
-    }}>{cfg.label}</span>
+    }}>{label}</span>
   );
 }
 
-function EventRow({ e, myKd }) {
-  const isOurAtk = e.attacker_kd === myKd;
-  const isOurDef = e.defender_kd === myKd;
-  const isOutgoing = e.event_type.startsWith("outgoing");
-
+function EventRow({ e }) {
+  const isIncoming = e.direction === "incoming";
   return (
     <div style={{
       padding: "10px 14px",
@@ -53,61 +87,64 @@ function EventRow({ e, myKd }) {
       display: "flex", flexDirection: "column", gap: 4,
     }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-        <span style={{ color: "#475569", fontSize: 11, minWidth: 110 }}>{e.date}</span>
-        <Badge type={e.event_type} />
+        <span style={{ color: "#475569", fontSize: 11, minWidth: 70 }}>{timeAgo(e.timestamp)}</span>
+        <EventBadge e={e} />
         {e.acres > 0 && (
-          <span style={{ fontSize: 12, color: isOurAtk || isOutgoing ? "#4ade80" : "#f87171", fontWeight: 600 }}>
-            {isOurAtk || isOutgoing ? "+" : "-"}{e.acres} acres
+          <span style={{ fontSize: 12, color: isIncoming ? "#ef4444" : "#4ade80", fontWeight: 600 }}>
+            {isIncoming ? "-" : "+"}{fmt(e.acres)} acres
           </span>
         )}
       </div>
 
       <div style={{ fontSize: 13, color: "#cbd5e1", display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-        {e.attacker_name && (
+        {e.attacker && (
           <>
-            <span style={{ color: isOurAtk ? "#4ade80" : "#f87171", fontWeight: 600 }}>{e.attacker_name}</span>
-            <span style={{ color: "#475569" }}>({e.attacker_kd})</span>
-            <span style={{ color: "#475569" }}>→</span>
+            <span style={{ color: isIncoming ? "#ef4444" : "#4ade80", fontWeight: 600 }}>{e.attacker}</span>
+            {e.attackerKd && <span style={{ color: "#475569" }}>({e.attackerKd})</span>}
+            {e.target && <span style={{ color: "#475569" }}>→</span>}
           </>
         )}
-        {e.defender_name && (
+        {e.target && (
           <>
-            <span style={{ color: isOurDef ? "#f87171" : "#94a3b8", fontWeight: isOurDef ? 600 : 400 }}>{e.defender_name}</span>
-            <span style={{ color: "#475569" }}>({e.defender_kd})</span>
+            <span style={{ color: isIncoming ? "#f87171" : "#94a3b8" }}>{e.target}</span>
+            {e.targetKd && <span style={{ color: "#475569" }}>({e.targetKd})</span>}
           </>
         )}
-        {e.source_province && !e.attacker_name && (
-          <span style={{ color: "#64748b" }}>{e.source_province}</span>
-        )}
-        {e.raw && !e.attacker_name && !e.defender_name && (
-          <span style={{ color: "#475569", fontSize: 12 }}>{e.raw.substring(0, 80)}{e.raw.length > 80 ? "…" : ""}</span>
+        {(e.operation || e.spellName) && (
+          <span style={{ color: "#8b5cf6", fontSize: 12 }}>· {e.operation || e.spellName}</span>
         )}
       </div>
 
-      {(e.troops_sent || e.troops_killed || e.credits_gained || e.peasants_settled) && (
-        <div style={{ display: "flex", gap: 12, fontSize: 11, color: "#64748b", flexWrap: "wrap" }}>
-          {e.troops_sent && <span>Sent: <strong style={{ color: "#94a3b8" }}>{e.troops_sent.toLocaleString()}</strong></span>}
-          {e.troops_killed && <span>Killed: <strong style={{ color: "#f87171" }}>{e.troops_killed.toLocaleString()}</strong></span>}
-          {e.credits_gained && <span>Credits: <strong style={{ color: "#4ade80" }}>{e.credits_gained.toLocaleString()}</strong></span>}
-          {e.peasants_settled && <span>Peasants: <strong style={{ color: "#38bdf8" }}>{e.peasants_settled.toLocaleString()}</strong></span>}
-          {e.return_days && <span>Returns in: <strong style={{ color: "#facc15" }}>{e.return_days}d</strong></span>}
+      {(e.kills || e.imprisoned || e.credits || e.returnDays || e.thievesSent || e.runes) && (
+        <div style={{ display: "flex", gap: 10, fontSize: 11, color: "#64748b", flexWrap: "wrap" }}>
+          {e.kills && <span>⚔ {fmt(e.kills)} kills</span>}
+          {e.imprisoned && <span>⛓ {fmt(e.imprisoned)} imprisoned</span>}
+          {e.credits && <span>🎖 {fmt(e.credits)} credits</span>}
+          {e.returnDays && <span>↩ {e.returnDays}d return</span>}
+          {e.thievesSent && <span>sent: {fmt(e.thievesSent)}</span>}
+          {e.thievesLost > 0 && <span style={{ color: "#ef4444" }}>lost: {fmt(e.thievesLost)}</span>}
+          {e.defenseMil && <span>def: {fmt(e.defenseMil)}</span>}
+          {e.runes && <span>🔮 {fmt(e.runes)} runes</span>}
+          {e.peasantsKilled && <span style={{ color: "#ef4444" }}>💀 {fmt(e.peasantsKilled)} pop</span>}
         </div>
       )}
-      {e.troops_lost && Object.keys(e.troops_lost).length > 0 && (
-        <div style={{ fontSize: 11, color: "#f87171" }}>
-          Lost: {Object.entries(e.troops_lost).map(([k,v]) => `${v} ${k.replace(/_/g," ")}`).join(", ")}
+      {e.losses && Object.keys(e.losses).length > 0 && (
+        <div style={{ fontSize: 11, color: "#ef4444" }}>
+          Lost: {Object.entries(e.losses).map(([k, v]) => `${fmt(v)} ${k}`).join(", ")}
         </div>
       )}
     </div>
   );
 }
 
+const VIEWS = ["All Activity", "Attacks", "Ops", "Spells", "Aid", "Province Logs"];
+
 export default function NewsPanel() {
-  const [events, setEvents] = useState([]);
+  const [intel7, setIntel7] = useState([]);
+  const [newsEvents, setNewsEvents] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [view, setView] = useState("KD News");
+  const [view, setView] = useState("All Activity");
   const [search, setSearch] = useState("");
-  const [myKd, setMyKd] = useState(MY_KD);
 
   useEffect(() => {
     fetchAll();
@@ -116,82 +153,123 @@ export default function NewsPanel() {
   }, []);
 
   async function fetchAll() {
-    const { data: settings } = await supabase.from("bot_settings").select("value").eq("key", "kingdom_code").single();
-    if (settings?.value) setMyKd(settings.value);
-
-    const [kdRes, provNewsRes, provLogRes] = await Promise.all([
-      supabase.from("news_events").select("*").in("event_type", [...KD_TYPES]).order("created_at", { ascending: false }).limit(500),
-      supabase.from("news_events").select("*").in("event_type", [...PROV_NEWS_TYPES]).order("created_at", { ascending: false }).limit(500),
-      supabase.from("news_events").select("*").in("event_type", [...PROV_LOG_TYPES]).order("created_at", { ascending: false }).limit(500),
+    const [{ data: i7 }, { data: news }] = await Promise.all([
+      supabase.from("intel7_events").select("*").order("timestamp", { ascending: false }).limit(500),
+      supabase.from("news_events").select("*").order("created_at", { ascending: false }).limit(500),
     ]);
-    const combined = [...(kdRes.data||[]), ...(provNewsRes.data||[]), ...(provLogRes.data||[])];
-    setEvents(combined);
+    setIntel7((i7 || []).map(normalizeIntel7));
+    setNewsEvents(news || []);
     setLoading(false);
   }
 
-  const typeFilter = view === "KD News" ? KD_TYPES : view === "Province News" ? PROV_NEWS_TYPES : PROV_LOG_TYPES;
+  // Filter intel7 by view
+  const filteredIntel7 = intel7.filter(e => {
+    if (view === "Attacks") return e.event_type === "attack";
+    if (view === "Ops") return e.event_type === "thievery";
+    if (view === "Spells") return e.event_type === "spell";
+    if (view === "Aid") return e.event_type === "aid";
+    if (view === "Province Logs") return false; // province logs come from news_events only
+    return true; // All Activity
+  });
 
-  const filtered = events
-    .filter(e => typeFilter.includes(e.event_type))
-    .filter(e => !search || 
-      e.attacker_name?.toLowerCase().includes(search.toLowerCase()) ||
-      e.defender_name?.toLowerCase().includes(search.toLowerCase()) ||
-      e.attacker_kd?.includes(search) ||
-      e.defender_kd?.includes(search) ||
-      e.raw?.toLowerCase().includes(search.toLowerCase())
-    );
+  const filteredNews = view === "Province Logs" || view === "All Activity" ? newsEvents : [];
 
-  // Summary stats for KD News
-  const ourAttacks = events.filter(e => KD_TYPES.includes(e.event_type) && e.attacker_kd === myKd);
-  const incomingAtks = events.filter(e => KD_TYPES.includes(e.event_type) && e.defender_kd === myKd);
-  const ourAcres = ourAttacks.reduce((s, e) => s + (e.acres || 0), 0);
-  const lostAcres = incomingAtks.reduce((s, e) => s + (e.acres || 0), 0);
+  // Merge and sort by timestamp
+  const normalizedNews = filteredNews.map(n => ({
+    id: n.id,
+    timestamp: n.created_at,
+    event_type: n.event_type,
+    direction: n.attacker_kd === MY_KD ? "outgoing" : "incoming",
+    attacker: n.attacker_name,
+    attackerKd: n.attacker_kd,
+    target: n.defender_name,
+    targetKd: n.defender_kd,
+    success: true,
+    acres: n.acres,
+    kills: n.troops_killed,
+    _source: "news_events",
+  }));
+
+  const allEvents = [...filteredIntel7, ...normalizedNews]
+    .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+    .filter(e => {
+      if (!search) return true;
+      const q = search.toLowerCase();
+      return (
+        (e.attacker || "").toLowerCase().includes(q) ||
+        (e.target || "").toLowerCase().includes(q) ||
+        (e.attackerKd || "").toLowerCase().includes(q) ||
+        (e.targetKd || "").toLowerCase().includes(q) ||
+        (e.operation || "").toLowerCase().includes(q) ||
+        (e.spellName || "").toLowerCase().includes(q)
+      );
+    });
+
+  // Summary stats
+  const attacks = intel7.filter(e => e.event_type === "attack");
+  const outgoing = attacks.filter(e => e.direction === "outgoing" && e.success !== false);
+  const incoming = attacks.filter(e => e.direction === "incoming" && e.success !== false);
+  const acresGained = outgoing.reduce((s, e) => s + (e.acres || 0), 0);
+  const acresLost = incoming.reduce((s, e) => s + (e.acres || 0), 0);
 
   if (loading) return <div className="loading">⏳ Loading News...</div>;
 
   return (
     <div className="intel-panel">
-      <div className="intel-controls" style={{ flexWrap: "wrap", gap: 8 }}>
-        <div style={{ display: "flex", gap: 4 }}>
-          {VIEWS.map(v => (
-            <button key={v} onClick={() => setView(v)} style={{
-              padding: "6px 14px", borderRadius: 6, border: "1px solid",
-              borderColor: view === v ? "#38bdf8" : "rgba(255,255,255,0.1)",
-              background: view === v ? "rgba(56,189,248,0.15)" : "transparent",
-              color: view === v ? "#38bdf8" : "#64748b",
-              fontSize: 13, cursor: "pointer", fontWeight: view === v ? 600 : 400,
-            }}>{v}</button>
-          ))}
-        </div>
+      {/* Summary stats */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: 8, marginBottom: 14 }}>
+        {[
+          { label: "OUR ATTACKS", value: outgoing.length, color: "#4ade80" },
+          { label: "ACRES GAINED", value: `+${fmt(acresGained)}`, color: "#4ade80" },
+          { label: "INCOMING", value: incoming.length, color: "#ef4444" },
+          { label: "ACRES LOST", value: `-${fmt(acresLost)}`, color: "#ef4444" },
+          { label: "OPS", value: intel7.filter(e => e.event_type === "thievery").length, color: "#f59e0b" },
+          { label: "SPELLS", value: intel7.filter(e => e.event_type === "spell").length, color: "#8b5cf6" },
+        ].map(s => (
+          <div key={s.label} style={{ background: `${s.color}18`, border: `1px solid ${s.color}33`, borderRadius: 8, padding: "8px 12px" }}>
+            <div style={{ color: "#94a3b8", fontSize: 11, marginBottom: 4 }}>{s.label}</div>
+            <div style={{ color: s.color, fontSize: 16, fontWeight: 700 }}>{s.value}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* View tabs + search */}
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12, alignItems: "center" }}>
+        {VIEWS.map(v => (
+          <button key={v} onClick={() => setView(v)} style={{
+            padding: "5px 12px", borderRadius: 6, cursor: "pointer", fontSize: 12,
+            border: `1px solid ${view === v ? "#38bdf8" : "rgba(255,255,255,0.1)"}`,
+            background: view === v ? "rgba(56,189,248,0.15)" : "transparent",
+            color: view === v ? "#38bdf8" : "#64748b",
+            fontWeight: view === v ? 600 : 400,
+          }}>{v}</button>
+        ))}
         <input
-          className="intel-search"
-          placeholder="🔍 Search province, kingdom..."
+          placeholder="🔍 Search..."
           value={search}
           onChange={e => setSearch(e.target.value)}
-          style={{ flex: 1, minWidth: 180 }}
+          style={{
+            flex: 1, minWidth: 160, background: "rgba(255,255,255,0.05)",
+            border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6,
+            padding: "5px 10px", color: "#e2e8f0", fontSize: 12,
+          }}
         />
       </div>
 
-      {view === "KD News" && (
-        <div className="stats-row" style={{ marginBottom: 12 }}>
-          <div className="stat-card"><span className="stat-label">Our Attacks</span><strong className="stat-value" style={{ color: "#4ade80" }}>{ourAttacks.length}</strong></div>
-          <div className="stat-card"><span className="stat-label">Acres Gained</span><strong className="stat-value" style={{ color: "#4ade80" }}>+{ourAcres.toLocaleString()}</strong></div>
-          <div className="stat-card"><span className="stat-label">Incoming</span><strong className="stat-value" style={{ color: "#f87171" }}>{incomingAtks.length}</strong></div>
-          <div className="stat-card"><span className="stat-label">Acres Lost</span><strong className="stat-value" style={{ color: "#f87171" }}>-{lostAcres.toLocaleString()}</strong></div>
-        </div>
-      )}
-
+      {/* Event feed */}
       <div className="panel" style={{ padding: 0 }}>
-        <div style={{ padding: "12px 14px", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
-          <h2 style={{ margin: 0 }}>📰 {view} ({filtered.length})</h2>
+        <div style={{ padding: "10px 14px", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+          <h2 style={{ margin: 0, fontSize: 15 }}>📰 {view} ({allEvents.length})</h2>
         </div>
         <div style={{ maxHeight: "60vh", overflowY: "auto" }}>
-          {filtered.length === 0 ? (
+          {allEvents.length === 0 ? (
             <div style={{ color: "#64748b", padding: 24, textAlign: "center" }}>
-              No events yet — paste {view} in the Import tab.
+              {view === "Province Logs"
+                ? "No province logs yet — visit province pages with Tampermonkey active."
+                : "No events recorded yet."}
             </div>
           ) : (
-            filtered.map((e, i) => <EventRow key={e.id || i} e={e} myKd={myKd} />)
+            allEvents.map((e, i) => <EventRow key={e.id || i} e={e} />)
           )}
         </div>
       </div>
