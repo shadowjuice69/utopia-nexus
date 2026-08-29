@@ -26,7 +26,7 @@ export default function AIWarReport() {
   async function triggerAnalysis() {
     setRefreshing(true);
     try {
-      await fetch("https://utopia-nexus-production.up.railway.app/ai/analyze", {
+      await fetch("https://utopia-nexus.onrender.com/ai/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: "key=NikkoAce&trigger=manual"

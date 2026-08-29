@@ -21,8 +21,8 @@ export default function AIAssistant() {
       // Pull relevant context from Supabase
       const [{ data: provinces }, { data: attacks }, { data: hostileOps }, { data: summaries }] = await Promise.all([
         supabase.from("provinces").select("name, kd_code, race, acres, nw, off, def, be").eq("kd_code", MY_KD),
-        supabase.from("attacks").select("attacker, defender, acres_captured, attack_type, created_at").order("created_at", { ascending: false }).limit(10),
-        supabase.from("hostile_ops").select("attacker, target, op_type, result, created_at").order("created_at", { ascending: false }).limit(10),
+        supabase.from("intel7_events").select("attacker_province, target_province, target_kingdom, event_type, success, data, timestamp").eq("event_type", "attack").order("timestamp", { ascending: false }).limit(10),
+        supabase.from("intel7_events").select("attacker_province, target_province, operation, success, timestamp").eq("event_type", "thievery").order("timestamp", { ascending: false }).limit(10),
         supabase.from("ai_summaries").select("content, type, created_at").order("created_at", { ascending: false }).limit(3),
       ]);
 
@@ -30,14 +30,14 @@ export default function AIAssistant() {
 Kingdom Relentless Recruiting (6:9) current state:
 Provinces: ${(provinces || []).map(p => `${p.name} (${p.race}, ${p.acres}a, ${p.nw}gc NW, Off:${p.off}, Def:${p.def})`).join("; ")}
 
-Recent attacks: ${(attacks || []).map(a => `${a.attacker} vs ${a.defender}: ${a.acres_captured || 0}ac (${a.attack_type})`).join("; ")}
+Recent attacks: ${(attacks || []).map(a => `${a.attacker_province} vs ${a.target_province} (${a.target_kingdom}): ${(a.data||{}).acresCaptured || 0}ac`).join("; ")}
 
-Recent hostile ops: ${(hostileOps || []).map(o => `${o.attacker} → ${o.target}: ${o.op_type} (${o.result})`).join("; ")}
+Recent hostile ops: ${(hostileOps || []).map(o => `${o.attacker_province} → ${o.target_province}: ${o.operation} (${o.success ? 'hit' : 'foiled'})`).join("; ")}
 
 Latest AI report: ${summaries?.[0]?.content?.slice(0, 500) || "None"}
       `.trim();
 
-      const response = await fetch("https://utopia-nexus-production.up.railway.app/ai/ask", {
+      const response = await fetch("https://utopia-nexus.onrender.com/ai/ask", {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams({
