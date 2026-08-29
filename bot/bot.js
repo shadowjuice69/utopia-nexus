@@ -93,7 +93,7 @@ client.login(process.env.DISCORD_TOKEN)
 // Self-ping every 10 minutes to keep Render alive
 const SELF_URL = process.env.RENDER_EXTERNAL_URL || 'https://utopia-nexus.onrender.com';
 setInterval(() => {
-  require('http').get(SELF_URL, res => {
+  require('https').get(SELF_URL, res => {
     logger.info(`[SELF-PING] ${res.statusCode}`);
   }).on('error', err => {
     logger.warn(`[SELF-PING ERROR] ${err.message}`);
