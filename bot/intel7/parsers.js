@@ -145,6 +145,50 @@ function parseAttack(raw) {
     return out;
   }
 
+  // ── KD news: "N - Province (kd) captured N acres of land from N - Province (kd)" ──
+  const kdCapture = t.match(
+    /^#?\d+\s*-\s*(.+?)\s*\((\d+:\d+)\)\s+captured\s+([\d,]+)\s+acres of land from\s+#?\d+\s*-\s*(.+?)\s*\((\d+:\d+)\)/i
+  );
+  if (kdCapture) {
+    const enemyDef = num(t.match(/vs\s+([\d,]+)\s+def/i)?.[1]);
+    out.push({
+      type: 'attack',
+      eventType: 'attack',
+      attackType: 'invasion',
+      direction: 'outgoing',
+      attackerProvince: stripMd(kdCapture[1]),
+      attackerKingdom: kdCapture[2],
+      targetProvince: stripMd(kdCapture[4]),
+      targetKingdom: kdCapture[5],
+      acresCaptured: num(kdCapture[3]),
+      enemyDefense: enemyDef,
+      success: true,
+    });
+    return out;
+  }
+
+  // ── Population kill: "N - Province (kd) killed N people within N - Province (kd)" ──
+  const popKill = t.match(
+    /^#?\d+\s*-\s*(.+?)\s*\((\d+:\d+)\)\s+killed\s+([\d,]+)\s+people within\s+#?\d+\s*-\s*(.+?)\s*\((\d+:\d+)\)/i
+  );
+  if (popKill) {
+    const enemyDef = num(t.match(/vs\s+([\d,]+)\s+def/i)?.[1]);
+    out.push({
+      type: 'attack',
+      eventType: 'attack',
+      attackType: 'massacre',
+      direction: 'outgoing',
+      attackerProvince: stripMd(popKill[1]),
+      attackerKingdom: popKill[2],
+      targetProvince: stripMd(popKill[4]),
+      targetKingdom: popKill[5],
+      peasantsKilled: num(popKill[3]),
+      enemyDefense: enemyDef,
+      success: true,
+    });
+    return out;
+  }
+
   // ── Incoming pillage/loot (no acres) ──
   const incomingPillage = t.match(
     /^#?\d+\s*-\s*(.+?)\s*\((\d+:\d+)\)\s+(?:invaded and pillaged|attacked and pillaged)\s+(?:the lands of\s+)?#?\d+\s*-\s*(.+?)\s*\((\d+:\d+)\)/i
@@ -189,12 +233,17 @@ function parseOps(raw) {
     const attackerMatch = s.match(/[✅❌]\s+#?\d+\s*-\s*(.+?)\s*\/\s*\*\*#?\d+\s+(.+?)\*\*\s*[—-]/);
     const attackerProvince = attackerMatch ? stripMd(attackerMatch[2]) : null;
 
-    // Operation name: last "— OpName →" segment (no nested — chars)
-    const opMatch = s.match(/[—-]\s+([^—\-]+?)\s+→/);
+    // Operation name: between last "—" and "→" (with target) or end (self-spy, no target)
+    const hasTarget = s.includes('→');
+    const opMatch = hasTarget
+      ? s.match(/[—-]\s+([^—\-→]+?)\s+→/)
+      : s.match(/\*\*\s*[—-]\s+([^—\-·]+?)(?:\s+[—-]|\s+·|$)/);
     const operation = opMatch ? stripMd(opMatch[1]) : null;
 
-    // Target: "**#N Target** (kd)" or "**Target** (kd)"
-    const targetMatch = s.match(/→\s+\*\*#?\d*\s*(.+?)\*\*\s*\((\d+:\d+)\)/);
+    // Target: only present if → exists
+    const targetMatch = hasTarget
+      ? s.match(/→\s+\*\*#?\d*\s*(.+?)\*\*\s*\((\d+:\d+)\)/)
+      : null;
     const targetProvince = targetMatch ? stripMd(targetMatch[1]) : null;
     const targetKingdom = targetMatch ? targetMatch[2] : null;
 
