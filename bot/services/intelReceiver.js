@@ -470,7 +470,7 @@ function start() {
           const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
             method: "POST",
             headers: { "Content-Type": "application/json", "Authorization": `Bearer ${process.env.GROQ_API_KEY}` },
-            body: JSON.stringify({ model: "qwen/qwen3.6-27b", messages: [{ role: "user", content: prompt }], max_tokens: 600 })
+            body: JSON.stringify({ model: "llama-3.3-70b-versatile", messages: [{ role: "user", content: prompt }], max_tokens: 600 })
           });
           const groqData = await groqRes.json();
           answer = groqData.choices?.[0]?.message?.content || null;
