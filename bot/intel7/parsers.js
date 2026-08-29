@@ -43,7 +43,7 @@ function parseAttack(raw) {
   const outgoingHeader = t.match(/^⚔\s+(.+?)\s*\((\d+:\d+)\)\s*[—-]\s*#?\d+\s+(.+?):/i);
   if (outgoingHeader && /Your forces arrive at/i.test(t)) {
     const attackerKingdom = outgoingHeader[2];
-    const attackerProvince = stripMd(outgoingHeader[3]);
+    const attackerProvince = stripMd(outgoingHeader[1]); // group 1 = province name, group 3 = rank-label like "- Kx"
     const targetMatch = t.match(/Your forces arrive at\s+(.+?)\s*\((\d+:\d+)\)/i);
     const targetProvince = targetMatch ? stripMd(targetMatch[1]) : null;
     const targetKingdom = targetMatch ? targetMatch[2] : null;
