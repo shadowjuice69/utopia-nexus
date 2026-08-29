@@ -285,7 +285,12 @@ function parseSpell(raw, self = true) {
 
     // Caster: "#N - KdLabel / **#N Province**"
     const casterMatch = s.match(/^#?\d+\s*-\s*(.+?)\s*\/\s*\*\*#?\d+\s+(.+?)\*\*\s*[—-]/);
-    const casterProvince = casterMatch ? stripMd(casterMatch[2]) : null;
+    let resolvedCaster = casterMatch ? stripMd(casterMatch[2]) : null;
+    if (!resolvedCaster) {
+      const fallbackCaster = s.match(/\*\*#?\d+\s+(.+?)\*\*[:\s]/);
+      if (fallbackCaster) resolvedCaster = stripMd(fallbackCaster[1]);
+    }
+    const casterProvince = resolvedCaster;
 
     // Spell name: last "— SpellName:" before "Your wizards"
     // Format: #N - label / **#N Province** — SpellName: Your wizards...
