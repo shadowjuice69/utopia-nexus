@@ -89,3 +89,13 @@ logger.info(`[INTEL7] channel count=${intel7.channels.size} kd=${intel7.kd}`);
 client.login(process.env.DISCORD_TOKEN)
   .then(() => logger.info('[DISCORD] Login accepted'))
   .catch(error => logger.error(`[LOGIN ERROR] ${error.stack || error.message}`));
+
+// Self-ping every 10 minutes to keep Render alive
+const SELF_URL = process.env.RENDER_EXTERNAL_URL || 'https://utopia-nexus.onrender.com';
+setInterval(() => {
+  require('http').get(SELF_URL, res => {
+    logger.info(`[SELF-PING] ${res.statusCode}`);
+  }).on('error', err => {
+    logger.warn(`[SELF-PING ERROR] ${err.message}`);
+  });
+}, 10 * 60 * 1000);
