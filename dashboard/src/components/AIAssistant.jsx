@@ -65,7 +65,11 @@ Latest AI report: ${summaries?.[0]?.content?.slice(0, 500) || "None"}
       <div className="chat-messages">
         {messages.map((m, i) => (
           <div key={i} className={`chat-msg ${m.role}`}>
-            {m.text}
+            <span dangerouslySetInnerHTML={{ __html: m.text
+              .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+              .replace(/^- (.+)$/gm, '• $1')
+              .replace(/\n/g, '<br/>')
+            }} />
           </div>
         ))}
         {loading && (
