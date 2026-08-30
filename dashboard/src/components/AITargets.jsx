@@ -9,9 +9,11 @@ export default function AITargets() {
 
   useEffect(() => {
     async function load() {
-      const ctx = await getKingdomContext();
-      console.log('[TARGETS DEBUG] kingdomCode:', ctx.kingdomCode);
-      const { kingdomCode } = ctx;
+      let { kingdomCode } = await getKingdomContext();
+      if (!kingdomCode) {
+        const { data: bs } = await supabase.from("bot_settings").select("key,value").eq("key","kingdom_code");
+        kingdomCode = bs?.[0]?.value || "6:9";
+      }
       if (!kingdomCode) {
         setTargets([]);
         setOurAvgNW(0);
@@ -25,9 +27,7 @@ export default function AITargets() {
         .select("nw")
         .eq("kd_code", kingdomCode);
 
-      console.log('[TARGETS DEBUG] ours:', ours?.length, ours?.[0]);
       const ourNWs = (ours || []).map(p => parseInt(p.nw) || 0).filter(Boolean);
-      console.log('[TARGETS DEBUG] ourNWs:', ourNWs);
       const avg = ourNWs.length ? Math.round(ourNWs.reduce((a, b) => a + b, 0) / ourNWs.length) : 0;
       setOurAvgNW(avg);
 
