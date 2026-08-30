@@ -80,13 +80,7 @@ const port = Number(process.env.PORT || 10000);
 const intelReceiver = require('./services/intelReceiver');
 intelReceiver.start();
 
-const healthServer = http.createServer((req, res) => {
-  res.writeHead(200, { 'Content-Type': 'text/plain' });
-  res.end('Utopia Nexus online');
-});
-healthServer.listen(port, '0.0.0.0', () => {
-  logger.info(`[HTTP] Health server listening on port ${port}`);
-});
+// Health server removed — intelReceiver handles all HTTP routes
 
 logger.info('🚀 Nexus clean core starting');
 logger.info(`[INTEL7] channel count=${intel7.channels.size} kd=${intel7.kd}`);
