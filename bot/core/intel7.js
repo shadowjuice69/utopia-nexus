@@ -100,7 +100,7 @@ async function save(message, type, parsed) {
   };
   const {error}=await client.from('intel7_messages').upsert(row,{onConflict:'discord_message_id'});
   if(error){logger.error(`[INTEL7] isolated save failed: ${error.message}`);return false;}
-  logger.info(`[INTEL7 SAVED] ${type} message=${message.id} table=intel7_ingest`);
+  logger.info(`[INTEL7 SAVED] ${type} message=${message.id} table=intel7_messages`);
   return true;
 }
 
