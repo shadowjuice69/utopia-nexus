@@ -118,7 +118,11 @@ async function verifyChannels(client,channels){
 
 function startRestPoller(client,channels){
   const seen=new Map(); let first=true;
-  const poll=async()=>{for(const [id,type] of channels){try{const channel=await client.channels.fetch(id);const messages=await channel.messages.fetch({limit:10});const ordered=[...messages.values()].sort((a,b)=>a.createdTimestamp-b.createdTimestamp);if(first){const newest=ordered.at(-1);if(newest)seen.set(id,newest.id);continue;}const last=seen.get(id);for(const message of ordered){if(last&&message.id===last)continue;if(!last||message.createdTimestamp>(channel.messages.cache.get(last)?.createdTimestamp||0)){logger.info(`[INTEL7 POLL] new message channel=${id} type=${type} message=${message.id}`);await processMessage(message,type);seen.set(id,message.id);}}}catch(e){logger.error(`[INTEL7 POLL ERROR] ${type} ${id} ${e.code||''} ${e.message}`);}}first=false;};
+  const poll=async()=>{for(const [id,type] of channels){try{const channel=await client.channels.fetch(id);const messages=await channel.messages.fetch({limit:10});const ordered=[...messages.values()].sort((a,b)=>a.createdTimestamp-b.createdTimestamp);if(first){const newest=ordered.at(-1);if(newest)seen.set(id,newest.id);continue;}const last=seen.get(id);for(const message of ordered){if(last&&message.id===last)continue;if(!last||message.createdTimestamp>(channel.messages.cache.get(last)?.createdTimestamp||0)){logger.info(`[INTEL7 POLL] new message channel=${id} type=${type} message=${message.id}`);await processMessage(message,type);seen.set(id,message.id);}}}catch(e){if (e.code === 50001 || String(e.message).includes('Missing Access')) {
+        logger.warn(`[INTEL7] No access to ${type} channel ${id} - ask admin to check permissions`);
+      } else {
+        logger.error(`[INTEL7 POLL ERROR] ${type} ${id} ${e.code||''} ${e.message}`);
+      }}}first=false;};
   poll().catch(e=>logger.error(`[INTEL7 POLL ERROR] ${e.stack||e.message}`)); setInterval(()=>poll().catch(e=>logger.error(`[INTEL7 POLL ERROR] ${e.stack||e.message}`)),POLL_MS); logger.info(`[INTEL7] REST fallback poller active interval=${POLL_MS}ms`);
 }
 
