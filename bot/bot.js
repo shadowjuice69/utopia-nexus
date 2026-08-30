@@ -76,6 +76,10 @@ client.once('clientReady', async () => {
 });
 
 const port = Number(process.env.PORT || 10000);
+// Start full intel receiver with AI endpoints
+const intelReceiver = require('./services/intelReceiver');
+intelReceiver.start();
+
 const healthServer = http.createServer((req, res) => {
   res.writeHead(200, { 'Content-Type': 'text/plain' });
   res.end('Utopia Nexus online');
