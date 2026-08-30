@@ -20,10 +20,10 @@ export default function AITargets() {
       // Get our avg NW from the configured kingdom.
       const { data: ours } = await supabase
         .from("provinces")
-        .select("nw, networth")
+        .select("nw")
         .eq("kd_code", kingdomCode);
 
-      const ourNWs = (ours || []).map(p => parseInt(p.nw) || parseInt(p.networth) || 0).filter(Boolean);
+      const ourNWs = (ours || []).map(p => parseInt(p.nw) || 0).filter(Boolean);
       const avg = ourNWs.length ? Math.round(ourNWs.reduce((a, b) => a + b, 0) / ourNWs.length) : 0;
       setOurAvgNW(avg);
 
