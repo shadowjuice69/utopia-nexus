@@ -9,7 +9,9 @@ export default function AITargets() {
 
   useEffect(() => {
     async function load() {
-      const { kingdomCode } = await getKingdomContext();
+      const ctx = await getKingdomContext();
+      console.log('[TARGETS DEBUG] kingdomCode:', ctx.kingdomCode);
+      const { kingdomCode } = ctx;
       if (!kingdomCode) {
         setTargets([]);
         setOurAvgNW(0);
@@ -23,7 +25,9 @@ export default function AITargets() {
         .select("nw")
         .eq("kd_code", kingdomCode);
 
+      console.log('[TARGETS DEBUG] ours:', ours?.length, ours?.[0]);
       const ourNWs = (ours || []).map(p => parseInt(p.nw) || 0).filter(Boolean);
+      console.log('[TARGETS DEBUG] ourNWs:', ourNWs);
       const avg = ourNWs.length ? Math.round(ourNWs.reduce((a, b) => a + b, 0) / ourNWs.length) : 0;
       setOurAvgNW(avg);
 
