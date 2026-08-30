@@ -591,21 +591,26 @@ Be concise and tactical.`;
         let sciRules = "";
 
         if (sb) {
-          const { data: rr } = await sb.from("race_rules").select("rule_name, value").eq("active", true).limit(30);
-          const { data: pr } = await sb.from("personality_rules").select("rule_name, value").eq("personality_name", "Sage").eq("active", true).limit(20);
+          // Detect race/personality from province record or page text
+          const { data: provData } = await sb.from("provinces").select("race, personality").ilike("name", provinceName).limit(1);
+          const race = provData?.[0]?.race || (pageText.match(/Race\s*([A-Za-z]+)/i)?.[1]) || "Halfling";
+          const personality = provData?.[0]?.personality || (pageText.match(/Personality\s*([A-Za-z]+)/i)?.[1]) || "Heretic";
+
+          const { data: rr } = await sb.from("race_rules").select("rule_name, value").ilike("race_name", race).eq("active", true).limit(30);
+          const { data: pr } = await sb.from("personality_rules").select("rule_name, value").ilike("personality_name", personality).eq("active", true).limit(20);
           const { data: sr } = await sb.from("science_rules").select("name, effect").limit(20);
           if (rr) raceRules = rr.map(r => `${r.rule_name}: ${r.value}`).join("\n");
           if (pr) persRules = pr.map(r => `${r.rule_name}: ${r.value}`).join("\n");
           if (sr) sciRules = sr.map(r => `${r.name}: ${r.effect}`).join("\n");
         }
 
-        const prompt = `You are an expert Utopia advisor for a Dwarf Sage province named "${provinceName}".
+        const prompt = `You are an expert Utopia advisor for a ${race} ${personality} province named "${provinceName}".
 
-DWARF RACE RULES:
-${raceRules || "Dwarves: high defense, Berserkers/Axemen troops, mining bonus, low offense"}
+${race.toUpperCase()} RACE RULES:
+${raceRules || race + " race rules not found"}
 
-SAGE PERSONALITY RULES:
-${persRules || "Sage: +20% WPA, science focus, spell efficiency bonus"}
+${personality.toUpperCase()} PERSONALITY RULES:
+${persRules || personality + " personality rules not found"}
 
 SCIENCE EFFECTS:
 ${sciRules || "Alchemy: income, Bookkeeping: income, Channeling: WPA, Housing: population"}
