@@ -589,12 +589,14 @@ Be concise and tactical.`;
         let raceRules = "";
         let persRules = "";
         let sciRules = "";
+        let race = pageText.match(/Race\s*([A-Za-z]+)/i)?.[1] || "Halfling";
+        let personality = pageText.match(/Personality\s*([A-Za-z]+)/i)?.[1] || "Heretic";
 
         if (sb) {
-          // Detect race/personality from province record or page text
+          // Detect race/personality from province record
           const { data: provData } = await sb.from("provinces").select("race, personality").ilike("name", provinceName).limit(1);
-          const race = provData?.[0]?.race || (pageText.match(/Race\s*([A-Za-z]+)/i)?.[1]) || "Halfling";
-          const personality = provData?.[0]?.personality || (pageText.match(/Personality\s*([A-Za-z]+)/i)?.[1]) || "Heretic";
+          if (provData?.[0]?.race) race = provData[0].race;
+          if (provData?.[0]?.personality) personality = provData[0].personality;
 
           const { data: rr } = await sb.from("race_rules").select("rule_name, value").ilike("race_name", race).eq("active", true).limit(30);
           const { data: pr } = await sb.from("personality_rules").select("rule_name, value").ilike("personality_name", personality).eq("active", true).limit(20);
