@@ -10,7 +10,7 @@
 // @grant        GM_setValue
 // @grant        GM_getValue
 // @connect      utopia-nexus.onrender.com
-// @run-at       document-end
+// @run-at       document-start
 // ==/UserScript==
 
 (function () {
