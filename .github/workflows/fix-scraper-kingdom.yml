@@ -1,0 +1,50 @@
+name: Fix scraper kingdom extraction
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  patch-scraper:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Patch kingdom extraction
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('tampermonkey/nexus-scraper.user.js')
+          s = p.read_text()
+
+          old = '''  // Kingdom name\n  let kdNameMatch = text.match(/The kingdom of (.+?)[\\n\\r(]/i);\n  let kdName = kdNameMatch ? kdNameMatch[1].trim() : "Unknown";\n\n  // KD code from URL path /wol/game/kingdom_details/ISLAND/KD\n  let kdCode = "";\n  let urlMatch = location.pathname.match(/kingdom_details\\/(\\d+)\\/(\\d+)/);\n  if (urlMatch) {\n    kdCode = urlMatch[1] + ":" + urlMatch[2];\n  }\n'''
+
+          new = '''  // Kingdom name — Utopia changes the heading markup between pages/ages,\n  // so use several text patterns and never silently discard a visible name.\n  let kdName = "Unknown";\n  let kdNamePatterns = [\n    /(?:The\\s+)?kingdom\\s+of\\s+([^\\n\\r(]+?)(?:\\s*\\(\\d+:\\d+\\))?\\s*$/im,\n    /kingdom\\s+name\\s*[:\\-]\\s*([^\\n\\r]+)/i,\n    /kingdom\\s*[:\\-]\\s*([^\\n\\r]+)/i\n  ];\n  for (let ptn of kdNamePatterns) {\n    let m = text.match(ptn);\n    if (m && m[1]) {\n      let candidate = m[1].trim().replace(/\\s+/g, " ");\n      if (candidate && !/^details?$/i.test(candidate) && !/^kingdom$/i.test(candidate)) {\n        kdName = candidate;\n        break;\n      }\n    }\n  }\n\n  // KD code — reuse the scraper's hardened getKD() logic, then fall back to\n  // URL/text patterns for kingdom-details pages.\n  let kdCode = getKD();\n  if (!kdCode || kdCode === MY_KD) {\n    let urlMatch = location.href.match(/(?:kingdom_details|kingdom)[\\/\\-_](\\d+)[\\/\\-_](\\d+)/i);\n    if (urlMatch) kdCode = urlMatch[1] + ":" + urlMatch[2];\n  }\n'''
+
+          if old in s:
+              s = s.replace(old, new, 1)
+          else:
+              print('Kingdom extraction block already patched or changed; continuing')
+
+          old_payload = '    kd: kdCode || MY_KD,\n'
+          new_payload = '    kd: kdCode || MY_KD,\n'
+          s = s.replace(old_payload, new_payload, 1)
+
+          p.write_text(s)
+          PY
+
+      - name: Commit scraper patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tampermonkey/nexus-scraper.user.js
+          if git diff --cached --quiet; then
+            echo "No scraper changes needed"
+            exit 0
+          fi
+          git commit -m "fix scraper kingdom name and KD extraction"
+          git push
