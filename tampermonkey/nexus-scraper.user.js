@@ -259,15 +259,31 @@ function scrapeKingdomPage(callback) {
 
   let text = document.body.innerText;
 
-  // Kingdom name
-  let kdNameMatch = text.match(/The kingdom of (.+?)[\n\r(]/i);
-  let kdName = kdNameMatch ? kdNameMatch[1].trim() : "Unknown";
+  // Kingdom name — Utopia changes the heading markup between pages/ages,
+  // so use several text patterns and never silently discard a visible name.
+  let kdName = "Unknown";
+  let kdNamePatterns = [
+    /(?:The\s+)?kingdom\s+of\s+([^\n\r(]+?)(?:\s*\(\d+:\d+\))?\s*$/im,
+    /kingdom\s+name\s*[:\-]\s*([^\n\r]+)/i,
+    /kingdom\s*[:\-]\s*([^\n\r]+)/i
+  ];
+  for (let ptn of kdNamePatterns) {
+    let m = text.match(ptn);
+    if (m && m[1]) {
+      let candidate = m[1].trim().replace(/\s+/g, " ");
+      if (candidate && !/^details?$/i.test(candidate) && !/^kingdom$/i.test(candidate)) {
+        kdName = candidate;
+        break;
+      }
+    }
+  }
 
-  // KD code from URL path /wol/game/kingdom_details/ISLAND/KD
-  let kdCode = "";
-  let urlMatch = location.pathname.match(/kingdom_details\/(\d+)\/(\d+)/);
-  if (urlMatch) {
-    kdCode = urlMatch[1] + ":" + urlMatch[2];
+  // KD code — reuse the scraper's hardened getKD() logic, then fall back to
+  // URL/text patterns for kingdom-details pages.
+  let kdCode = getKD();
+  if (!kdCode || kdCode === MY_KD) {
+    let urlMatch = location.href.match(/(?:kingdom_details|kingdom)[\/\-_](\d+)[\/\-_](\d+)/i);
+    if (urlMatch) kdCode = urlMatch[1] + ":" + urlMatch[2];
   }
 
   // Kingdom stats
