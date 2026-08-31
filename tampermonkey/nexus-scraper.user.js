@@ -833,8 +833,8 @@ function startNexus() {
     }
   }
 
-  if (ownPageTabs.includes(currentTab) && !document.body) {
-    // Body not ready yet - wait for DOMContentLoaded
+  // Always wait for DOM then auto-send
+  if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", function() {
       addNexusUI();
       addAdvisorPanel();
