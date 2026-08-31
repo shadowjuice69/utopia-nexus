@@ -640,7 +640,22 @@ function sendIntel(silent = false, callback = null) {
 // ─── UI ───────────────────────────────────────────────────────────────────────
 
 function addNexusUI() {
-  if (!document.body) return;
+  // Handle frameset pages - find content frame
+  if (!document.body || document.body.tagName === 'FRAMESET') {
+    // Try to find the main content frame
+    let frames = document.getElementsByTagName('frame');
+    for (let f of frames) {
+      try {
+        if (f.contentDocument && f.contentDocument.body) {
+          // Re-run addNexusUI in that frame context
+          let script = f.contentDocument.createElement('script');
+          script.textContent = '(' + addNexusUI.toString() + ')()';
+          f.contentDocument.body.appendChild(script);
+        }
+      } catch(e) {}
+    }
+    return;
+  }
 
   // Status bar
   if (!document.getElementById("nexus-status")) {
