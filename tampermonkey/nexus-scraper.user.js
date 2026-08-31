@@ -822,14 +822,27 @@ function startNexus() {
   addAdvisorPanel();
 
   // Auto-send on load
-  setTimeout(function () {
-    // If cycler is running and we just navigated here, continue cycling
+  let ownPageTabs = ["throne", "military", "survey", "science", "state", "armies"];
+  let currentTab = getTab();
+  
+  function doAutoSend() {
     if (GM_getValue("cycler_running", false)) {
       setTimeout(() => scrapeAndAdvance(), 1000);
     } else {
       sendIntel(true);
     }
-  }, 3000);
+  }
+
+  if (ownPageTabs.includes(currentTab) && !document.body) {
+    // Body not ready yet - wait for DOMContentLoaded
+    document.addEventListener("DOMContentLoaded", function() {
+      addNexusUI();
+      addAdvisorPanel();
+      setTimeout(doAutoSend, 1000);
+    });
+  } else {
+    setTimeout(doAutoSend, 3000);
+  }
 
   setInterval(function () { addNexusUI(); addAdvisorPanel(); }, 3000);
   setInterval(function () { watchPage(); }, 3000);
