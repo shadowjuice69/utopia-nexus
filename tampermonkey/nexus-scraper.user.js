@@ -428,8 +428,12 @@ function getKD() {
     if (kdFromPath !== MY_KD) return kdFromPath;
   }
 
-  // 4. Fall back to text scan (skip own stats bar by finding 2nd match)
-  let text = document.body.innerText;
+  // 4. On own game pages, always return MY_KD
+  let ownPages = ["throne", "council_military", "council_internal", "council_science", "council_state", "province_news", "province_logs", "kingdom_news"];
+  if (ownPages.some(p => location.href.includes(p))) return MY_KD;
+
+  // 5. Fall back to text scan for enemy pages
+  let text = document.body ? document.body.innerText : "";
   let matches = [...text.matchAll(/\b(\d+:\d+)\b/g)].map(m => m[1]);
   let foreign = matches.find(k => k !== MY_KD);
   if (foreign) return foreign;
