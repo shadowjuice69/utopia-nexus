@@ -82,3 +82,6 @@ jobs:
           fi
           git commit -m "release scraper v6.8.1"
           git push
+
+      # Force this workflow to run once after the release automation was fixed.
+      # The step above is idempotent: if the scraper is already 6.8.1, it makes no change.
