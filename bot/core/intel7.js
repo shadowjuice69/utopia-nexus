@@ -96,7 +96,7 @@ async function save(message, type, parsed) {
     content:message.content||'',
     message_created_at:message.createdAt?new Date(message.createdAt).toISOString():null,
     event_type:parsed.event||type,
-    parsed
+    parsed:true
   };
   const {error}=await client.from('intel7_messages').upsert(row,{onConflict:'discord_message_id'});
   if(error){logger.error(`[INTEL7] isolated save failed: ${error.message}`);return false;}
