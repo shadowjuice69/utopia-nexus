@@ -447,7 +447,7 @@ function getTab() {
   if (url.includes("province_news") || url.includes("kingdom_news") || url.includes("province_logs")) return "news";
   if (url.includes("kingdom_details")) return "kingdom";
 
-  let text = document.body.innerText;
+  let text = document.body ? document.body.innerText : "";
   if (text.includes("Ambush") && text.includes("RawOff")) return "armies";
   if (text.includes("Alchemy") && text.includes("Bookkeeping")) return "science";
   if (text.includes("Standing Army")) return "military";
