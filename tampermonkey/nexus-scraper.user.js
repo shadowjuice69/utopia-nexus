@@ -18,7 +18,7 @@
 
 const ENDPOINT = "https://utopia-nexus.onrender.com/intel";
 const KEY = "NikkoAce";
-const MY_KD = "6:9";
+const MY_KD = "3:2";
 
 // Cycler state (persisted via GM_setValue)
 let cyclerRunning = false;
@@ -447,7 +447,7 @@ function getTab() {
   if (url.includes("province_news") || url.includes("kingdom_news") || url.includes("province_logs")) return "news";
   if (url.includes("kingdom_details")) return "kingdom";
 
-  let text = document.body ? document.body.innerText : "";
+  let text = document.body.innerText;
   if (text.includes("Ambush") && text.includes("RawOff")) return "armies";
   if (text.includes("Alchemy") && text.includes("Bookkeeping")) return "science";
   if (text.includes("Standing Army")) return "military";
@@ -640,22 +640,7 @@ function sendIntel(silent = false, callback = null) {
 // ─── UI ───────────────────────────────────────────────────────────────────────
 
 function addNexusUI() {
-  // Handle frameset pages - find content frame
-  if (!document.body || document.body.tagName === 'FRAMESET') {
-    // Try to find the main content frame
-    let frames = document.getElementsByTagName('frame');
-    for (let f of frames) {
-      try {
-        if (f.contentDocument && f.contentDocument.body) {
-          // Re-run addNexusUI in that frame context
-          let script = f.contentDocument.createElement('script');
-          script.textContent = '(' + addNexusUI.toString() + ')()';
-          f.contentDocument.body.appendChild(script);
-        }
-      } catch(e) {}
-    }
-    return;
-  }
+  if (!document.body) return;
 
   // Status bar
   if (!document.getElementById("nexus-status")) {
