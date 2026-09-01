@@ -648,8 +648,7 @@ Be specific with numbers where possible. Keep it concise — this is read on a t
               type: "advisor",
               content: advice,
               metadata: { tab: tab, province: prov, page_text_length: pageText.length },
-              age: "116",
-              tick: new Date().toISOString()
+              age: 116
             });
           } catch(e) { logger.error("[ADVISOR SAVE] " + e.message); }
         }
