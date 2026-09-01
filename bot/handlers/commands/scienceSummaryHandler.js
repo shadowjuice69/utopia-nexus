@@ -6,7 +6,7 @@ const CATEGORY_EMOJI = {
   economy: '💰', military: '⚔️', arcane_arts: '🔮',
 };
 
-// Personality science modifiers
+// Personality science modifiers. These are formula modifiers, not age/kingdom selection.
 const PERS_SCIENCE_MODS = {
   artisan:     { artisan: 1.25, _all: 1.0 },
   tactician:   { siege: 1.40,   _all: 1.0 },
@@ -66,14 +66,39 @@ module.exports = async function scienceSummaryHandler(interaction) {
 
   const books = sciData[0];
 
-  const { data: rules } = await supabase
+  // Current kingdom and age are runtime configuration. Never hard-code an age here.
+  const { data: settings } = await supabase
+    .from("bot_settings")
+    .select("key, value")
+    .in("key", ["current_age", "kingdom_code"]);
+
+  const settingsMap = Object.fromEntries((settings || []).map(s => [s.key, s.value]));
+  const currentAge = Number.parseInt(settingsMap.current_age, 10);
+  const kingdomCode = settingsMap.kingdom_code?.trim();
+
+  if (!Number.isInteger(currentAge) || currentAge <= 0)
+    return interaction.reply({ content: "❌ Current age is not configured in Nexus.", ephemeral: true });
+  if (!kingdomCode)
+    return interaction.reply({ content: "❌ Kingdom code is not configured in Nexus.", ephemeral: true });
+
+  const { data: rules, error: rulesError } = await supabase
     .from("science_rules")
-    .select("science_name, category, multiplier, effect")
-    .eq("active", true).eq("age_number", 116)
+    .select("science_name, category, multiplier, effect, kd_code, age_number")
+    .eq("active", true)
+    .eq("kd_code", kingdomCode)
+    .eq("age_number", currentAge)
     .not("multiplier", "is", null);
 
+  if (rulesError) {
+    console.error(`[SCIENCE RULES] ${rulesError.message}`);
+    return interaction.reply({ content: "❌ Unable to load science rules.", ephemeral: true });
+  }
+
   if (!rules || rules.length === 0)
-    return interaction.reply({ content: "❌ Science rules not found.", ephemeral: true });
+    return interaction.reply({
+      content: `❌ No science rules configured for **${kingdomCode}**, Age **${currentAge}**. Add the new age's kingdom-specific science weights before using the calculator.`,
+      ephemeral: true
+    });
 
   const ruleMap = {};
   for (const r of rules) {
@@ -97,7 +122,8 @@ module.exports = async function scienceSummaryHandler(interaction) {
     const rule = ruleMap[key];
     if (!rule) continue;
     const persMod = persMods[key] || 1.0;
-    // Use game's own effect % if available, otherwise calculate
+    // Use game's own effect % if available, otherwise calculate from the active
+    // kingdom/age science multiplier plus the formula modifiers.
     const effects = books.science_effects || {};
     const gameEffect = effects[key];
     const bonusStr = gameEffect
@@ -119,7 +145,7 @@ module.exports = async function scienceSummaryHandler(interaction) {
   const embed = new EmbedBuilder()
     .setTitle(`🔬 Science Summary — ${provinceName}`)
     .setColor(0x6366f1)
-    .setDescription(`Race: **${race || 'Unknown'}** | Personality: **${personality || 'None'}**${libNote} | Updated: <t:${Math.floor(new Date(books.updated_at).getTime()/1000)}:R>`)
+    .setDescription(`Kingdom: **${kingdomCode}** | Age: **${currentAge}** | Race: **${race || 'Unknown'}** | Personality: **${personality || 'None'}**${libNote} | Updated: <t:${Math.floor(new Date(books.updated_at).getTime()/1000)}:R>`)
     .setFooter({ text: kd.footer });
 
   for (const [cat, sciences] of Object.entries(grouped)) {
