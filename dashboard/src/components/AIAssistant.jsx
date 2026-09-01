@@ -26,9 +26,9 @@ function formatBuild(build) {
   const scienceLines = Object.entries(science).map(([key, value]) => {
     const books = value && typeof value === "object" ? value.books : value;
     const category = value && typeof value === "object" && value.category ? ` (${value.category})` : "";
-    return `${key}: ${books} books${category}`;
+    return `${key}: ${books}x weight${category}`;
   });
-  if (scienceLines.length) lines.push(`Science: ${scienceLines.join(", ")}`);
+  if (scienceLines.length) lines.push(`Science weights: ${scienceLines.join(", ")}`);
 
   if (build.raw_text) lines.push(`Original Savage build:\n${build.raw_text}`);
   return lines.join("\n");
@@ -73,6 +73,18 @@ Latest AI report: ${summariesResult.data?.[0]?.content?.slice(0, 500) || "None"}
 
 ACTIVE SAVAGE REFERENCE BUILDS:
 ${referenceBuilds || "No active reference builds saved yet."}
+
+SCIENCE BOOK ALLOCATION RULE — IMPORTANT:
+- Savage science entries such as 3x, 5x, 10x are RELATIVE ALLOCATION WEIGHTS, not literal numbers of books.
+- For each science category, first sum the weights within that science category.
+- Formula: books per weight = total available books ÷ total science weight.
+- Then: books allocated to a science = books per weight × that science's weight.
+- Example with 1,000 available books and Economy weights 3, 5, 5, 5, 2, 0: total weight = 20, so 1,000 ÷ 20 = 50 books per weight. Allocations are Alchemy 150, Tools 250, Housing 250, Production 250, Bookkeeping 100, Artisan 0.
+- Apply the same formula independently to Military and Arcane science using each category's own total weight.
+- Preserve the original Savage weights exactly when comparing or recommending science allocations; calculate actual book counts from the currently available books rather than treating 3x/5x/10x as literal book counts.
+- If the available book total changes, recalculate the allocation proportionally using the same weights.
+- Round calculated book counts sensibly while keeping the final allocation as close as possible to the total available books.
+- Do not assume the weights are per-tick unless the game data or Savage explicitly confirms that interpretation.
 
 Reference-build rules:
 - Treat active Savage builds as the kingdom's strategic baseline, not generic suggestions.
