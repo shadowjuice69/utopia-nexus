@@ -645,13 +645,15 @@ Be specific with numbers where possible. Keep it concise — this is read on a t
         logger.info("[ADVISOR] advice received: " + (advice ? advice.substring(0, 50) : "null"));
         if (advice) {
           try {
-            await supabaseService.getClient().from("ai_summaries").insert({
+            const { error: saveErr } = await supabaseService.getClient().from("ai_summaries").insert({
               type: "advisor",
               content: advice,
               metadata: { tab: tab, province: provinceName, page_text_length: pageText.length },
               age: 116
             });
-          } catch(e) { logger.error("[ADVISOR SAVE] " + e.message); }
+            if (saveErr) logger.error("[ADVISOR SAVE] " + JSON.stringify(saveErr));
+            else logger.info("[ADVISOR SAVE] saved successfully");
+          } catch(e) { logger.error("[ADVISOR SAVE CATCH] " + e.message); }
         }
 
         res.writeHead(200, { "Content-Type": "text/plain", "Access-Control-Allow-Origin": "*" });
