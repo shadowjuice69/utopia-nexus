@@ -160,7 +160,7 @@ async function approveAgeUpdate(id, adminId) {
     if (personalityRows.length) await supabase.from("personality_rules").insert(personalityRows);
     if (gameRows.length || dragonRows.length) await supabase.from("game_rules").insert([...gameRows, ...dragonRows]);
 
-    // Mark approved
+    // Mark approved first. The approved age becomes Nexus's runtime current age.
     const { data, error } = await supabase
       .from("age_updates")
       .update({ status: "approved", approved_by: adminId, approved_at: new Date().toISOString() })
@@ -170,7 +170,13 @@ async function approveAgeUpdate(id, adminId) {
 
     if (error) throw error;
 
-    logger.info(`[AGE UPDATE APPROVED] ID ${id} BY ${adminId} - ${raceRows.length} race rules, ${personalityRows.length} personality rules, ${gameRows.length + dragonRows.length} game rules`);
+    const { error: ageSettingError } = await supabase
+      .from("bot_settings")
+      .upsert({ key: "current_age", value: String(ageNumber), updated_at: new Date().toISOString() }, { onConflict: "key" });
+
+    if (ageSettingError) throw ageSettingError;
+
+    logger.info(`[AGE UPDATE APPROVED] ID ${id} BY ${adminId} - ${raceRows.length} race rules, ${personalityRows.length} personality rules, ${gameRows.length + dragonRows.length} game rules; current age set to ${ageNumber}`);
 
     return {
       ...data,
