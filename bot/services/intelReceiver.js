@@ -642,6 +642,7 @@ Be specific with numbers where possible. Keep it concise — this is read on a t
           if (groqData.error) logger.error("[ADVISOR GROQ] " + groqData.error.message);
         } catch(e) { logger.error("[ADVISOR GROQ] " + e.message); }
 
+        logger.info("[ADVISOR] advice received: " + (advice ? advice.substring(0, 50) : "null"));
         if (advice) {
           try {
             await supabaseService.getClient().from("ai_summaries").insert({
