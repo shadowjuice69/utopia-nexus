@@ -644,7 +644,7 @@ Be specific with numbers where possible. Keep it concise — this is read on a t
 
         if (advice) {
           try {
-            await supabaseService.from("ai_summaries").insert({
+            await supabaseService.getClient().from("ai_summaries").insert({
               type: "advisor",
               content: advice,
               metadata: { tab: tab, province: prov, page_text_length: pageText.length },
