@@ -647,7 +647,7 @@ Be specific with numbers where possible. Keep it concise — this is read on a t
             await supabaseService.getClient().from("ai_summaries").insert({
               type: "advisor",
               content: advice,
-              metadata: { tab: tab, province: prov, page_text_length: pageText.length },
+              metadata: { tab: tab, province: provinceName, page_text_length: pageText.length },
               age: 116
             });
           } catch(e) { logger.error("[ADVISOR SAVE] " + e.message); }

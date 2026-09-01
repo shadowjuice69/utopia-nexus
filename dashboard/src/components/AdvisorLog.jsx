@@ -16,7 +16,7 @@ export default function AdvisorLog() {
       .from("ai_summaries")
       .select("*")
       .eq("type", "advisor")
-      .order("tick", { ascending: false })
+      .order("created_at", { ascending: false })
       .limit(50);
     if (!error) setLogs(data || []);
     setLoading(false);
@@ -74,7 +74,7 @@ export default function AdvisorLog() {
             >
               <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
                 <span style={{ color: "#f5c842", fontSize: "11px", fontWeight: "bold" }}>
-                  {formatDate(log.tick)}
+                  {formatDate(log.created_at)}
                 </span>
                 <span style={{
                   background: "#2a2a3a", color: "#9b8dc4", padding: "2px 8px",
