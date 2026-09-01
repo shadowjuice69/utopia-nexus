@@ -642,6 +642,18 @@ Be specific with numbers where possible. Keep it concise — this is read on a t
           if (groqData.error) logger.error("[ADVISOR GROQ] " + groqData.error.message);
         } catch(e) { logger.error("[ADVISOR GROQ] " + e.message); }
 
+        if (advice) {
+          try {
+            await supabase.from("ai_summaries").insert({
+              type: "advisor",
+              content: advice,
+              metadata: { tab: tab, province: prov, page_text_length: pageText.length },
+              age: "116",
+              tick: new Date().toISOString()
+            });
+          } catch(e) { logger.error("[ADVISOR SAVE] " + e.message); }
+        }
+
         res.writeHead(200, { "Content-Type": "text/plain", "Access-Control-Allow-Origin": "*" });
         res.end(advice || "No advice available.");
       } catch(e) {
