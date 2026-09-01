@@ -24,6 +24,7 @@ import AttackCalc from "./components/AttackCalc";
 import AIWarReport from "./components/AIWarReport";
 import AITargets from "./components/AITargets";
 import AIAssistant from "./components/AIAssistant";
+import AdvisorLog from "./components/AdvisorLog";
 import RepoTools from "./components/RepoTools";
 import Login from "./components/Login";
 
@@ -54,6 +55,7 @@ const GROUPS = [
     { id: "warreport", label: "War Report", component: AIWarReport },
     { id: "targets", label: "Targets", component: AITargets },
     { id: "ask", label: "Ask", component: AIAssistant },
+    { id: "advisorlog", label: "Advisor Log", component: AdvisorLog },
   ] },
   { id: "tools", label: "TOOLS", color: "#60a5fa", tabs: [
     { id: "repo-tools", label: "Repo Toolkit", component: RepoTools },
