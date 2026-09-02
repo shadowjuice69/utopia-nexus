@@ -284,7 +284,19 @@ async function saveIntel(parsed, prov) {
       const { error } = await sb.from("kingdoms").upsert({ kd_code: parsed.kd, data: parsed.data, updated_at: new Date().toISOString() }, { onConflict: "kd_code" });
       if (error) logger.error(`[KINGDOM SAVE ERROR] ${error.message}`);
     } else if (parsed.type === "kingdom-page") {
-      const { error } = await sb.from("kingdoms").upsert({ kd_code: parsed.kd, data: parsed.data, updated_at: new Date().toISOString() }, { onConflict: "kd_code" });
+      const kpd = parsed.data || {};
+      const { error } = await sb.from("kingdoms").upsert({
+        kd_code: parsed.kd,
+        kd_name: kpd.kd_name || null,
+        total_nw: kpd.total_nw ? parseInt(kpd.total_nw) : null,
+        total_land: kpd.total_land ? parseInt(kpd.total_land) : null,
+        total_provinces: kpd.total_provinces ? parseInt(kpd.total_provinces) : null,
+        stance: kpd.stance || null,
+        nw_rank: kpd.nw_rank ? parseInt(kpd.nw_rank) : null,
+        land_rank: kpd.land_rank ? parseInt(kpd.land_rank) : null,
+        data: parsed.data,
+        updated_at: new Date().toISOString()
+      }, { onConflict: "kd_code" });
       if (error) logger.error(`[KINGDOM PAGE SAVE ERROR] ${error.message}`);
     } else if (parsed.type === "intel-site") {
       const siteData = parsed.data || {};
