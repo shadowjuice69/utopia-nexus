@@ -14,8 +14,8 @@ export default function EnemyKingdoms() {
       const { data, error } = await supabase
         .from("kingdoms")
         .select("*")
-        .neq("kd_id", MY_KD)
-        .order("nw_rank", { ascending: true });
+        .neq("kd_code", "6:9")
+        .order("total_nw", { ascending: false });
       console.log("[ENEMY KD]", data, error);
       setKingdoms(data || []);
       setLoading(false);
@@ -43,7 +43,7 @@ export default function EnemyKingdoms() {
     </div>
   );
 
-  const selectedKd = kingdoms.find(k => k.kd_id === selected);
+  const selectedKd = kingdoms.find(k => k.kd_code === selected);
 
   return (
     <div>
