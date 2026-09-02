@@ -3,6 +3,7 @@ const path = require("path");
 const https = require("https");
 const { spawn } = require("child_process");
 
+const { isSpotifyUrl, resolveSpotify } = require("./spotifyResolver");
 const YTDLP_PATH = path.join("/tmp", "nexus-yt-dlp");
 const YTDLP_URL = "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp";
 const COOKIE_PATH = "/tmp/nexus-youtube-cookies.txt";
@@ -96,6 +97,20 @@ function normalizeEntry(entry, fallbackTitle) {
 }
 
 async function resolvePlaylist(sourceUrl) {
+  if (isSpotifyUrl(sourceUrl)) {
+    console.log("[MUSIC] Spotify URL detected, resolving via Spotify API...");
+    const result = await resolveSpotify(sourceUrl);
+    const tracks = result.tracks.map(t => ({
+      url: "ytsearch1:" + t.searchQuery,
+      title: t.title,
+      artist: t.artist,
+      thumbnail: t.thumbnail,
+      duration: t.duration,
+      isSpotify: true
+    }));
+    console.log("[MUSIC] Spotify resolved " + tracks.length + " track(s) from: " + result.playlistName);
+    return { playlistName: result.playlistName, tracks };
+  }
   const binary = await ensureYtdlp();
   const cookiePath = await ensureCookieFile();
   const clients = ["web_safari,tv,android_vr", "tv,android_vr,web_embedded", "web_embedded,android_vr"];
