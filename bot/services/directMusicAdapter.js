@@ -12,6 +12,7 @@ const {
   StreamType,
 } = require("@discordjs/voice");
 
+const { isSpotifyUrl, resolveSpotify } = require("./spotifyResolver");
 const YTDLP_PATH = path.join("/tmp", "nexus-yt-dlp");
 const YTDLP_URL = "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp";
 const FFMPEG = process.env.FFMPEG_PATH || "ffmpeg";
@@ -127,6 +128,20 @@ function parsePlaylistJson(output) {
 }
 
 async function resolveQuery(query) {
+  if (isSpotifyUrl(query)) {
+    console.log("[MUSIC] Spotify URL detected, resolving via Spotify API...");
+    const result = await resolveSpotify(query);
+    const tracks = result.tracks.map(t => ({
+      url: "ytsearch1:" + t.searchQuery,
+      title: t.title,
+      artist: t.artist,
+      thumbnail: t.thumbnail,
+      duration: t.duration,
+      isSpotify: true
+    }));
+    console.log("[MUSIC] Spotify resolved " + tracks.length + " track(s) from: " + result.playlistName);
+    return { playlistName: result.playlistName, tracks };
+  }
   const binary = await ensureYtdlp();
   const cookiePath = await ensureCookieFile();
   const target = /^https?:\/\//i.test(query) ? query : `ytsearch1:${query}`;
