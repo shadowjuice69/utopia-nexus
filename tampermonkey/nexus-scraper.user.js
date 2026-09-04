@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Utopia Nexus Universal Intel Scraper
 // @namespace    utopia-nexus
-// @version      6.9.2
+// @version      7.0.2
 // @updateURL    https://raw.githubusercontent.com/shadowjuice69/utopia-nexus/main/tampermonkey/nexus-scraper.user.js
 // @downloadURL  https://raw.githubusercontent.com/shadowjuice69/utopia-nexus/main/tampermonkey/nexus-scraper.user.js
 // @description  Universal Utopia intel collector with kingdom cycler and AI analysis trigger
@@ -12,7 +12,8 @@
 // @grant        GM_setValue
 // @grant        GM_getValue
 // @connect      utopia-nexus.onrender.com
-// @run-at       document-start
+// @run-at       document-end
+// @all-frames    true
 // ==/UserScript==
 
 (function () {
@@ -55,11 +56,12 @@ function setStatus(message, good = true) {
 function updatePanel() {
   let panel = document.getElementById("nexus-panel");
   if (!panel) return;
-  let running = GM_getValue("cycler_running", false);
-  let current = GM_getValue("cycler_current", 0);
-  let total = GM_getValue("cycler_total", 0);
-  let mode = GM_getValue("cycler_mode", "");
-  let done = GM_getValue("cycler_done", false);
+  let p = new URLSearchParams(location.search);
+  let running = p.get("nx_cycle") === "1";
+  let current = parseInt(p.get("nx_cur") || "0");
+  let total = parseInt(p.get("nx_tot") || "0");
+  let mode = "kingdom";
+  let done = false;
 
   if (done) {
     panel.innerHTML = `
@@ -74,10 +76,7 @@ function updatePanel() {
       window.open("https://dashboard-gold-six-11.vercel.app", "_blank");
     };
     document.getElementById("nexus-reset-btn").onclick = () => {
-      GM_setValue("cycler_running", false);
-      GM_setValue("cycler_done", false);
-      GM_setValue("cycler_current", 0);
-      GM_setValue("cycler_total", 0);
+      history.replaceState({}, "", location.pathname);
       updatePanel();
     };
     return;
@@ -97,14 +96,11 @@ function updatePanel() {
         <button id="nexus-stop-btn" style="flex:1;padding:8px;background:#6e1a1a;color:white;border:none;border-radius:6px;font:bold 12px monospace;cursor:pointer;">⏹ Stop</button>
       </div>`;
     document.getElementById("nexus-pause-btn").onclick = () => {
-      GM_setValue("cycler_running", false);
+      history.replaceState({}, "", location.pathname);
       updatePanel();
     };
     document.getElementById("nexus-stop-btn").onclick = () => {
-      GM_setValue("cycler_running", false);
-      GM_setValue("cycler_done", false);
-      GM_setValue("cycler_current", 0);
-      GM_setValue("cycler_total", 0);
+      history.replaceState({}, "", location.pathname);
       updatePanel();
     };
   } else {
@@ -142,57 +138,73 @@ function updatePanel() {
   }
 }
 
+// ─── CYCLER LOGIC ─────────────────────────────────────────────────────────────
+
+// ─── CYCLER: URL-param state (survives page navigation) ───────────────────────
+// State is passed via URL: ?nx_cycle=1&nx_cur=N&nx_tot=93
+
+function getCycleParams() {
+  let p = new URLSearchParams(location.search);
+  return {
+    running: p.get("nx_cycle") === "1",
+    current: parseInt(p.get("nx_cur") || "0"),
+    total: parseInt(p.get("nx_tot") || "93")
+  };
+}
+
+function nextKingdomURL(island, kd, current, total) {
+  kd++;
+  if (kd > 9) { kd = 1; island++; }
+  return location.origin + "/wol/game/kingdom_details/" + island + "/" + kd +
+    "?nx_cycle=1&nx_cur=" + (current + 1) + "&nx_tot=" + total;
+}
+
 function startCycler() {
-  GM_setValue("cycler_running", true);
-  GM_setValue("cycler_done", false);
-  GM_setValue("cycler_current", 0);
-  GM_setValue("cycler_total", 76);
-  GM_setValue("cycler_mode", location.hostname.includes("intel") ? "intel-site" : "kingdom");
-  updatePanel();
+  if (!location.pathname.includes("kingdom_details")) {
+    toast("Navigate to a kingdom_details page first", false);
+    return;
+  }
   toast("Cycler started!", true);
-  setTimeout(() => { scrapeAndAdvance(); }, 2000);
+  scrapeAndAdvance();
 }
 
 function scrapeAndAdvance() {
-  if (!GM_getValue("cycler_running", false)) return;
-  let current = GM_getValue("cycler_current", 0);
-  let total = GM_getValue("cycler_total", 76);
-  if (current >= total) {
-    GM_setValue("cycler_running", false);
-    GM_setValue("cycler_done", true);
-    updatePanel();
-    triggerAIAnalysis();
+  let { running, current, total } = getCycleParams();
+
+  // On first page (no params yet), treat as running with current=0
+  let isFirstPage = !new URLSearchParams(location.search).has("nx_cycle");
+
+  if (!isFirstPage && !running) return;
+
+  if (current >= total && !isFirstPage) {
+    toast("Cycler complete! " + total + " kingdoms scraped.", true);
+    // Strip params from URL cleanly
+    history.replaceState({}, "", location.pathname);
     return;
   }
-  if (location.hostname.includes("intel.utopia.site")) {
-    sendIntel(true, () => {
-      GM_setValue("cycler_current", current + 1);
-      updatePanel();
-      setTimeout(() => { clickNextKingdom(); }, 3000);
-    });
-  } else {
-    scrapeKingdomPage(() => {
-      GM_setValue("cycler_current", current + 1);
-      updatePanel();
-      setTimeout(() => { clickNext(); }, 4000);
-    });
-  }
+
+  toast("Scraping " + (current + 1) + "/" + total, true);
+
+  scrapeKingdomPage(function () {
+    toast("Saved kingdom " + (current + 1) + "/" + total, true);
+
+    let urlMatch = location.pathname.match(/kingdom_details\/(\d+)\/(\d+)/);
+    if (!urlMatch) { toast("URL parse failed", false); return; }
+
+    let island = parseInt(urlMatch[1]);
+    let kd = parseInt(urlMatch[2]);
+
+    setTimeout(function () {
+      let nextURL = nextKingdomURL(island, kd, current, total);
+      location.href = nextURL;
+    }, 6000);
+  });
 }
 
-function clickNext() {
-  let buttons = document.querySelectorAll("input[type=button], button, a");
-  for (let btn of buttons) {
-    let txt = btn.value || btn.textContent || "";
-    if (txt.trim().toLowerCase().includes("next")) { btn.click(); return; }
-  }
-  let all = document.querySelectorAll("*");
-  for (let el of all) {
-    if (el.childNodes.length === 1 && el.textContent.trim() === "Next >") { el.click(); return; }
-  }
-  setStatus("Next button not found", false);
-}
+function clickNext() { scrapeAndAdvance(); }
 
 function clickNextKingdom() {
+  // On intel.utopia.site cycle kingdom dropdown
   let select = document.querySelector("select");
   if (select) {
     let current = select.selectedIndex;
@@ -201,10 +213,7 @@ function clickNextKingdom() {
       select.dispatchEvent(new Event("change", { bubbles: true }));
       setTimeout(() => scrapeAndAdvance(), 3000);
     } else {
-      GM_setValue("cycler_running", false);
-      GM_setValue("cycler_done", true);
-      updatePanel();
-      triggerAIAnalysis();
+      toast("Cycler complete!", true);
     }
   }
 }
@@ -215,64 +224,655 @@ function triggerAIAnalysis() {
     url: "https://utopia-nexus.onrender.com/ai/analyze",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     data: "key=" + encodeURIComponent(KEY) + "&trigger=cycler_complete",
-    onload: function (r) { if (r.status === 200) { toast("✅ AI analysis started!", true); setStatus("AI analyzing..."); } },
-    onerror: function () { toast("AI trigger failed", false); }
+    onload: function (r) {
+      if (r.status === 200) {
+        toast("✅ AI analysis started!", true);
+        setStatus("AI analyzing...");
+      }
+    },
+    onerror: function () {
+      toast("AI trigger failed", false);
+    }
   });
 }
 
+// ─── KINGDOM PAGE SCRAPER ─────────────────────────────────────────────────────
+
 function scrapeKingdomPage(callback) {
   if (!document.body) { if (callback) callback(); return; }
+
   let text = document.body.innerText;
-  let kdName = "Unknown";
-  let kdNamePatterns = [
-    /(?:The\s+)?kingdom\s+of\s+([^\n\r(]+?)(?:\s*\(\d+:\d+\))?\s*$/im,
-    /kingdom\s+name\s*[:\-]\s*([^\n\r]+)/i,
-    /kingdom\s*[:\-]\s*([^\n\r]+)/i
-  ];
-  for (let ptn of kdNamePatterns) {
-    let m = text.match(ptn);
-    if (m && m[1]) {
-      let candidate = m[1].trim().replace(/\s+/g, " ");
-      if (candidate && !/^details?$/i.test(candidate) && !/^kingdom$/i.test(candidate)) { kdName = candidate; break; }
-    }
+
+  // Kingdom name
+  let kdNameMatch = text.match(/The kingdom of (.+?)[\n\r(]/i);
+  let kdName = kdNameMatch ? kdNameMatch[1].trim() : "Unknown";
+
+  // KD code from URL path /wol/game/kingdom_details/ISLAND/KD
+  let kdCode = "";
+  let urlMatch = location.pathname.match(/kingdom_details\/(\d+)\/(\d+)/);
+  if (urlMatch) {
+    kdCode = urlMatch[1] + ":" + urlMatch[2];
   }
-  let kdCode = getKD();
-  if (!kdCode || kdCode === MY_KD) {
-    let urlMatch = location.href.match(/(?:kingdom_details|kingdom)[\/\-_](\d+)[\/\-_](\d+)/i);
-    if (urlMatch) kdCode = urlMatch[1] + ":" + urlMatch[2];
-  }
+
+  // Kingdom stats
   let totalNW = extractStat(text, /Total Networth\s+([\d,]+)/i);
   let totalLand = extractStat(text, /Total Land\s+([\d,]+)/i);
   let totalProvinces = extractStat(text, /Total Provinces\s+(\d+)/i);
+  // Also try alternate formats
   if (!totalNW) totalNW = extractStat(text, /Total Networth[^\d]*([\d,]+)/i);
   if (!totalLand) totalLand = extractStat(text, /Total Land[^\d]*([\d,]+)/i);
   let stance = (text.match(/Stance\s+(\w+)/i) || [])[1] || "";
   let nwRank = (text.match(/Net Worth Rank\s+(\d+)\s+of\s+(\d+)/i) || [])[1] || "";
   let landRank = (text.match(/Land Rank\s+(\d+)\s+of\s+(\d+)/i) || [])[1] || "";
+
+  // Province table — scrape rows
   let provinces = scrapeProvinceTable();
-  let payload = { key: KEY, source: "kingdom-page", kd: kdCode || MY_KD, kd_name: kdName, tab: "kingdom", prov: "Unknown", url: location.href, data_simple: JSON.stringify({ kd_name: kdName, kd_code: kdCode, total_nw: totalNW, total_land: totalLand, total_provinces: totalProvinces, stance: stance, nw_rank: nwRank, land_rank: landRank, provinces: provinces }) };
-  let encoded = Object.entries(payload).map(([k,v]) => encodeURIComponent(k) + "=" + encodeURIComponent(v)).join("&");
+
+  let payload = {
+    key: KEY,
+    source: "kingdom-page",
+    kd: kdCode || MY_KD,
+    kd_name: kdName,
+    tab: "kingdom",
+    prov: "Unknown",
+    url: location.href,
+    data_simple: JSON.stringify({
+      kd_name: kdName,
+      kd_code: kdCode,
+      total_nw: totalNW,
+      total_land: totalLand,
+      total_provinces: totalProvinces,
+      stance: stance,
+      nw_rank: nwRank,
+      land_rank: landRank,
+      provinces: provinces
+    })
+  };
+
+  let encoded = Object.entries(payload)
+    .map(([k, v]) => encodeURIComponent(k) + "=" + encodeURIComponent(v))
+    .join("&");
+
   setStatus("Sending kingdom page...");
-  GM_xmlhttpRequest({ method:"POST", url:ENDPOINT, headers:{"Content-Type":"application/x-www-form-urlencoded"}, data:encoded, onload:function(r){ if(r.status===200){setStatus("Kingdom saved ✓");toast("Kingdom saved: "+kdName,true);}else setStatus("HTTP "+r.status,false);if(callback)callback(); }, onerror:function(){setStatus("Connection failed",false);if(callback)callback();} });
+
+  GM_xmlhttpRequest({
+    method: "POST",
+    url: ENDPOINT,
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    data: encoded,
+    onload: function (r) {
+      if (r.status === 200) {
+        setStatus("Kingdom saved ✓");
+        toast("Kingdom saved: " + kdName, true);
+      } else {
+        setStatus("HTTP " + r.status, false);
+      }
+      if (callback) callback();
+    },
+    onerror: function () {
+      setStatus("Connection failed", false);
+      if (callback) callback();
+    }
+  });
 }
-function extractStat(text, regex) { let m = text.match(regex); return m ? m[1].replace(/,/g, "") : null; }
-function scrapeProvinceTable() { let provinces=[]; let tables=document.querySelectorAll("table"); for(let table of tables){let headers=table.querySelectorAll("th");let headerText=Array.from(headers).map(h=>h.textContent.trim().toLowerCase()).join(",");if(!headerText.includes("province")&&!headerText.includes("race"))continue;let rows=table.querySelectorAll("tr");let colMap={};let headerRow=rows[0];if(headerRow){let ths=headerRow.querySelectorAll("th,td");ths.forEach((th,i)=>{let t=th.textContent.trim().toLowerCase();if(t.includes("province"))colMap.name=i;else if(t==="race")colMap.race=i;else if(t==="land")colMap.land=i;else if(t==="net worth")colMap.nw=i;else if(t.includes("net worth/acre")||t.includes("nwpa")||t.includes("nw/acre"))colMap.nwpa=i;else if(t.includes("nobility"))colMap.nobility=i;else if(t.includes("gains"))colMap.gains=i;});}for(let i=1;i<rows.length;i++){let cells=rows[i].querySelectorAll("td");if(cells.length<3)continue;let name=colMap.name!==undefined?cells[colMap.name]?.textContent.trim():"";if(!name||name==="-")continue;name=name.replace(/\s*\([MS]\)\s*/g,"").replace(/\*/g,"").trim();let province={name};if(colMap.race!==undefined)province.race=cells[colMap.race]?.textContent.trim()||"";if(colMap.land!==undefined)province.land=cells[colMap.land]?.textContent.trim().replace(/[^0-9]/g,"")||"";if(colMap.nw!==undefined)province.nw=cells[colMap.nw]?.textContent.trim().replace(/[^0-9]/g,"")||"";if(colMap.nwpa!==undefined)province.nwpa=cells[colMap.nwpa]?.textContent.trim().replace(/[^0-9]/g,"")||"";if(colMap.nobility!==undefined)province.nobility=cells[colMap.nobility]?.textContent.trim()||"";if(colMap.gains!==undefined)province.gains=cells[colMap.gains]?.textContent.trim()||"";provinces.push(province);}if(provinces.length>0)break;}return provinces;}
-function getProvinceName(){let text=document.body.innerText;let patterns=[/The Province of\s+(.+?)\s*\(/i,/The Province of\s+(.+)/i,/Province Name\s*[:\t]\s*(.+)/i];for(let p of patterns){let m=text.match(p);if(m)return m[1].trim().replace(/\s+/g," ");}let som=text.match(/^([^,\n]+),\s*we have \d+ generals? available/im);if(som)return som[1].trim().replace(/\s+/g," ");if(getKD()===MY_KD)return MY_PROVINCE;return "Unknown";}
-function getKD(){let urlParams=new URLSearchParams(location.search);let kdParam=urlParams.get("kd");if(kdParam&&kdParam!==MY_KD)return kdParam;let dropdown=document.querySelector('select[name="kd"], select[name="kingdom"], #kd_select');if(dropdown&&dropdown.value&&dropdown.value!==MY_KD)return dropdown.value;let pathMatch=location.href.match(/\/(\d+)\/(\d+)\//);if(pathMatch){let kdFromPath=pathMatch[1]+":"+pathMatch[2];if(kdFromPath!==MY_KD)return kdFromPath;}let ownPages=["throne","council_military","council_internal","council_science","council_state","province_news","province_logs","kingdom_news"];if(ownPages.some(p=>location.href.includes(p)))return MY_KD;let text=document.body?document.body.innerText:"";let matches=[...text.matchAll(/\b(\d+:\d+)\b/g)].map(m=>m[1]);let foreign=matches.find(k=>k!==MY_KD);if(foreign)return foreign;return MY_KD;}
-function getTab(){let url=location.href.toLowerCase();if(url.includes("throne"))return"throne";if(url.includes("council_science")||url.includes("science"))return"science";if(url.includes("council_internal")||url.includes("survey")||url.includes("build"))return"survey";if(url.includes("council_military")||url.includes("military")||url.includes("som"))return"military";if(url.includes("council_state")||url.includes("state"))return"state";if(url.includes("province_news")||url.includes("kingdom_news")||url.includes("province_logs"))return"news";if(url.includes("kingdom_details"))return"kingdom";let text=document.body.innerText;if(text.includes("Ambush")&&text.includes("RawOff"))return"armies";if(text.includes("Alchemy")&&text.includes("Bookkeeping"))return"science";if(text.includes("Standing Army"))return"military";if(text.includes("Training Grounds")||text.includes("Banks"))return"survey";return"overview";}
-function scrapeArmiesTable(){let tables=document.querySelectorAll("table");let armiesTable=null;tables.forEach(function(t){if(t.innerText.includes("Ambush"))armiesTable=t;});if(armiesTable){let rows=armiesTable.querySelectorAll("tr");let lines=[];rows.forEach(function(row){let cells=row.querySelectorAll("th,td");let cols=[];cells.forEach(function(cell){cols.push(cell.innerText.trim());});if(cols.length>0)lines.push(cols.join("\t"));});return lines.join("\n");}let fullText=document.body.innerText;let idx=fullText.indexOf("Ambush");if(idx===-1)return null;let start=Math.max(0,idx-200);return fullText.substring(start,start+12000);}
-function getPageText(){let tab=getTab();if(tab==="armies"){let tableText=scrapeArmiesTable();if(tableText)return tableText;}if(tab==="overview"&&location.hostname.includes("intel.utopia.site")){let fullText=document.body.innerText;let headerIdx=fullText.indexOf("#\tName");if(headerIdx===-1)headerIdx=fullText.indexOf("# \tName");if(headerIdx===-1)headerIdx=fullText.indexOf("#\t");if(headerIdx!==-1){setStatus("Table found ✓");return fullText.substring(headerIdx,headerIdx+15000);}}return document.body.innerText.substring(0,12000);}
-function sendCSVData(csv){let kd=getKD();let payload=["key="+encodeURIComponent(KEY),"source=intel-site-csv","kd="+encodeURIComponent(kd),"tab=overview","prov="+encodeURIComponent(getProvinceName()),"url="+encodeURIComponent(location.href),"data_simple="+encodeURIComponent(csv)].join("&");setStatus("Sending CSV...");GM_xmlhttpRequest({method:"POST",url:ENDPOINT,headers:{"Content-Type":"application/x-www-form-urlencoded"},data:payload,onload:function(r){if(r.status===200){setStatus("CSV Saved ✓");toast("CSV Saved ✓",true);if(GM_getValue("cycler_running",false)){let current=GM_getValue("cycler_current",0);GM_setValue("cycler_current",current+1);updatePanel();setTimeout(()=>clickNextKingdom(),2000);}}else{setStatus("HTTP "+r.status,false);toast("HTTP "+r.status,false);}},onerror:function(){setStatus("Connection failed",false);toast("Connection failed",false);}});}
-function interceptCSV(){const origCreate=document.createElement.bind(document);document.createElement=function(tag){const el=origCreate(tag);if(tag.toLowerCase()==="a"){const origClick=el.click.bind(el);el.click=function(){if(el.href&&el.href.startsWith("blob:")){fetch(el.href).then(r=>r.text()).then(csv=>{if(csv.includes("#,Name")||csv.includes("Name,Combo")){setStatus("CSV intercepted ✓");sendCSVData(csv);}}).catch(e=>console.log("[CSV intercept error]",e));}return origClick();};}return el;};}
-function clickCSVButton(){let all=document.querySelectorAll("div, span, a, button");for(let el of all){if(el.textContent.trim()==="CSV"){el.click();return true;}}return false;}
-function sendIntel(silent=false,callback=null){if(location.hostname.includes("intel.utopia.site")){setStatus("Finding CSV...");let found=clickCSVButton();if(found)setStatus("CSV clicked...");else{setStatus("CSV btn not found",false);if(!silent)toast("CSV button not found",false);if(callback)setTimeout(callback,1000);}return;}let tab=getTab();if(tab==="kingdom"){scrapeKingdomPage(callback);return;}let kd=getKD();let prov=getProvinceName();let data=getPageText();let payload=["key="+encodeURIComponent(KEY),"source=intel-site","kd="+encodeURIComponent(kd),"tab="+encodeURIComponent(tab),"prov="+encodeURIComponent(prov),"url="+encodeURIComponent(location.href),"data_simple="+encodeURIComponent(data)].join("&");setStatus("Sending "+tab);GM_xmlhttpRequest({method:"POST",url:ENDPOINT,headers:{"Content-Type":"application/x-www-form-urlencoded"},data:payload,onload:function(r){if(r.status===200){setStatus("Saved "+tab+" ✓");if(!silent)toast("Saved "+tab,true);}else{setStatus("HTTP "+r.status,false);if(!silent)toast("HTTP "+r.status,false);}if(callback)callback();},onerror:function(){setStatus("Connection failed",false);if(!silent)toast("Connection failed",false);if(callback)callback();}});}
-function addNexusUI(){if(!document.body)return;if(!document.getElementById("nexus-status")){let bar=document.createElement("div");bar.id="nexus-status";bar.textContent="⚡ Nexus Ready";bar.style.cssText="position:fixed;bottom:20px;left:20px;z-index:2147483647;padding:8px 14px;border-radius:8px;font:bold 12px monospace;color:#56d364;background:#1a472a;";document.body.appendChild(bar);}if(!document.getElementById("nexus-send-btn")){let btn=document.createElement("button");btn.id="nexus-send-btn";btn.textContent="⚡ Send Intel";btn.style.cssText="position:fixed;bottom:20px;right:20px;z-index:2147483647;padding:10px 16px;background:#7c3aed;color:white;border:none;border-radius:8px;font:bold 14px monospace;cursor:pointer;";btn.onclick=function(){sendIntel(false);};document.body.appendChild(btn);}let isKingdomPage=location.href.includes("kingdom_details");let isIntelSite=location.hostname.includes("intel.utopia.site");if((isKingdomPage||isIntelSite)&&!document.getElementById("nexus-panel")){let panel=document.createElement("div");panel.id="nexus-panel";panel.style.cssText="position:fixed;top:20px;left:20px;z-index:2147483647;padding:16px;background:#0d1117;border:1px solid #30363d;border-radius:10px;width:220px;box-shadow:0 4px 20px rgba(0,0,0,0.5);cursor:move;";document.body.appendChild(panel);updatePanel();}}
-let lastTab="";let sendTimeout=null;function watchPage(){let tab=getTab();if(tab!==lastTab){lastTab=tab;clearTimeout(sendTimeout);sendTimeout=setTimeout(function(){sendIntel(true);},2000);}}
-function isOwnPage(){let tab=getTab();let ownTabs=["throne","science","survey","military","armies","state"];if(!ownTabs.includes(tab))return false;let kd=getKD();return kd===MY_KD;}
-function getAdvisorPanel(){return document.getElementById("nexus-advisor");}
-function showAdvisor(content){let panel=getAdvisorPanel();if(!panel)return;panel.querySelector("#advisor-body").innerHTML=content;}
-function fetchAdvice(){let tab=getTab();let prov=getProvinceName();let data=getPageText();showAdvisor("<div style='color:#aaa;font:12px monospace;'>⏳ Analyzing...</div>");let payload=["key="+encodeURIComponent(KEY),"tab="+encodeURIComponent(tab),"prov="+encodeURIComponent(prov),"data_simple="+encodeURIComponent(data)].join("&");GM_xmlhttpRequest({method:"POST",url:"https://utopia-nexus.onrender.com/advisor",headers:{"Content-Type":"application/x-www-form-urlencoded"},data:payload,onload:function(r){if(r.status===200){let text=r.responseText.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\*\*(.+?)\*\*/g,"<b>$1</b>").replace(/\n/g,"<br>");showAdvisor("<div style='font:11px monospace;color:#ccc;line-height:1.5;'>"+text+"</div>");}else showAdvisor("<div style='color:#da3633;font:11px monospace;'>Error: "+r.status+"</div>");},onerror:function(){showAdvisor("<div style='color:#da3633;font:11px monospace;'>Connection failed</div>");}});}
-function addAdvisorPanel(){if(!isOwnPage())return;if(getAdvisorPanel())return;let panel=document.createElement("div");panel.id="nexus-advisor";panel.style.cssText="position:fixed;top:20px;right:20px;z-index:2147483647;padding:16px;background:#0d1117;border:1px solid #7c3aed;border-radius:10px;width:260px;max-height:80vh;overflow-y:auto;box-shadow:0 4px 20px rgba(0,0,0,0.5);";panel.innerHTML=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;"><div style="font:bold 13px monospace;color:#a78bfa;">🧠 Dwarf Sage Advisor</div><button id="advisor-close" style="background:none;border:none;color:#aaa;font:bold 14px monospace;cursor:pointer;">✕</button></div><div id="advisor-body" style="font:11px monospace;color:#aaa;">Press Analyze to get advice.</div><button id="advisor-btn" style="margin-top:10px;width:100%;padding:8px;background:#7c3aed;color:white;border:none;border-radius:6px;font:bold 12px monospace;cursor:pointer;">⚡ Analyze This Page</button>`;document.body.appendChild(panel);document.getElementById("advisor-btn").onclick=fetchAdvice;document.getElementById("advisor-close").onclick=()=>panel.remove();setTimeout(fetchAdvice,2000);}
-function startNexus(){interceptCSV();addNexusUI();addAdvisorPanel();function doAutoSend(){if(GM_getValue("cycler_running",false)){setTimeout(()=>scrapeAndAdvance(),1000);}else{sendIntel(true);}}if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",function(){addNexusUI();addAdvisorPanel();setTimeout(doAutoSend,1000);});}else{setTimeout(doAutoSend,3000);}setInterval(function(){addNexusUI();addAdvisorPanel();},3000);setInterval(function(){watchPage();},3000);let observer=new MutationObserver(function(){addNexusUI();});if(document.body){observer.observe(document.body,{childList:true,subtree:true});}else{document.addEventListener("DOMContentLoaded",function(){addNexusUI();observer.observe(document.body,{childList:true,subtree:true});});}}
+
+function extractStat(text, regex) {
+  let m = text.match(regex);
+  return m ? m[1].replace(/,/g, "") : null;
+}
+
+function scrapeProvinceTable() {
+  let provinces = [];
+  let tables = document.querySelectorAll("table");
+
+  for (let table of tables) {
+    let headers = table.querySelectorAll("th");
+    let headerText = Array.from(headers).map(h => h.textContent.trim().toLowerCase()).join(",");
+
+    // Find the provinces table
+    if (!headerText.includes("province") && !headerText.includes("race")) continue;
+
+    let rows = table.querySelectorAll("tr");
+    let colMap = {};
+
+    // Map header columns
+    let headerRow = rows[0];
+    if (headerRow) {
+      let ths = headerRow.querySelectorAll("th, td");
+      ths.forEach((th, i) => {
+        let t = th.textContent.trim().toLowerCase();
+        if (t.includes("province")) colMap.name = i;
+        else if (t === "race") colMap.race = i;
+        else if (t === "land") colMap.land = i;
+        else if (t === "net worth") colMap.nw = i;
+        else if (t.includes("net worth/acre") || t.includes("nwpa") || t.includes("nw/acre")) colMap.nwpa = i;
+        else if (t.includes("nobility")) colMap.nobility = i;
+        else if (t.includes("gains")) colMap.gains = i;
+      });
+    }
+
+    for (let i = 1; i < rows.length; i++) {
+      let cells = rows[i].querySelectorAll("td");
+      if (cells.length < 3) continue;
+
+      let name = colMap.name !== undefined ? cells[colMap.name]?.textContent.trim() : "";
+      if (!name || name === "-") continue;
+
+      // Clean tags like (M), (S), *
+      name = name.replace(/\s*\([MS]\)\s*/g, "").replace(/\*/g, "").trim();
+
+      let province = { name };
+      if (colMap.race !== undefined) province.race = cells[colMap.race]?.textContent.trim() || "";
+      if (colMap.land !== undefined) province.land = cells[colMap.land]?.textContent.trim().replace(/[^0-9]/g, "").replace(/acres/gi, "") || "";
+      if (colMap.nw !== undefined) province.nw = cells[colMap.nw]?.textContent.trim().replace(/[^0-9]/g, "") || "";
+      if (colMap.nwpa !== undefined) province.nwpa = cells[colMap.nwpa]?.textContent.trim().replace(/[^0-9]/g, "") || "";
+      if (colMap.nobility !== undefined) province.nobility = cells[colMap.nobility]?.textContent.trim() || "";
+      if (colMap.gains !== undefined) province.gains = cells[colMap.gains]?.textContent.trim() || "";
+
+      provinces.push(province);
+    }
+
+    if (provinces.length > 0) break;
+  }
+
+  return provinces;
+}
+
+// ─── ORIGINAL v5.0 FUNCTIONS (unchanged) ─────────────────────────────────────
+
+function getProvinceName() {
+  let text = document.body.innerText;
+  let patterns = [
+    /The Province of\s+(.+?)\s*\(/i,
+    /The Province of\s+(.+)/i,
+    /Province Name\s*[:\t]\s*(.+)/i
+  ];
+  for (let p of patterns) {
+    let m = text.match(p);
+    if (m) return m[1].trim().replace(/\s+/g, " ");
+  }
+  // SoM format: "Province Name, we have N generals available..."
+  let som = text.match(/^([^,\n]+),\s*we have \d+ generals? available/im);
+  if (som) return som[1].trim().replace(/\s+/g, " ");
+  if (getKD() === MY_KD) return MY_PROVINCE;
+  return "Unknown";
+}
+
+function getKD() {
+  // 1. Check URL for kd param (intel.utopia.site?kd=X:Y)
+  let urlParams = new URLSearchParams(location.search);
+  let kdParam = urlParams.get("kd");
+  if (kdParam && kdParam !== MY_KD) return kdParam;
+
+  // 2. Check dropdown on intel.utopia.site
+  let dropdown = document.querySelector('select[name="kd"], select[name="kingdom"], #kd_select');
+  if (dropdown && dropdown.value && dropdown.value !== MY_KD) return dropdown.value;
+
+  // 3. Check page URL path for X/Y pattern (intel site uses /kd/X/Y/)
+  let pathMatch = location.href.match(/\/(\d+)\/(\d+)\//);
+  if (pathMatch) {
+    let kdFromPath = pathMatch[1] + ":" + pathMatch[2];
+    if (kdFromPath !== MY_KD) return kdFromPath;
+  }
+
+  // 4. On own game pages always return MY_KD
+  let ownPages = ["throne", "council_military", "council_internal", "council_science", "council_state", "province_news", "province_logs", "kingdom_news"];
+  if (ownPages.some(p => location.href.includes(p))) return MY_KD;
+
+  // 5. Fall back to text scan for enemy pages
+  let text = document.body ? document.body.innerText : "";
+  let matches = [...text.matchAll(/\b(\d+:\d+)\b/g)].map(m => m[1]);
+  let foreign = matches.find(k => k !== MY_KD);
+  if (foreign) return foreign;
+
+  return MY_KD;
+}
+
+function getTab() {
+  let url = location.href.toLowerCase();
+  if (url.includes("throne")) return "throne";
+  if (url.includes("council_science") || url.includes("science")) return "science";
+  if (url.includes("council_internal") || url.includes("survey") || url.includes("build")) return "buildings";
+  if (url.includes("council_military") || url.includes("military") || url.includes("som")) return "military";
+  if (url.includes("council_state") || url.includes("state")) return "state";
+  if (url.includes("province_news") || url.includes("kingdom_news") || url.includes("province_logs")) return "news";
+  if (url.includes("kingdom_details")) return "kingdom";
+
+  let text = document.body ? document.body.innerText : "";
+  if (text.includes("Ambush") && text.includes("RawOff")) return "armies";
+  if (text.includes("Alchemy") && text.includes("Bookkeeping")) return "science";
+  if (text.includes("Standing Army")) return "military";
+  if (text.includes("Training Grounds") || text.includes("Banks")) return "survey";
+  return "overview";
+}
+
+function scrapeArmiesTable() {
+  let tables = document.querySelectorAll("table");
+  let armiesTable = null;
+  tables.forEach(function (t) {
+    if (t.innerText.includes("Ambush")) armiesTable = t;
+  });
+  if (armiesTable) {
+    let rows = armiesTable.querySelectorAll("tr");
+    let lines = [];
+    rows.forEach(function (row) {
+      let cells = row.querySelectorAll("th, td");
+      let cols = [];
+      cells.forEach(function (cell) { cols.push(cell.innerText.trim()); });
+      if (cols.length > 0) lines.push(cols.join("\t"));
+    });
+    return lines.join("\n");
+  }
+  let fullText = document.body.innerText;
+  let idx = fullText.indexOf("Ambush");
+  if (idx === -1) return null;
+  let start = Math.max(0, idx - 200);
+  return fullText.substring(start, start + 12000);
+}
+
+function getPageText() {
+  let tab = getTab();
+  if (tab === "armies") {
+    let tableText = scrapeArmiesTable();
+    if (tableText) return tableText;
+  }
+  if (tab === "overview" && location.hostname.includes("intel.utopia.site")) {
+    let fullText = document.body.innerText;
+    let headerIdx = fullText.indexOf("#\tName");
+    if (headerIdx === -1) headerIdx = fullText.indexOf("# \tName");
+    if (headerIdx === -1) headerIdx = fullText.indexOf("#\t");
+    if (headerIdx !== -1) {
+      setStatus("Table found ✓");
+      return fullText.substring(headerIdx, headerIdx + 15000);
+    }
+  }
+  return document.body.innerText.substring(0, 12000);
+}
+
+function sendCSVData(csv) {
+  let kd = getKD();
+  let isEnemy = kd !== MY_KD;
+  let payload = [
+    "key=" + encodeURIComponent(KEY),
+    "source=intel-site-csv",
+    "kd=" + encodeURIComponent(kd),
+    "tab=" + (isEnemy ? "enemy-overview" : "overview"),
+    "prov=" + encodeURIComponent(getProvinceName()),
+    "url=" + encodeURIComponent(location.href),
+    "data_simple=" + encodeURIComponent(csv)
+  ].join("&");
+
+  setStatus("Sending CSV...");
+
+  GM_xmlhttpRequest({
+    method: "POST",
+    url: ENDPOINT,
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    data: payload,
+    onload: function (r) {
+      if (r.status === 200) {
+        setStatus("CSV Saved ✓");
+        toast("CSV Saved ✓", true);
+        // If cycler is running, advance
+        if (GM_getValue("cycler_running", false)) {
+          let current = GM_getValue("cycler_current", 0);
+          GM_setValue("cycler_current", current + 1);
+          updatePanel();
+          setTimeout(() => clickNextKingdom(), 2000);
+        }
+      } else {
+        setStatus("HTTP " + r.status, false);
+        toast("HTTP " + r.status, false);
+      }
+    },
+    onerror: function () {
+      setStatus("Connection failed", false);
+      toast("Connection failed", false);
+    }
+  });
+}
+
+function interceptCSV() {
+  const origCreate = document.createElement.bind(document);
+  document.createElement = function (tag) {
+    const el = origCreate(tag);
+    if (tag.toLowerCase() === "a") {
+      const origClick = el.click.bind(el);
+      el.click = function () {
+        if (el.href && el.href.startsWith("blob:")) {
+          fetch(el.href)
+            .then(function (r) { return r.text(); })
+            .then(function (csv) {
+              if (csv.includes("#,Name") || csv.includes("Name,Combo")) {
+                setStatus("CSV intercepted ✓");
+                sendCSVData(csv);
+              }
+            })
+            .catch(function (e) { console.log("[CSV intercept error]", e); });
+        }
+        return origClick();
+      };
+    }
+    return el;
+  };
+}
+
+function clickCSVButton() {
+  let all = document.querySelectorAll("div, span, a, button");
+  for (let el of all) {
+    if (el.textContent.trim() === "CSV") {
+      el.click();
+      return true;
+    }
+  }
+  return false;
+}
+
+function sendIntel(silent = false, callback = null) {
+  if (location.hostname.includes("intel.utopia.site")) {
+    setStatus("Finding CSV...");
+    let found = clickCSVButton();
+    if (found) {
+      setStatus("CSV clicked...");
+    } else {
+      setStatus("CSV btn not found", false);
+      if (!silent) toast("CSV button not found", false);
+      if (callback) setTimeout(callback, 1000);
+    }
+    // callback fires inside sendCSVData on success
+    return;
+  }
+
+  // Kingdom page
+  let tab = getTab();
+  if (tab === "kingdom") {
+    scrapeKingdomPage(callback);
+    return;
+  }
+
+  let kd = getKD();
+  let prov = getProvinceName();
+  let data = getPageText();
+
+  let payload = [
+    "key=" + encodeURIComponent(KEY),
+    "source=intel-site",
+    "kd=" + encodeURIComponent(kd),
+    "tab=" + encodeURIComponent(tab),
+    "prov=" + encodeURIComponent(prov),
+    "url=" + encodeURIComponent(location.href),
+    "data_simple=" + encodeURIComponent(data)
+  ].join("&");
+
+  setStatus("Sending " + tab);
+
+  GM_xmlhttpRequest({
+    method: "POST",
+    url: ENDPOINT,
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    data: payload,
+    onload: function (r) {
+      if (r.status === 200) {
+        setStatus("Saved " + tab + " ✓");
+        if (!silent) toast("Saved " + tab, true);
+      } else {
+        setStatus("HTTP " + r.status, false);
+        if (!silent) toast("HTTP " + r.status, false);
+      }
+      if (callback) callback();
+    },
+    onerror: function () {
+      setStatus("Connection failed", false);
+      if (!silent) toast("Connection failed", false);
+      if (callback) callback();
+    }
+  });
+}
+
+// ─── UI ───────────────────────────────────────────────────────────────────────
+
+function addNexusUI() {
+  if (!document.body) return;
+
+  // Status bar
+  if (!document.getElementById("nexus-status")) {
+    let bar = document.createElement("div");
+    bar.id = "nexus-status";
+    bar.textContent = "⚡ Nexus Ready";
+    bar.style.cssText =
+      "position:fixed;bottom:20px;left:20px;z-index:2147483647;" +
+      "padding:8px 14px;border-radius:8px;font:bold 12px monospace;" +
+      "color:#56d364;background:#1a472a;";
+    document.body.appendChild(bar);
+  }
+
+  // Send Intel button
+  if (!document.getElementById("nexus-send-btn")) {
+    let btn = document.createElement("button");
+    btn.id = "nexus-send-btn";
+    btn.textContent = "⚡ Send Intel";
+    btn.style.cssText =
+      "position:fixed;bottom:20px;right:20px;z-index:2147483647;" +
+      "padding:10px 16px;background:#7c3aed;color:white;" +
+      "border:none;border-radius:8px;font:bold 14px monospace;cursor:pointer;";
+    btn.onclick = function () { sendIntel(false); };
+    document.body.appendChild(btn);
+  }
+
+  // Cycler panel (only on kingdom page or intel site)
+  let isKingdomPage = location.href.includes("kingdom_details");
+  let isIntelSite = location.hostname.includes("intel.utopia.site");
+
+  if ((isKingdomPage || isIntelSite) && !document.getElementById("nexus-panel")) {
+    let panel = document.createElement("div");
+    panel.id = "nexus-panel";
+    panel.style.cssText =
+      "position:fixed;top:20px;left:20px;z-index:2147483647;" +
+      "padding:16px;background:#0d1117;border:1px solid #30363d;" +
+      "border-radius:10px;width:220px;box-shadow:0 4px 20px rgba(0,0,0,0.5);cursor:move;";
+    document.body.appendChild(panel);
+    updatePanel();
+
+    // Make panel draggable
+    let isDragging = false, dragX = 0, dragY = 0;
+    panel.addEventListener("mousedown", function(e) {
+      if (e.target.tagName === "BUTTON") return;
+      isDragging = true;
+      dragX = e.clientX - panel.getBoundingClientRect().left;
+      dragY = e.clientY - panel.getBoundingClientRect().top;
+    });
+    document.addEventListener("mousemove", function(e) {
+      if (!isDragging) return;
+      panel.style.left = (e.clientX - dragX) + "px";
+      panel.style.top = (e.clientY - dragY) + "px";
+    });
+    document.addEventListener("mouseup", function() { isDragging = false; });
+
+    // Touch drag support for tablet
+    panel.addEventListener("touchstart", function(e) {
+      if (e.target.tagName === "BUTTON") return;
+      let touch = e.touches[0];
+      isDragging = true;
+      dragX = touch.clientX - panel.getBoundingClientRect().left;
+      dragY = touch.clientY - panel.getBoundingClientRect().top;
+    });
+    document.addEventListener("touchmove", function(e) {
+      if (!isDragging) return;
+      let touch = e.touches[0];
+      panel.style.left = (touch.clientX - dragX) + "px";
+      panel.style.top = (touch.clientY - dragY) + "px";
+    });
+    document.addEventListener("touchend", function() { isDragging = false; });
+  }
+}
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+
+let lastTab = "";
+let sendTimeout = null;
+
+function watchPage() {
+  let tab = getTab();
+  if (tab !== lastTab) {
+    lastTab = tab;
+    clearTimeout(sendTimeout);
+    sendTimeout = setTimeout(function () { sendIntel(true); }, 2000);
+  }
+}
+
+
+// ─── ADVISOR ──────────────────────────────────────────────────────────────────
+
+function isOwnPage() {
+  let tab = getTab();
+  let ownTabs = ["throne", "science", "survey", "military", "armies", "state"];
+  if (!ownTabs.includes(tab)) return false;
+  // Own pages have MY_KD in URL or province name matches
+  let kd = getKD();
+  return kd === MY_KD;
+}
+
+function getAdvisorPanel() {
+  return document.getElementById("nexus-advisor");
+}
+
+function showAdvisor(content) {
+  let panel = getAdvisorPanel();
+  if (!panel) return;
+  panel.querySelector("#advisor-body").innerHTML = content;
+}
+
+function fetchAdvice() {
+  let tab = getTab();
+  let prov = getProvinceName();
+  let data = getPageText();
+
+  showAdvisor("<div style='color:#aaa;font:12px monospace;'>⏳ Analyzing...</div>");
+
+  let payload = [
+    "key=" + encodeURIComponent(KEY),
+    "tab=" + encodeURIComponent(tab),
+    "prov=" + encodeURIComponent(prov),
+    "data_simple=" + encodeURIComponent(data)
+  ].join("&");
+
+  GM_xmlhttpRequest({
+    method: "POST",
+    url: "https://utopia-nexus.onrender.com/advisor",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    data: payload,
+    onload: function(r) {
+      if (r.status === 200) {
+        let text = r.responseText
+          .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+          .replace(/\*\*(.+?)\*\*/g,"<b>$1</b>")
+          .replace(/\n/g,"<br>");
+        showAdvisor("<div style='font:11px monospace;color:#ccc;line-height:1.5;'>" + text + "</div>");
+      } else {
+        showAdvisor("<div style='color:#da3633;font:11px monospace;'>Error: " + r.status + "</div>");
+      }
+    },
+    onerror: function() {
+      showAdvisor("<div style='color:#da3633;font:11px monospace;'>Connection failed</div>");
+    }
+  });
+}
+
+function addAdvisorPanel() {
+  if (!isOwnPage()) return;
+  if (getAdvisorPanel()) return;
+
+  let panel = document.createElement("div");
+  panel.id = "nexus-advisor";
+  panel.style.cssText =
+    "position:fixed;top:20px;right:20px;z-index:2147483647;" +
+    "padding:16px;background:#0d1117;border:1px solid #7c3aed;" +
+    "border-radius:10px;width:280px;max-height:80vh;display:flex;flex-direction:column;" +
+    "box-shadow:0 4px 20px rgba(0,0,0,0.5);";
+
+  panel.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+      <div style="font:bold 13px monospace;color:#a78bfa;">🧠 Dwarf Sage Advisor</div>
+      <button id="advisor-close" style="background:none;border:none;color:#aaa;font:bold 14px monospace;cursor:pointer;">✕</button>
+    </div>
+    <div id="advisor-body" style="font:11px monospace;color:#aaa;overflow-y:auto;flex:1;max-height:60vh;padding-right:4px;">Press Analyze to get advice.</div>
+    <button id="advisor-btn" style="margin-top:10px;width:100%;padding:8px;background:#7c3aed;color:white;border:none;border-radius:6px;font:bold 12px monospace;cursor:pointer;flex-shrink:0;">⚡ Analyze This Page</button>
+  `;
+
+  document.body.appendChild(panel);
+
+  document.getElementById("advisor-btn").onclick = fetchAdvice;
+  document.getElementById("advisor-close").onclick = () => panel.remove();
+
+  // Auto-fetch on load
+  setTimeout(fetchAdvice, 2000);
+}
+
+function waitForContent(callback, timeout) {
+  // Wait until the page has meaningful game content before sending
+  // Checks for common game elements: province name, table data, or main content area
+  let elapsed = 0;
+  let interval = 300;
+  let max = timeout || 15000;
+
+  let timer = setInterval(function () {
+    elapsed += interval;
+    let text = document.body ? document.body.innerText : "";
+    let hasContent =
+      text.includes("The Province of") ||
+      text.includes("Net Worth") ||
+      text.includes("Networth") ||
+      text.includes("Alchemy") ||
+      text.includes("Training Grounds") ||
+      text.includes("Standing Army") ||
+      text.includes("Ambush") ||
+      text.includes("The kingdom of") ||
+      text.includes("Kingdom Details") ||
+      text.includes("Total Provinces") ||
+      text.includes("Total Networth") ||
+      text.includes("#\tName") ||
+      elapsed >= max;
+
+    if (hasContent) {
+      clearInterval(timer);
+      callback();
+    }
+  }, interval);
+}
+
+function startNexus() {
+  interceptCSV();
+
+  function doAutoSend() {
+    let p = new URLSearchParams(location.search);
+    let isRunning = p.get("nx_cycle") === "1";
+    if (isRunning) {
+      scrapeAndAdvance();
+    } else {
+      sendIntel(true);
+    }
+  }
+
+  // DOM is ready (document-end), but content may still be loading
+  addNexusUI();
+  addAdvisorPanel();
+
+  // Simple fixed delay — fire regardless of content
+  setTimeout(function () {
+    addNexusUI();
+    addAdvisorPanel();
+    doAutoSend();
+  }, 6000);
+
+  setInterval(function () { addNexusUI(); addAdvisorPanel(); }, 3000);
+  setInterval(function () { watchPage(); }, 3000);
+
+  let observer = new MutationObserver(function () { addNexusUI(); });
+  if (document.body) {
+    observer.observe(document.body, { childList: true, subtree: true });
+  }
+}
+
 startNexus();
+
 })();
