@@ -86,11 +86,9 @@ function parseIntel(url, prov, text, source="") {
     result.type = "survey";
     const buildings = {};
     const KNOWN = ["Barren Land","Homes","Farms","Mills","Banks","Training Grounds","Armouries","Military Barracks","Forts","Castles","Hospitals","Guilds","Towers","Thieves' Dens","Watch Towers","Universities","Libraries","Stables","Dungeons"];
-    const rawLines = text.split("\\n");
-    const trimmedLines = rawLines.map(s => s.trim());
-
-    rawLines.forEach(l => {
-      const tabs = l.split("\\t");
+    const lines = text.split(/\r?\n/);
+    lines.forEach(l => {
+      const tabs = l.split(/\t/);
       if (tabs.length >= 3) {
         const name = tabs[0].trim();
         const qty = parseInt(tabs[1].replace(/,/g,""), 10);
@@ -100,28 +98,12 @@ function parseIntel(url, prov, text, source="") {
           buildings[name.toLowerCase().replace(/[^a-z]/g,"_")] = { qty, pct };
         }
       }
-      const m = l.match(/^(.+?)\\s+([\\d,]+)\\s*\\(([\\d.]+)%\\)/);
+      const m = l.match(/^(.+?)\s+([\d,]+)\s*\(([\d.]+)%\)/);
       if (m) {
         const name = m[1].trim().toLowerCase().replace(/[^a-z]/g,"_");
         if (!buildings[name]) buildings[name] = { qty: parseInt(m[2].replace(/,/g,""),10), pct: parseFloat(m[3]) };
       }
     });
-
-    for (let i = 0; i < trimmedLines.length; i++) {
-      const name = trimmedLines[i];
-      if (!KNOWN.includes(name)) continue;
-      const key = name.toLowerCase().replace(/[^a-z]/g,"_");
-      if (buildings[key]) continue;
-      const qtyLine = trimmedLines[i+1];
-      const pctLine = trimmedLines[i+2];
-      if (qtyLine === undefined || pctLine === undefined) continue;
-      const qty = parseInt(qtyLine.replace(/,/g,""), 10);
-      const pctMatch = pctLine.match(/([\\d.]+)\\s*%/);
-      if (!isNaN(qty) && pctMatch) {
-        buildings[key] = { qty, pct: parseFloat(pctMatch[1]) };
-      }
-    }
-
     result.data = { buildings };
   } else if (url.includes("council_science") || url.includes("sciences") || url.includes("/science")) {
     result.type = "science";
