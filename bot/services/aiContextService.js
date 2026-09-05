@@ -30,14 +30,15 @@ async function getKingdomContext({ kd: requestedKd = "", province = "", question
   const botKd = settings.find(s => s.key === "kingdom_code")?.value || process.env.MY_KD || "";
   const kd = String(requestedKd || botKd || "").trim();
 
-  const [provinces, enemyProvinces, throne, enemyThrone, science, buildings, military, ops, events, attacks, hostileOps, spells, news, kingdoms, wars, aiBuilds, raceRules, personalityRules, scienceRules, buildingRules, spellRules, gameRules, relationRules, rawPages] = await Promise.all([
+  const [provinces, enemyProvinces, throne, enemyThrone, science, buildings, military, kdStats, ops, events, attacks, hostileOps, spells, news, kingdoms, wars, aiBuilds, raceRules, personalityRules, scienceRules, buildingRules, spellRules, gameRules, relationRules, rawPages] = await Promise.all([
     query(sb, "provinces", "*", { eq: kd ? { kd_code: kd } : {}, order: ["updated_at", false], limit: 50 }),
     query(sb, "provinces", "*", { neq: kd ? { kd_code: kd } : {}, order: ["updated_at", false], limit: 100 }),
     query(sb, "intel_throne", "*", { eq: kd ? { kd_code: kd } : {}, order: ["updated_at", false], limit: 50 }),
     query(sb, "intel_throne", "*", { neq: kd ? { kd_code: kd } : {}, order: ["updated_at", false], limit: 100 }),
     query(sb, "intel_science", "*", { eq: kd ? { kd_code: kd } : {}, order: ["updated_at", false], limit: 50 }),
     query(sb, "intel_buildings", "*", { eq: kd ? { kd_code: kd } : {}, order: ["updated_at", false], limit: 50 }),
-    query(sb, "intel_military", "*", { eq: kd ? { kd_code: kd } : {}, order: ["updated_at", false], limit: 50 }),
+    query(sb, "intel_military", "*", { eq: kd ? { kd_code: kd } : {}, order: ["updated_at", false], limit: 100 }),
+    query(sb, "intel_kd_stats", "*", { eq: kd ? { kd_code: kd } : {}, order: ["updated_at", false], limit: 200 }),
     query(sb, "intel_ops", "*", { eq: kd ? { kd_code: kd } : {}, order: ["updated_at", false], limit: 100 }),
     query(sb, "intel7_events", "*", { eq: kd ? { kd_code: kd } : {}, order: ["timestamp", false], limit: 150 }),
     query(sb, "attacks", "*", { eq: kd ? { kd_code: kd } : {}, order: ["created_at", false], limit: 100 }),
@@ -61,6 +62,12 @@ async function getKingdomContext({ kd: requestedKd = "", province = "", question
   const q = String(question || "").toLowerCase();
   const needsRules = /rule|formula|science|build|spell|race|personality|target|attack|war|op|thief|wizard|military/.test(q);
 
+  const statsByCategory = kdStats.reduce((acc, row) => {
+    const category = row.category || "unknown";
+    (acc[category] ||= []).push(row);
+    return acc;
+  }, {});
+
   const sections = [
     `NEXUS KINGDOM CONTEXT\nKingdom code: ${kd || "unknown"}\nCurrent province: ${province || "unknown"}`,
     `OUR PROVINCES (${provinces.length})\n${compact(provinces, 18000)}`,
@@ -70,6 +77,10 @@ async function getKingdomContext({ kd: requestedKd = "", province = "", question
     `SCIENCE INTEL (${science.length})\n${compact(science, 14000)}`,
     `BUILDING INTEL (${buildings.length})\n${compact(buildings, 12000)}`,
     `MILITARY INTEL (${military.length})\n${compact(military, 14000)}`,
+    `KINGDOM STATS — MILITARY (${(statsByCategory.military || []).length})\n${compact(statsByCategory.military || [], 18000)}`,
+    `KINGDOM STATS — GAINS (${(statsByCategory.gains || []).length})\n${compact(statsByCategory.gains || [], 18000)}`,
+    `KINGDOM STATS — SCIENCE (${(statsByCategory.science || []).length})\n${compact(statsByCategory.science || [], 18000)}`,
+    `KINGDOM STATS — OTHER (${Object.entries(statsByCategory).filter(([k]) => !["military","gains","science"].includes(k)).reduce((n,[,v]) => n + v.length, 0)})\n${compact(Object.entries(statsByCategory).filter(([k]) => !["military","gains","science"].includes(k)).flatMap(([,v]) => v), 12000)}`,
     `OPS INTEL (${ops.length})\n${compact(ops, 12000)}`,
     `INTEL 7 EVENTS (${events.length})\n${compact(events, 18000)}`,
     `ATTACKS (${attacks.length})\n${compact(attacks, 14000)}`,
