@@ -38,6 +38,13 @@ function parseIntel(url, prov, text, source="") {
     } catch(e) {
       result.data = { raw: text };
     }
+  } else if (source === "kd-stats-buildings") {
+    result.type = "kd-stats-buildings";
+    try {
+      result.data = JSON.parse(text);
+    } catch(e) {
+      result.data = { provinces: [] };
+    }
   } else if (url.includes("kingdom_details") || text.includes("The kingdom of") || text.includes("Total Provinces") || text.includes("Total Networth")) {
     result.type = "kingdom";
     result.data = parseKingdom(text);
@@ -270,6 +277,22 @@ async function saveIntel(parsed, prov) {
     } else if (parsed.type === "survey") {
       const { error } = await sb.from("intel_buildings").upsert({ province: prov, kd_code: parsed.kd, buildings: parsed.data.buildings || {}, updated_at: new Date().toISOString() }, { onConflict: "province,kd_code" });
       if (error) logger.error(`[SURVEY SAVE ERROR] ${error.message}`);
+    } else if (parsed.type === "kd-stats-buildings") {
+      const KNOWN = ["Barren Land","Homes","Farms","Mills","Banks","Training Grounds","Armouries","Military Barracks","Forts","Castles","Hospitals","Guilds","Towers","Thieves' Dens","Watch Towers","Universities","Libraries","Stables","Dungeons"];
+      const provinces = parsed.data.provinces || [];
+      for (const p of provinces) {
+        if (!p.province) continue;
+        const { data: existing } = await sb.from("intel_buildings").select("buildings").eq("province", p.province).eq("kd_code", parsed.kd).limit(1);
+        const merged = (existing && existing[0] && existing[0].buildings) ? { ...existing[0].buildings } : {};
+        for (const [name, val] of Object.entries(p.buildings || {})) {
+          if (!KNOWN.includes(name)) continue;
+          const key = name.toLowerCase().replace(/[^a-z]/g,"_");
+          merged[key] = { ...(merged[key] || {}), pct: val };
+        }
+        const { error: kdErr } = await sb.from("intel_buildings").upsert({ province: p.province, kd_code: parsed.kd, buildings: merged, updated_at: new Date().toISOString() }, { onConflict: "province,kd_code" });
+        if (kdErr) logger.error(`[KD STATS BUILDINGS SAVE ERROR] ${p.province}: ${kdErr.message}`);
+        else logger.info(`[KD STATS BUILDINGS SAVED] ${p.province} (${parsed.kd})`);
+      }
     } else if (parsed.type === "som") {
       const { error } = await sb.from("intel_military").upsert({ province: prov, kd_code: parsed.kd, offense: parsed.data.offense, defense: parsed.data.defense, generals: parsed.data.generals, troops: parsed.data.troops, armies: parsed.data.armies, updated_at: new Date().toISOString() }, { onConflict: "province,kd_code" });
       if (error) logger.error(`[SOM SAVE ERROR] ${error.message}`);

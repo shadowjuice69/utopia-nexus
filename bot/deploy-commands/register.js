@@ -123,6 +123,15 @@ const calcCommand = {
       ]
     },
     {
+      name: "invest", description: "Split available science books across a build's categories", type: 1,
+      options: [
+        { name: "build",          description: "Build name (race + personality, e.g. Undead General)", type: 3,  required: true  },
+        { name: "economy_books",  description: "Books available for Economy",     type: 4, required: false },
+        { name: "military_books", description: "Books available for Military",    type: 4, required: false },
+        { name: "arcane_books",   description: "Books available for Arcane Arts", type: 4, required: false }
+      ]
+    },
+    {
       name: "spellcheck", description: "Calculate spell success chance", type: 1,
       options: [
         { name: "my_wizards",         description: "Your wizard count",                    type: 4,  required: true  },

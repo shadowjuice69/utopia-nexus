@@ -470,6 +470,82 @@ function scrapeArmiesTable() {
   return fullText.substring(start, start + 12000);
 }
 
+function scrapeKDStatsBuildings() {
+  let tables = document.querySelectorAll("table");
+  let statsTable = null;
+  for (let t of tables) {
+    let headerText = (t.querySelector("tr") || {}).innerText || "";
+    if (headerText.includes("Combo") && headerText.includes("NW")) { statsTable = t; break; }
+  }
+  if (!statsTable) return [];
+
+  let rows = statsTable.querySelectorAll("tr");
+  let headerCells = Array.from(rows[0].querySelectorAll("th, td")).map(c => c.textContent.trim());
+
+  let colMap = {};
+  let hoCount = 0;
+  let ABBR = { Far:"Farms", Mill:"Mills", Bank:"Banks", TGs:"Training Grounds", Ar:"Armouries",
+    Rax:"Military Barracks", Fort:"Forts", Cast:"Castles", Guild:"Guilds", To:"Towers",
+    TDs:"Thieves' Dens", WTs:"Watch Towers", Univ:"Universities", Libs:"Libraries",
+    Stab:"Stables", Du:"Dungeons" };
+  headerCells.forEach((h, i) => {
+    if (h === "Ho") { hoCount++; colMap[i] = hoCount === 1 ? "Homes" : "Hospitals"; }
+    else if (ABBR[h]) colMap[i] = ABBR[h];
+  });
+
+  let nameIdx = headerCells.indexOf("Name");
+  let results = [];
+  for (let r = 1; r < rows.length; r++) {
+    let cells = rows[r].querySelectorAll("td");
+    if (!cells.length || nameIdx === -1) continue;
+    let name = (cells[nameIdx] && cells[nameIdx].textContent.trim()) || "";
+    name = name.replace(/\s*\([MS]\)\s*/g, "").replace(/\*/g, "").trim();
+    if (!name || name === "-") continue;
+
+    let buildings = {};
+    Object.keys(colMap).forEach(idx => {
+      let raw = (cells[idx] && cells[idx].textContent.trim()) || "";
+      let num = parseFloat(raw.replace("%", "").replace(/,/g, ""));
+      if (!isNaN(num)) buildings[colMap[idx]] = num;
+    });
+    results.push({ province: name, buildings });
+  }
+  return results;
+}
+
+function sendKDStatsBuildings() {
+  let data = scrapeKDStatsBuildings();
+  if (!data.length) { setStatus("No KD Stats table found", false); return; }
+
+  let payload = [
+    "key=" + encodeURIComponent(KEY),
+    "source=kd-stats-buildings",
+    "kd=" + encodeURIComponent(getKD()),
+    "tab=kd_stats_buildings",
+    "prov=Unknown",
+    "url=" + encodeURIComponent(location.href),
+    "data_simple=" + encodeURIComponent(JSON.stringify({ provinces: data }))
+  ].join("&");
+
+  setStatus("Sending KD buildings...");
+
+  GM_xmlhttpRequest({
+    method: "POST",
+    url: ENDPOINT,
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    data: payload,
+    onload: function (r) {
+      if (r.status === 200) {
+        setStatus("KD Buildings saved (" + data.length + ")");
+        toast("Saved " + data.length + " provinces buildings", true);
+      } else {
+        setStatus("HTTP " + r.status, false);
+      }
+    },
+    onerror: function () { setStatus("Connection failed", false); }
+  });
+}
+
 function getPageText() {
   let tab = getTab();
   if (tab === "armies") {
@@ -657,6 +733,19 @@ function addNexusUI() {
       "border:none;border-radius:8px;font:bold 14px monospace;cursor:pointer;";
     btn.onclick = function () { sendIntel(false); };
     document.body.appendChild(btn);
+  }
+
+  // KD Stats Buildings button (intel.utopia.site only)
+  if (location.hostname.includes("intel.utopia.site") && !document.getElementById("nexus-kdstats-btn")) {
+    let btn2 = document.createElement("button");
+    btn2.id = "nexus-kdstats-btn";
+    btn2.textContent = "KD Buildings";
+    btn2.style.cssText =
+      "position:fixed;bottom:60px;right:20px;z-index:2147483647;" +
+      "padding:10px 16px;background:#b45309;color:white;" +
+      "border:none;border-radius:8px;font:bold 14px monospace;cursor:pointer;";
+    btn2.onclick = function () { sendKDStatsBuildings(); };
+    document.body.appendChild(btn2);
   }
 
   // Cycler panel (only on kingdom page or intel site)

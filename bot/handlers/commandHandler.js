@@ -21,6 +21,7 @@ const intelHandler          = require("./commands/intelHandler");
 
 const thieveryHandler       = require("./commands/thieveryHandler");
 const attackHandler          = require("./commands/attackHandler");
+const investHandler          = require("./commands/investHandler");
 const declareLegalityHandler  = require("./commands/declareLegalityHandler");
 const spellcheckHandler     = require("./commands/spellcheckHandler");
 const scienceHandler        = require("./commands/scienceHandler");
@@ -95,6 +96,7 @@ const COMMAND_GROUPS = {
   calc: {
     thievery: thieveryHandler,
     attack: attackHandler,
+    invest: investHandler,
     declare: declareLegalityHandler,
     spellcheck: spellcheckHandler,
     science: scienceHandler,
