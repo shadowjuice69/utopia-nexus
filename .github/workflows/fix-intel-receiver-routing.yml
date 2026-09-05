@@ -65,8 +65,6 @@ jobs:
                       raise SystemExit(f'Missing expected text: {old[:120]}')
                   s = s.replace(old, new, count)
 
-          # Archive every page payload before specialized routing. This keeps
-          # data available even when a page shape is new or a parser misses it.
           marker = 'async function saveIntel(parsed, prov) {\n  const sb = supabaseService.getClient();\n  if (!sb) return;'
           insert = '''async function saveRawPageIntel(sb, parsed, prov) {
   try {
@@ -95,7 +93,6 @@ async function saveIntel(parsed, prov) {
               raise SystemExit('saveIntel marker not found')
           s = s.replace(marker, insert, 1)
 
-          # Keep this workflow idempotent; only commit when the receiver changed.
           p.write_text(s)
           if s == original:
               print('No receiver changes needed')
@@ -114,3 +111,5 @@ async function saveIntel(parsed, prov) {
           fi
           git commit -m "Fix intel receiver routing and archive all page payloads"
           git push
+
+      # Triggered by a follow-up commit so this workflow is already installed before it runs.
