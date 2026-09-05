@@ -6,7 +6,7 @@ const EMPTY = { name:"", description:"", race:"", personality:"", role:"", build
 function JsonEditor({ label, value, onChange }) {
   const [text, setText] = useState(JSON.stringify(value || {}, null, 2));
   useEffect(() => setText(JSON.stringify(value || {}, null, 2)), [value]);
-  return <label style={{display:"block", marginBottom:10}}><div style={{color:"#aaa",fontSize:11,marginBottom:4}}>{label}</div><textarea value={text} onChange={e=>setText(e.target.value)} onBlur={()=>{try{onChange(JSON.parse(text));}catch{}}} style={{width:"100%",minHeight:80,boxSizing:"border-box",background:"#111",color:"#ddd",border:"1px solid #444",borderRadius:6,padding:8,fontFamily:"monospace",fontSize:11}} /></label>;
+  return <label style={{display:"block", marginBottom:10}}><div style={{color:"#aaa",fontSize:11,marginBottom:4}}>{label}</div><textarea value={text} onChange={e=>setText(e.target.value)} onBlur={()=>{try{onChange(JSON.parse(text));}catch{return;}}} style={{width:"100%",minHeight:80,boxSizing:"border-box",background:"#111",color:"#ddd",border:"1px solid #444",borderRadius:6,padding:8,fontFamily:"monospace",fontSize:11}} /></label>;
 }
 
 export default function AIReferenceBuilds() {
