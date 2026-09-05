@@ -1,6 +1,8 @@
 import { supabase } from "./supabase";
 
 let cachedConfig = null;
+let cachedAt = 0;
+const CONFIG_TTL_MS = 30000;
 
 function clean(value) {
   return String(value ?? "").trim();
@@ -37,8 +39,9 @@ async function loadFromRegisteredProvince(provinceName) {
   };
 }
 
-export async function loadNexusConfig() {
-  if (cachedConfig) return cachedConfig;
+export async function loadNexusConfig(force = false) {
+  const now = Date.now();
+  if (!force && cachedConfig && now - cachedAt < CONFIG_TTL_MS) return cachedConfig;
 
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -47,13 +50,15 @@ export async function loadNexusConfig() {
     const registered = await loadFromRegisteredProvince(savedProvince);
     if (registered) {
       cachedConfig = registered;
+      cachedAt = now;
       return cachedConfig;
     }
     const { data: bs } = await supabase.from("bot_settings").select("key, value");
     const fallbackKd = bs?.find(s => s.key === "kingdom_code")?.value || "";
     const fallbackKdName = bs?.find(s => s.key === "kingdom_name")?.value || "";
-    // Don't cache fallback — let province login override it next time
-    return { kingdom: fallbackKdName, kd: fallbackKd, province: "", kingdomId: "", owner: false };
+    cachedConfig = { kingdom: fallbackKdName, kd: fallbackKd, province: "", kingdomId: "", owner: false };
+    cachedAt = now;
+    return cachedConfig;
   }
 
   const [{ data: settings }, { data: province }, { data: admin }, { data: botSettings }] = await Promise.all([
@@ -107,6 +112,7 @@ export async function loadNexusConfig() {
     kingdomId,
     owner: !!admin,
   };
+  cachedAt = now;
   return cachedConfig;
 }
 
@@ -124,4 +130,5 @@ export function getKingdomLabel() {
 
 export function clearNexusConfig() {
   cachedConfig = null;
+  cachedAt = 0;
 }
