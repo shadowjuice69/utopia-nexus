@@ -306,11 +306,12 @@ async function saveIntel(parsed, prov) {
       const rows = (parsed.data && parsed.data.rows) || [];
       for (const r of rows) {
         if (!r.province) continue;
+        const rowKd = (r.data && r.data.location) ? r.data.location : parsed.kd;
         const { error: gErr } = await sb.from("intel_kd_stats").upsert({
-          province: r.province, kd_code: parsed.kd, category: category, data: r.data || {}, updated_at: new Date().toISOString()
+          province: r.province, kd_code: rowKd, category: category, data: r.data || {}, updated_at: new Date().toISOString()
         }, { onConflict: "province,kd_code,category" });
         if (gErr) logger.error(`[KD STATS GENERIC SAVE ERROR] ${category}/${r.province}: ${gErr.message}`);
-        else logger.info(`[KD STATS GENERIC SAVED] ${category}/${r.province} (${parsed.kd})`);
+        else logger.info(`[KD STATS GENERIC SAVED] ${category}/${r.province} (${rowKd})`);
       }
     } else if (parsed.type === "kd-stats-buildings") {
       const KNOWN = ["Barren Land","Homes","Farms","Mills","Banks","Training Grounds","Armouries","Military Barracks","Forts","Castles","Hospitals","Guilds","Towers","Thieves' Dens","Watch Towers","Universities","Libraries","Stables","Dungeons"];
