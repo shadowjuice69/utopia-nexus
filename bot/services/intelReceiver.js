@@ -23,9 +23,10 @@ function readBody(req) {
   });
 }
 
-function parseIntel(url, prov, text, source="") {
-  const result = { url, prov, updated: new Date().toISOString() };
-  console.log("[DEBUG URL CHECK]", JSON.stringify(url), url.includes("kingdom_details"));
+function parseIntel(url, prov, text, source="", tab="") {
+  const result = { url, prov, tab: tab || "", source: source || "", updated: new Date().toISOString() };
+  console.log("[DEBUG URL CHECK]", JSON.stringify(url), url.includes("kingdom_details"), "tab=", tab, "source=", source);
+  const routeTab = String(tab || "").toLowerCase();
   const kdMatch = url.match(/kd[=\\/](\\d+:\\d+)/) || text.match(/\\((\\d+:\\d+)\\)/);
   result.kd = kdMatch ? kdMatch[1] : MY_KD;
 
@@ -41,7 +42,7 @@ function parseIntel(url, prov, text, source="") {
   } else if (url.includes("kingdom_details") || text.includes("The kingdom of") || text.includes("Total Provinces") || text.includes("Total Networth")) {
     result.type = "kingdom";
     result.data = parseKingdom(text);
-  } else if (url.includes("throne") || url.includes("SPY_ON_THRONE")) {
+  } else if (url.includes("throne") || url.includes("SPY_ON_THRONE") || routeTab === "throne") {
     result.type = "throne";
     const lines = text.split("\\n").map(s => s.trim()).filter(Boolean);
     const get = (label) => {
@@ -82,7 +83,7 @@ function parseIntel(url, prov, text, source="") {
       wpa: Number(parsed.o_wpa || parsed.r_wpa || parsed.d_wpa || 0),
       spells: parsed.good_spells
     };
-  } else if (url.includes("survey") || url.includes("council_internal") || url.includes("/build")) {
+  } else if (url.includes("survey") || url.includes("council_internal") || url.includes("/build") || routeTab === "survey" || routeTab === "buildings") {
     result.type = "survey";
     const buildings = {};
     const KNOWN = ["Barren Land","Homes","Farms","Mills","Banks","Training Grounds","Armouries","Military Barracks","Forts","Castles","Hospitals","Guilds","Towers","Thieves' Dens","Watch Towers","Universities","Libraries","Stables","Dungeons"];
@@ -105,7 +106,7 @@ function parseIntel(url, prov, text, source="") {
       }
     });
     result.data = { buildings };
-  } else if (url.includes("council_science") || url.includes("sciences") || url.includes("/science")) {
+  } else if (url.includes("council_science") || url.includes("sciences") || url.includes("/science") || routeTab === "science") {
     result.type = "science";
     const scienceData = {};
     const scienceEffects = {};
@@ -125,7 +126,7 @@ function parseIntel(url, prov, text, source="") {
       }
     });
     result.data = { science: scienceData, science_effects: scienceEffects };
-  } else if (url.includes("som") || url.includes("military")) {
+  } else if (url.includes("som") || url.includes("military") || routeTab === "military" || routeTab === "armies") {
     result.type = "som";
     let offense = null, defense = null, generals = null;
     const troops = {};
@@ -170,13 +171,13 @@ function parseIntel(url, prov, text, source="") {
       }
     });
     result.data = { offense, defense, generals, troops, armies };
-  } else if (url.includes("council_state") || url.includes("province_state")) {
+  } else if (url.includes("council_state") || url.includes("province_state") || routeTab === "state") {
     result.type = "state";
     result.data = parseState(text);
-  } else if (url.includes("province_news") || url.includes("province_logs") || url.includes("kd_news") || url.includes("kingdom_news")) {
+  } else if (url.includes("province_news") || url.includes("province_logs") || url.includes("kd_news") || url.includes("kingdom_news") || routeTab === "news") {
     result.type = "news";
     result.data = { events: parseNews(text, prov) };
-  } else if (url.includes("intel.utopia.site") || text.includes('"source":"intel-site-csv"') || text.includes('"source":"intel-site"') || prov === "intel-site") {
+  } else if (url.includes("intel.utopia.site") || source === "intel-site" || source === "intel-site-csv" || text.includes('"source":"intel-site-csv"') || text.includes('"source":"intel-site"') || prov === "intel-site") {
     result.type = "intel-site";
     const isRawCSV = text.trimStart().startsWith("#,Name") || text.trimStart().startsWith("#%2C") || url.includes("source=intel-site-csv");
     if (isRawCSV) {
@@ -196,7 +197,7 @@ function parseIntel(url, prov, text, source="") {
     }
   } else {
     result.type = "unknown";
-    result.data = { text };
+    result.data = { text, raw: text };
   }
   return result;
 }
@@ -220,9 +221,29 @@ function decodeCombo(combo) {
   return result;
 }
 
+async function saveRawPageIntel(sb, parsed, prov) {
+  try {
+    const { error } = await sb.from("intel_page_ingest").insert({
+      kd_code: parsed.kd || MY_KD,
+      province: prov || parsed.prov || null,
+      source: parsed.source || null,
+      tab: parsed.tab || null,
+      url: parsed.url || null,
+      data_type: parsed.type || "unknown",
+      raw_text: parsed.data?.raw || parsed.data?.text || null,
+      parsed: parsed.data || {}
+    });
+    if (error) logger.error(`[RAW PAGE SAVE ERROR] ${error.message}`);
+    else logger.info(`[RAW PAGE SAVED] type=${parsed.type} tab=${parsed.tab || ""} kd=${parsed.kd || MY_KD} prov=${prov || ""}`);
+  } catch (e) {
+    logger.error(`[RAW PAGE SAVE CATCH] ${e.message}`);
+  }
+}
+
 async function saveIntel(parsed, prov) {
   const sb = supabaseService.getClient();
   if (!sb) return;
+  await saveRawPageIntel(sb, parsed, prov);
   try {
     if (parsed.type === "throne") {
       const { data, error } = await sb.from("intel_throne").upsert({
@@ -431,7 +452,7 @@ function start() {
         console.log("[INTEL DATA SNIPPET]", data_simple.substring(0, 100));
         const tabParam = params.get("tab") || "";
         const source = params.get("source") || "";
-        const parsed = parseIntel(url, prov, data_simple, source);
+        const parsed = parseIntel(url, prov, data_simple, source, tabParam);
         if (kdParam) parsed.kd = kdParam;
         if (tabParam) parsed.tab = tabParam;
         console.log("[INTEL TYPE]", parsed.type);
