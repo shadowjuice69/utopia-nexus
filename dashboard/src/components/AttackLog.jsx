@@ -9,7 +9,7 @@ function parseAttackDisplay(a) {
     attackerKingdom: a.attacker_kingdom || a.data?.attackerKingdom || a.data?.primary?.attackerKingdom || null,
     targetProvince: a.target_province || a.data?.targetProvince || a.data?.primary?.targetProvince || null,
     targetKingdom: a.target_kingdom || a.data?.targetKingdom || a.data?.primary?.targetKingdom || null,
-    amount: Number(a.amount ?? a.data?.acresCaptured ?? a.data?.acresRecaptured ?? a.data?.primary?.acresCaptured ?? 0) || 0,
+    amount: Number(a.amount ?? a.data?.acresCaptured ?? a.data?.acresRecaptured ?? a.data?.primary?.acresCaptured ?? a.data?.primary?.acresRecaptured ?? 0) || 0,
     attackType: a.data?.attackType || a.data?.primary?.attackType || a.event_type || "attack",
   };
 
@@ -66,10 +66,14 @@ export default function AttackLog() {
     <div className="intel-panel"><div className="panel">
       <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}><h2>⚔️ Attack Log · {kd}</h2><span>{attacks.length} current records · refresh 30s</span></div>
       <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>{["all", "outgoing", "incoming"].map(f => <button key={f} onClick={() => setFilter(f)}>{f}</button>)}<input placeholder="🔍 Search every field..." value={search} onChange={e => setSearch(e.target.value)} style={{ flex: 1 }} /></div>
-      {shown.length ? shown.map(({ raw, parsed }) => <details key={raw.id} style={{ padding: 10, marginBottom: 6, border: "1px solid rgba(255,255,255,.08)", borderRadius: 8 }}>
-        <summary><b>{parsed.attackType || raw.event_type || "attack"}</b> · {parsed.attackerProvince || "?"} ({parsed.attackerKingdom || "?"}) → {parsed.targetProvince || "?"} ({parsed.targetKingdom || "?"}) · {raw.timestamp ? new Date(raw.timestamp).toLocaleString() : "—"}{parsed.amount ? ` · ${parsed.amount.toLocaleString()} acres` : ""}</summary>
-        <pre style={{ whiteSpace: "pre-wrap", fontSize: 11 }}>{JSON.stringify(raw, null, 2)}</pre>
-      </details>) : <p>No current attacks recorded.</p>}
+      {shown.length ? shown.map(({ raw, parsed }) => {
+        const isOutgoing = parsed.attackerKingdom === kd || raw.data?.direction === "outgoing";
+        const acreLabel = parsed.amount ? `${isOutgoing ? "+" : "-"}${parsed.amount.toLocaleString()} acres ${isOutgoing ? "gained" : "lost"}` : "";
+        return <details key={raw.id} style={{ padding: 10, marginBottom: 6, border: "1px solid rgba(255,255,255,.08)", borderRadius: 8 }}>
+          <summary><b>{parsed.attackType || raw.event_type || "attack"}</b> · {parsed.attackerProvince || "?"} ({parsed.attackerKingdom || "?"}) → {parsed.targetProvince || "?"} ({parsed.targetKingdom || "?"}) · {raw.timestamp ? new Date(raw.timestamp).toLocaleString() : "—"}{acreLabel ? ` · ${acreLabel}` : ""}</summary>
+          <pre style={{ whiteSpace: "pre-wrap", fontSize: 11 }}>{JSON.stringify(raw, null, 2)}</pre>
+        </details>;
+      }) : <p>No current attacks recorded.</p>}
     </div></div>
   );
 }
