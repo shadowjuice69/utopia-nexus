@@ -36,6 +36,7 @@ async function loadTable(table, kd) {
     ? "received_at"
     : table === "intel7_events" ? "timestamp"
     : table === "intel7_ingest" ? "message_created_at"
+    : table === "intel7_messages" ? "created_at"
     : "updated_at";
   q = q.order(order, { ascending: false, nullsFirst: false });
   const { data, error } = await q;
