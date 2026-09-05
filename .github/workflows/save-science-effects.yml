@@ -1,0 +1,38 @@
+name: Save Science effects
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  patch:
+    if: github.event.head_commit.message != 'Save Science effects in intel_science'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch science storage
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('bot/services/intelReceiver.js')
+          s = p.read_text()
+          old = 'cunning: parseInt(sci.cunning || 0), arcana: parseInt(sci.arcana || 0), updated_at: new Date().toISOString()'
+          new = 'cunning: parseInt(sci.cunning || 0), arcana: parseInt(sci.arcana || 0), science_effects: effects, updated_at: new Date().toISOString()'
+          if 'science_effects: effects' in s:
+              print('Science effects already stored')
+          elif old in s:
+              p.write_text(s.replace(old, new, 1))
+              print('Patched Science effects storage')
+          else:
+              raise SystemExit('Expected Science upsert pattern not found; refusing unsafe edit')
+          PY
+      - name: Commit patch
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add bot/services/intelReceiver.js
+          git diff --cached --quiet && exit 0
+          git commit -m "Save Science effects in intel_science"
+          git push
