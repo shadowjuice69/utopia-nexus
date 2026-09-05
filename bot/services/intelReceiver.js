@@ -44,7 +44,7 @@ function parseIntel(url, prov, text, source="", tab="") {
     result.data = parseKingdom(text);
   } else if (url.includes("throne") || url.includes("SPY_ON_THRONE") || routeTab === "throne") {
     result.type = "throne";
-    const lines = text.split("\\n").map(s => s.trim()).filter(Boolean);
+    const lines = text.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
     const get = (label) => {
       for (const line of lines) {
         const parts = line.split("\\t");
@@ -110,8 +110,8 @@ function parseIntel(url, prov, text, source="", tab="") {
     result.type = "science";
     const scienceData = {};
     const scienceEffects = {};
-    text.split("\\n").forEach(l => {
-      const tabs = l.split("\\t");
+    text.split(/\r?\n/).forEach(l => {
+      const tabs = l.split(/\t/);
       if (tabs.length >= 2) {
         const KNOWN = ["Alchemy","Tools","Housing","Production","Bookkeeping","Artisan","Strategy","Siege","Tactics","Valor","Heroism","Resilience","Crime","Channeling","Shielding","Cunning","Sorcery","Finesse","Arcana"];
         const name = tabs[0].trim();
@@ -125,7 +125,7 @@ function parseIntel(url, prov, text, source="", tab="") {
         }
       }
     });
-    result.data = { science: scienceData, science_effects: scienceEffects };
+    result.data = { science: scienceData, science_effects: scienceEffects, raw: text };
   } else if (url.includes("som") || url.includes("military") || routeTab === "military" || routeTab === "armies") {
     result.type = "som";
     let offense = null, defense = null, generals = null;
@@ -134,7 +134,7 @@ function parseIntel(url, prov, text, source="", tab="") {
     let inArmyTable = false;
     const TROOP_NAMES = ["Soldiers","Warriors","Axemen","Berserkers","War Horses","Thieves","Wizards"];
 
-    text.split("\\n").forEach(l => {
+    text.split(/\r?\n/).forEach(l => {
       let m;
       if ((m = l.match(/Net Offensive Points at Home[\\s\\t]+(\\d[\\d,]*)/i))) offense = parseInt(m[1].replace(/,/g,""),10);
       if ((m = l.match(/Net Defensive Points at Home[\\s\\t]+(\\d[\\d,]*)/i))) defense = parseInt(m[1].replace(/,/g,""),10);
