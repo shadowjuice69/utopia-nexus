@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Utopia Nexus Universal Intel Scraper
 // @namespace    utopia-nexus
-// @version      7.0.2
+// @version      7.0.5
 // @updateURL    https://raw.githubusercontent.com/shadowjuice69/utopia-nexus/main/tampermonkey/nexus-scraper.user.js
 // @downloadURL  https://raw.githubusercontent.com/shadowjuice69/utopia-nexus/main/tampermonkey/nexus-scraper.user.js
 // @description  Universal Utopia intel collector with kingdom cycler and AI analysis trigger
@@ -11,6 +11,7 @@
 // @grant        GM_xmlhttpRequest
 // @grant        GM_setValue
 // @grant        GM_getValue
+// @grant        GM_setClipboard
 // @connect      utopia-nexus.onrender.com
 // @run-at       document-end
 // @all-frames    true
@@ -470,6 +471,104 @@ function scrapeArmiesTable() {
   return fullText.substring(start, start + 12000);
 }
 
+function copyDebugHTML() {
+  let html = document.body.innerHTML;
+  let idx = html.indexOf("Combo");
+  let start = Math.max(0, idx - 500);
+  let snippet = html.substring(start, start + 16000);
+  GM_setClipboard(snippet);
+  toast("Copied DOM snippet to clipboard", true);
+  setStatus("Copied ~16000 chars to clipboard");
+}
+
+function copyDebugRow() {
+  // Grab a data row instead of headers - look for role="row" past the header area
+  let html = document.body.innerHTML;
+  let idx = html.indexOf("role=\"row\"", html.indexOf("columnheader") + 100);
+  if (idx === -1) idx = html.indexOf("gridcell");
+  let start = Math.max(0, idx - 200);
+  let snippet = html.substring(start, start + 12000);
+  GM_setClipboard(snippet);
+  toast("Copied row snippet to clipboard", true);
+  setStatus("Copied row ~12000 chars to clipboard");
+}
+
+function scrapeKDStatsBuildings() {
+  let tables = document.querySelectorAll("table");
+  let statsTable = null;
+  for (let t of tables) {
+    let headerText = (t.querySelector("tr") || {}).innerText || "";
+    if (headerText.includes("Combo") && headerText.includes("NW")) { statsTable = t; break; }
+  }
+  if (!statsTable) return [];
+
+  let rows = statsTable.querySelectorAll("tr");
+  let headerCells = Array.from(rows[0].querySelectorAll("th, td")).map(c => c.textContent.trim());
+
+  let colMap = {};
+  let hoCount = 0;
+  let ABBR = { Far:"Farms", Mill:"Mills", Bank:"Banks", TGs:"Training Grounds", Ar:"Armouries",
+    Rax:"Military Barracks", Fort:"Forts", Cast:"Castles", Guild:"Guilds", To:"Towers",
+    TDs:"Thieves' Dens", WTs:"Watch Towers", Univ:"Universities", Libs:"Libraries",
+    Stab:"Stables", Du:"Dungeons" };
+  headerCells.forEach((h, i) => {
+    if (h === "Ho") { hoCount++; colMap[i] = hoCount === 1 ? "Homes" : "Hospitals"; }
+    else if (ABBR[h]) colMap[i] = ABBR[h];
+  });
+
+  let nameIdx = headerCells.indexOf("Name");
+  let results = [];
+  for (let r = 1; r < rows.length; r++) {
+    let cells = rows[r].querySelectorAll("td");
+    if (!cells.length || nameIdx === -1) continue;
+    let name = (cells[nameIdx] && cells[nameIdx].textContent.trim()) || "";
+    name = name.replace(/\s*\([MS]\)\s*/g, "").replace(/\*/g, "").trim();
+    if (!name || name === "-") continue;
+
+    let buildings = {};
+    Object.keys(colMap).forEach(idx => {
+      let raw = (cells[idx] && cells[idx].textContent.trim()) || "";
+      let num = parseFloat(raw.replace("%", "").replace(/,/g, ""));
+      if (!isNaN(num)) buildings[colMap[idx]] = num;
+    });
+    results.push({ province: name, buildings });
+  }
+  return results;
+}
+
+function sendKDStatsBuildings() {
+  let data = scrapeKDStatsBuildings();
+  if (!data.length) { setStatus("No KD Stats table found", false); return; }
+
+  let payload = [
+    "key=" + encodeURIComponent(KEY),
+    "source=kd-stats-buildings",
+    "kd=" + encodeURIComponent(getKD()),
+    "tab=kd_stats_buildings",
+    "prov=Unknown",
+    "url=" + encodeURIComponent(location.href),
+    "data_simple=" + encodeURIComponent(JSON.stringify({ provinces: data }))
+  ].join("&");
+
+  setStatus("Sending KD buildings...");
+
+  GM_xmlhttpRequest({
+    method: "POST",
+    url: ENDPOINT,
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    data: payload,
+    onload: function (r) {
+      if (r.status === 200) {
+        setStatus("KD Buildings saved (" + data.length + ")");
+        toast("Saved " + data.length + " provinces buildings", true);
+      } else {
+        setStatus("HTTP " + r.status, false);
+      }
+    },
+    onerror: function () { setStatus("Connection failed", false); }
+  });
+}
+
 function getPageText() {
   let tab = getTab();
   if (tab === "armies") {
@@ -657,6 +756,45 @@ function addNexusUI() {
       "border:none;border-radius:8px;font:bold 14px monospace;cursor:pointer;";
     btn.onclick = function () { sendIntel(false); };
     document.body.appendChild(btn);
+  }
+
+  // KD Stats Buildings button (intel.utopia.site only)
+  if (location.hostname.includes("intel.utopia.site") && !document.getElementById("nexus-kdstats-btn")) {
+    let btn2 = document.createElement("button");
+    btn2.id = "nexus-kdstats-btn";
+    btn2.textContent = "KD Buildings";
+    btn2.style.cssText =
+      "position:fixed;bottom:60px;right:20px;z-index:2147483647;" +
+      "padding:10px 16px;background:#b45309;color:white;" +
+      "border:none;border-radius:8px;font:bold 14px monospace;cursor:pointer;";
+    btn2.onclick = function () { sendKDStatsBuildings(); };
+    document.body.appendChild(btn2);
+  }
+
+  // Debug: copy DOM structure button (intel.utopia.site only)
+  if (location.hostname.includes("intel.utopia.site") && !document.getElementById("nexus-debug-btn")) {
+    let btn3 = document.createElement("button");
+    btn3.id = "nexus-debug-btn";
+    btn3.textContent = "Copy DOM";
+    btn3.style.cssText =
+      "position:fixed;bottom:100px;right:20px;z-index:2147483647;" +
+      "padding:10px 16px;background:#374151;color:white;" +
+      "border:none;border-radius:8px;font:bold 14px monospace;cursor:pointer;";
+    btn3.onclick = function () { copyDebugHTML(); };
+    document.body.appendChild(btn3);
+  }
+
+  // Debug: copy a data row's DOM structure
+  if (location.hostname.includes("intel.utopia.site") && !document.getElementById("nexus-debug-row-btn")) {
+    let btn4 = document.createElement("button");
+    btn4.id = "nexus-debug-row-btn";
+    btn4.textContent = "Copy Row";
+    btn4.style.cssText =
+      "position:fixed;bottom:140px;right:20px;z-index:2147483647;" +
+      "padding:10px 16px;background:#4b5563;color:white;" +
+      "border:none;border-radius:8px;font:bold 14px monospace;cursor:pointer;";
+    btn4.onclick = function () { copyDebugRow(); };
+    document.body.appendChild(btn4);
   }
 
   // Cycler panel (only on kingdom page or intel site)
