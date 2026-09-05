@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../services/supabase";
+import { loadNexusConfig, getNexusConfig } from "../services/nexusConfig";
 
 const ATTACK_EMOJI = {
   attack: "⚔️",
@@ -41,12 +42,15 @@ export default function AttackLog() {
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [limit, setLimit] = useState(50);
-  const MY_KD = "6:9";
+  const [myKd, setMyKd] = useState("");
 
   useEffect(() => {
     let active = true;
 
     async function fetch() {
+      const config = await loadNexusConfig();
+      const currentKd = config?.kd || getNexusConfig().kd || "";
+      setMyKd(currentKd);
       const { data } = await supabase
         .from("intel7_events")
         .select("*")
@@ -64,11 +68,11 @@ export default function AttackLog() {
   }, [limit]);
 
   function isOutgoing(a) {
-    return a.attacker_kingdom === MY_KD || a.event_type === "attack" && a.attacker_kingdom === MY_KD;
+    return a.attacker_kingdom === myKd || a.event_type === "attack" && a.attacker_kingdom === myKd;
   }
 
   function isIncoming(a) {
-    return a.target_kingdom === MY_KD && a.attacker_kingdom !== MY_KD;
+    return a.target_kingdom === myKd && a.attacker_kingdom !== myKd;
   }
 
   const filtered = attacks.filter(a => {
