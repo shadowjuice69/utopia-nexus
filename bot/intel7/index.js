@@ -20,6 +20,7 @@ async function saveStructuredAttack({ supabase, message, event }) {
   if (!event) return;
 
   const timestamp = message.createdAt?.toISOString?.() || new Date().toISOString();
+  const landAmount = event.acresCaptured ?? event.acresRecaptured ?? event.acresDestroyed ?? null;
   const row = {
     msg_id: message.id,
     message_id: message.id,
@@ -54,17 +55,18 @@ async function saveStructuredAttack({ supabase, message, event }) {
     .limit(1)
     .maybeSingle();
 
-  if (lookupError) {
-    // Some historical rows may have message_id but no msg_id; do not prevent Intel 7 from saving.
-    console.error(`[INTEL7 ATTACK LOOKUP ERROR] ${lookupError.message}`);
-  }
+  if (lookupError) loggerSafeError(`[INTEL7 ATTACK LOOKUP ERROR] ${lookupError.message}`);
 
   const result = existing?.id
     ? await supabase.from("attacks").update(row).eq("id", existing.id)
     : await supabase.from("attacks").insert(row);
 
-  if (result.error) console.error(`[INTEL7 ATTACK SAVE ERROR] ${result.error.message}`);
-  else console.log(`[INTEL7 ATTACK] structured attack saved ${message.id}: ${event.acresCaptured ?? event.acresRecaptured ?? 0} acres`);
+  if (result.error) loggerSafeError(`[INTEL7 ATTACK SAVE ERROR] ${result.error.message}`);
+  else console.log(`[INTEL7 ATTACK] structured attack saved ${message.id}: ${landAmount ?? 0} acres`);
+}
+
+function loggerSafeError(message) {
+  console.error(message);
 }
 
 async function processMessage({ message, channelType, supabase, logger }) {
@@ -87,12 +89,10 @@ async function processMessage({ message, channelType, supabase, logger }) {
   if (rawError) logger.error(`[INTEL7 RAW ERROR] ${rawError.message}`);
 
   let parsedEvents = parseIntel7(intelType, raw);
-  // The legacy parser expected an older numbered header. Always fall back to the
-  // dedicated battle-report parser for attack-channel messages so the complete
-  // Utopia report is structured instead of merely archived as raw text.
   if (intelType === "attacks") {
     const attack = parseAttackReport(raw);
     if (attack) {
+      attack.direction = attack.attackerKingdom === config.intel7KdCode ? "outgoing" : "incoming";
       parsedEvents = [attack];
       await saveStructuredAttack({ supabase, message, event: attack });
     }
@@ -111,7 +111,7 @@ async function processMessage({ message, channelType, supabase, logger }) {
     operation: event.operation || null,
     spell_name: event.spellName || null,
     resource_type: event.resourceType || null,
-    amount: event.acresCaptured ?? event.amount ?? null,
+    amount: event.acresCaptured ?? event.acresRecaptured ?? event.acresDestroyed ?? event.amount ?? null,
     success: event.success ?? null,
     data: {
       ...event,
@@ -122,7 +122,7 @@ async function processMessage({ message, channelType, supabase, logger }) {
       peasants: event.peasants ?? null,
       kills: event.kills ?? null,
       imprisoned: event.imprisoned ?? null,
-      troops_lost: event.troopsLost ?? null,
+      troops_lost: event.troopsLost ?? event.losses ?? null,
       buildings_survived: event.buildingsSurvived ?? null,
       offense_sent: event.offenseSent ?? null,
       enemy_defense: event.enemyDefense ?? null,
