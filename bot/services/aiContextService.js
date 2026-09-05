@@ -30,9 +30,11 @@ async function getKingdomContext({ kd: requestedKd = "", province = "", question
   const botKd = settings.find(s => s.key === "kingdom_code")?.value || process.env.MY_KD || "";
   const kd = String(requestedKd || botKd || "").trim();
 
-  const [provinces, throne, science, buildings, military, ops, events, attacks, hostileOps, spells, news, kingdoms, wars, aiBuilds, raceRules, personalityRules, scienceRules, buildingRules, spellRules, gameRules, relationRules, rawPages] = await Promise.all([
+  const [provinces, enemyProvinces, throne, enemyThrone, science, buildings, military, ops, events, attacks, hostileOps, spells, news, kingdoms, wars, aiBuilds, raceRules, personalityRules, scienceRules, buildingRules, spellRules, gameRules, relationRules, rawPages] = await Promise.all([
     query(sb, "provinces", "*", { eq: kd ? { kd_code: kd } : {}, order: ["updated_at", false], limit: 50 }),
+    query(sb, "provinces", "*", { neq: kd ? { kd_code: kd } : {}, order: ["updated_at", false], limit: 100 }),
     query(sb, "intel_throne", "*", { eq: kd ? { kd_code: kd } : {}, order: ["updated_at", false], limit: 50 }),
+    query(sb, "intel_throne", "*", { neq: kd ? { kd_code: kd } : {}, order: ["updated_at", false], limit: 100 }),
     query(sb, "intel_science", "*", { eq: kd ? { kd_code: kd } : {}, order: ["updated_at", false], limit: 50 }),
     query(sb, "intel_buildings", "*", { eq: kd ? { kd_code: kd } : {}, order: ["updated_at", false], limit: 50 }),
     query(sb, "intel_military", "*", { eq: kd ? { kd_code: kd } : {}, order: ["updated_at", false], limit: 50 }),
@@ -61,8 +63,10 @@ async function getKingdomContext({ kd: requestedKd = "", province = "", question
 
   const sections = [
     `NEXUS KINGDOM CONTEXT\nKingdom code: ${kd || "unknown"}\nCurrent province: ${province || "unknown"}`,
-    `PROVINCES (${provinces.length})\n${compact(provinces, 18000)}`,
-    `THRONE INTEL (${throne.length})\n${compact(throne, 16000)}`,
+    `OUR PROVINCES (${provinces.length})\n${compact(provinces, 18000)}`,
+    `ENEMY PROVINCES (${enemyProvinces.length})\n${compact(enemyProvinces, 20000)}`,
+    `OUR THRONE INTEL (${throne.length})\n${compact(throne, 16000)}`,
+    `ENEMY THRONE INTEL (${enemyThrone.length})\n${compact(enemyThrone, 18000)}`,
     `SCIENCE INTEL (${science.length})\n${compact(science, 14000)}`,
     `BUILDING INTEL (${buildings.length})\n${compact(buildings, 12000)}`,
     `MILITARY INTEL (${military.length})\n${compact(military, 14000)}`,
