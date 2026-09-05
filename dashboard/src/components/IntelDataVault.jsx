@@ -3,6 +3,7 @@ import { supabase } from "../services/supabase";
 import { loadNexusConfig } from "../services/nexusConfig";
 
 const SOURCES = [
+  ["intel_complete_vault", "Complete Vault"],
   ["intel_page_ingest", "Scraper archive"],
   ["intel_throne", "Throne"],
   ["intel_buildings", "Buildings"],
@@ -31,7 +32,12 @@ function pretty(value) {
 async function loadTable(table, kd) {
   let q = supabase.from(table).select("*").limit(500);
   if (hasKd.has(table)) q = q.eq("kd_code", kd);
-  const order = table === "intel7_events" ? "timestamp" : table === "intel7_ingest" ? "message_created_at" : table === "intel_page_ingest" ? "received_at" : "updated_at";
+  const order = ["intel_complete_vault", "intel_page_ingest"].includes(table)
+    ? "received_at"
+    : table === "intel7_events" ? "timestamp"
+    : table === "intel7_ingest" ? "message_created_at"
+    : table === "intel7_messages" ? "created_at"
+    : "updated_at";
   q = q.order(order, { ascending: false, nullsFirst: false });
   const { data, error } = await q;
   if (error) return { error: error.message, rows: [] };
@@ -41,7 +47,7 @@ async function loadTable(table, kd) {
 export default function IntelDataVault() {
   const [kd, setKd] = useState("");
   const [tables, setTables] = useState({});
-  const [selected, setSelected] = useState("intel_page_ingest");
+  const [selected, setSelected] = useState("intel_complete_vault");
   const [filter, setFilter] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
