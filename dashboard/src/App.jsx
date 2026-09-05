@@ -20,6 +20,7 @@ import IntelQueue from "./components/IntelQueue";
 import OpsIntel from "./components/OpsIntel";
 import SpellTracker from "./components/SpellTracker";
 import Intel7 from "./components/Intel7";
+import IntelDataVault from "./components/IntelDataVault";
 import AlertPanel from "./components/AlertPanel";
 import AttackCalc from "./components/AttackCalc";
 import AIWarReport from "./components/AIWarReport";
@@ -36,7 +37,7 @@ const GROUPS = [
     { id: "news", label: "News", component: NewsPanel },
     { id: "buildings", label: "Buildings", component: BuildingIntel },
     { id: "science", label: "Science", component: ScienceIntel },
-  { id: "science-calc", label: 'Sci Calc', component: ScienceCalculator },
+    { id: "science-calc", label: 'Sci Calc', component: ScienceCalculator },
     { id: "members", label: "Members", component: MembersPanel },
   ] },
   { id: "war", label: "WAR", color: "#f87171", tabs: [
@@ -49,6 +50,7 @@ const GROUPS = [
   ] },
   { id: "ops", label: "OPS", color: "#a78bfa", tabs: [
     { id: "intel7", label: "Intel 7", component: Intel7 },
+    { id: "vault", label: "Complete Vault", component: IntelDataVault },
     { id: "hostileops", label: "Hostile Ops", component: OpsIntel },
     { id: "spells", label: "Spells", component: SpellTracker },
     { id: "alerts", label: "Alerts", component: AlertPanel },
