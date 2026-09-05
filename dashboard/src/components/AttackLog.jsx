@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "../services/supabase";
 import { loadNexusConfig, getNexusConfig } from "../services/nexusConfig";
 import { loadNexusConfig, getNexusConfig } from "../services/nexusConfig";
+import { loadNexusConfig, getNexusConfig } from "../services/nexusConfig";
 
 const ATTACK_EMOJI = {
   attack: "⚔️",
