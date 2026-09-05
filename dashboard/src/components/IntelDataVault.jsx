@@ -3,6 +3,7 @@ import { supabase } from "../services/supabase";
 import { loadNexusConfig } from "../services/nexusConfig";
 
 const SOURCES = [
+  ["intel_complete_vault", "Complete Vault"],
   ["intel_page_ingest", "Scraper archive"],
   ["intel_throne", "Throne"],
   ["intel_buildings", "Buildings"],
@@ -41,7 +42,7 @@ async function loadTable(table, kd) {
 export default function IntelDataVault() {
   const [kd, setKd] = useState("");
   const [tables, setTables] = useState({});
-  const [selected, setSelected] = useState("intel_page_ingest");
+  const [selected, setSelected] = useState("intel_complete_vault");
   const [filter, setFilter] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
