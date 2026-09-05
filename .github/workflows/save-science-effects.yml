@@ -35,4 +35,10 @@ jobs:
           git add bot/services/intelReceiver.js
           git diff --cached --quiet && exit 0
           git commit -m "Save Science effects in intel_science"
-          git push
+          for i in 1 2 3 4 5; do
+            git fetch origin main
+            git rebase origin/main && git push && exit 0
+            git rebase --abort || true
+            sleep 2
+          done
+          exit 1
