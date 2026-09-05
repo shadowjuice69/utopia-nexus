@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Utopia Nexus Universal Intel Scraper
 // @namespace    utopia-nexus
-// @version      7.0.2
+// @version      7.0.5
 // @updateURL    https://raw.githubusercontent.com/shadowjuice69/utopia-nexus/main/tampermonkey/nexus-scraper.user.js
 // @downloadURL  https://raw.githubusercontent.com/shadowjuice69/utopia-nexus/main/tampermonkey/nexus-scraper.user.js
 // @description  Universal Utopia intel collector with kingdom cycler and AI analysis trigger
@@ -11,6 +11,7 @@
 // @grant        GM_xmlhttpRequest
 // @grant        GM_setValue
 // @grant        GM_getValue
+// @grant        GM_setClipboard
 // @connect      utopia-nexus.onrender.com
 // @run-at       document-end
 // @all-frames    true
@@ -470,6 +471,28 @@ function scrapeArmiesTable() {
   return fullText.substring(start, start + 12000);
 }
 
+function copyDebugHTML() {
+  let html = document.body.innerHTML;
+  let idx = html.indexOf("Combo");
+  let start = Math.max(0, idx - 500);
+  let snippet = html.substring(start, start + 16000);
+  GM_setClipboard(snippet);
+  toast("Copied DOM snippet to clipboard", true);
+  setStatus("Copied ~16000 chars to clipboard");
+}
+
+function copyDebugRow() {
+  // Grab a data row instead of headers - look for role="row" past the header area
+  let html = document.body.innerHTML;
+  let idx = html.indexOf("role=\"row\"", html.indexOf("columnheader") + 100);
+  if (idx === -1) idx = html.indexOf("gridcell");
+  let start = Math.max(0, idx - 200);
+  let snippet = html.substring(start, start + 12000);
+  GM_setClipboard(snippet);
+  toast("Copied row snippet to clipboard", true);
+  setStatus("Copied row ~12000 chars to clipboard");
+}
+
 function scrapeKDStatsBuildings() {
   let tables = document.querySelectorAll("table");
   let statsTable = null;
@@ -746,6 +769,32 @@ function addNexusUI() {
       "border:none;border-radius:8px;font:bold 14px monospace;cursor:pointer;";
     btn2.onclick = function () { sendKDStatsBuildings(); };
     document.body.appendChild(btn2);
+  }
+
+  // Debug: copy DOM structure button (intel.utopia.site only)
+  if (location.hostname.includes("intel.utopia.site") && !document.getElementById("nexus-debug-btn")) {
+    let btn3 = document.createElement("button");
+    btn3.id = "nexus-debug-btn";
+    btn3.textContent = "Copy DOM";
+    btn3.style.cssText =
+      "position:fixed;bottom:100px;right:20px;z-index:2147483647;" +
+      "padding:10px 16px;background:#374151;color:white;" +
+      "border:none;border-radius:8px;font:bold 14px monospace;cursor:pointer;";
+    btn3.onclick = function () { copyDebugHTML(); };
+    document.body.appendChild(btn3);
+  }
+
+  // Debug: copy a data row's DOM structure
+  if (location.hostname.includes("intel.utopia.site") && !document.getElementById("nexus-debug-row-btn")) {
+    let btn4 = document.createElement("button");
+    btn4.id = "nexus-debug-row-btn";
+    btn4.textContent = "Copy Row";
+    btn4.style.cssText =
+      "position:fixed;bottom:140px;right:20px;z-index:2147483647;" +
+      "padding:10px 16px;background:#4b5563;color:white;" +
+      "border:none;border-radius:8px;font:bold 14px monospace;cursor:pointer;";
+    btn4.onclick = function () { copyDebugRow(); };
+    document.body.appendChild(btn4);
   }
 
   // Cycler panel (only on kingdom page or intel site)

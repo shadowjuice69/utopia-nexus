@@ -23,9 +23,10 @@ function readBody(req) {
   });
 }
 
-function parseIntel(url, prov, text, source="") {
-  const result = { url, prov, updated: new Date().toISOString() };
-  console.log("[DEBUG URL CHECK]", JSON.stringify(url), url.includes("kingdom_details"));
+function parseIntel(url, prov, text, source="", tab="") {
+  const result = { url, prov, tab: tab || "", source: source || "", updated: new Date().toISOString() };
+  console.log("[DEBUG URL CHECK]", JSON.stringify(url), url.includes("kingdom_details"), "tab=", tab, "source=", source);
+  const routeTab = String(tab || "").toLowerCase();
   const kdMatch = url.match(/kd[=\\/](\\d+:\\d+)/) || text.match(/\\((\\d+:\\d+)\\)/);
   result.kd = kdMatch ? kdMatch[1] : MY_KD;
 
@@ -48,9 +49,9 @@ function parseIntel(url, prov, text, source="") {
   } else if (url.includes("kingdom_details") || text.includes("The kingdom of") || text.includes("Total Provinces") || text.includes("Total Networth")) {
     result.type = "kingdom";
     result.data = parseKingdom(text);
-  } else if (url.includes("throne") || url.includes("SPY_ON_THRONE")) {
+  } else if (url.includes("throne") || url.includes("SPY_ON_THRONE") || routeTab === "throne") {
     result.type = "throne";
-    const lines = text.split("\\n").map(s => s.trim()).filter(Boolean);
+    const lines = text.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
     const get = (label) => {
       for (const line of lines) {
         const parts = line.split("\\t");
@@ -89,7 +90,7 @@ function parseIntel(url, prov, text, source="") {
       wpa: Number(parsed.o_wpa || parsed.r_wpa || parsed.d_wpa || 0),
       spells: parsed.good_spells
     };
-  } else if (url.includes("survey") || url.includes("council_internal") || url.includes("/build")) {
+  } else if (url.includes("survey") || url.includes("council_internal") || url.includes("/build") || routeTab === "survey" || routeTab === "buildings") {
     result.type = "survey";
     const buildings = {};
     const KNOWN = ["Barren Land","Homes","Farms","Mills","Banks","Training Grounds","Armouries","Military Barracks","Forts","Castles","Hospitals","Guilds","Towers","Thieves' Dens","Watch Towers","Universities","Libraries","Stables","Dungeons"];
@@ -112,12 +113,12 @@ function parseIntel(url, prov, text, source="") {
       }
     });
     result.data = { buildings };
-  } else if (url.includes("council_science") || url.includes("sciences") || url.includes("/science")) {
+  } else if (url.includes("council_science") || url.includes("sciences") || url.includes("/science") || routeTab === "science") {
     result.type = "science";
     const scienceData = {};
     const scienceEffects = {};
-    text.split("\\n").forEach(l => {
-      const tabs = l.split("\\t");
+    text.split(/\r?\n/).forEach(l => {
+      const tabs = l.split(/\t/);
       if (tabs.length >= 2) {
         const KNOWN = ["Alchemy","Tools","Housing","Production","Bookkeeping","Artisan","Strategy","Siege","Tactics","Valor","Heroism","Resilience","Crime","Channeling","Shielding","Cunning","Sorcery","Finesse","Arcana"];
         const name = tabs[0].trim();
@@ -131,8 +132,8 @@ function parseIntel(url, prov, text, source="") {
         }
       }
     });
-    result.data = { science: scienceData, science_effects: scienceEffects };
-  } else if (url.includes("som") || url.includes("military")) {
+    result.data = { science: scienceData, science_effects: scienceEffects, raw: text };
+  } else if (url.includes("som") || url.includes("military") || routeTab === "military" || routeTab === "armies") {
     result.type = "som";
     let offense = null, defense = null, generals = null;
     const troops = {};
@@ -140,7 +141,7 @@ function parseIntel(url, prov, text, source="") {
     let inArmyTable = false;
     const TROOP_NAMES = ["Soldiers","Warriors","Axemen","Berserkers","War Horses","Thieves","Wizards"];
 
-    text.split("\\n").forEach(l => {
+    text.split(/\r?\n/).forEach(l => {
       let m;
       if ((m = l.match(/Net Offensive Points at Home[\\s\\t]+(\\d[\\d,]*)/i))) offense = parseInt(m[1].replace(/,/g,""),10);
       if ((m = l.match(/Net Defensive Points at Home[\\s\\t]+(\\d[\\d,]*)/i))) defense = parseInt(m[1].replace(/,/g,""),10);
@@ -177,13 +178,13 @@ function parseIntel(url, prov, text, source="") {
       }
     });
     result.data = { offense, defense, generals, troops, armies };
-  } else if (url.includes("council_state") || url.includes("province_state")) {
+  } else if (url.includes("council_state") || url.includes("province_state") || routeTab === "state") {
     result.type = "state";
     result.data = parseState(text);
-  } else if (url.includes("province_news") || url.includes("province_logs") || url.includes("kd_news") || url.includes("kingdom_news")) {
+  } else if (url.includes("province_news") || url.includes("province_logs") || url.includes("kd_news") || url.includes("kingdom_news") || routeTab === "news") {
     result.type = "news";
     result.data = { events: parseNews(text, prov) };
-  } else if (url.includes("intel.utopia.site") || text.includes('"source":"intel-site-csv"') || text.includes('"source":"intel-site"') || prov === "intel-site") {
+  } else if (url.includes("intel.utopia.site") || source === "intel-site" || source === "intel-site-csv" || text.includes('"source":"intel-site-csv"') || text.includes('"source":"intel-site"') || prov === "intel-site") {
     result.type = "intel-site";
     const isRawCSV = text.trimStart().startsWith("#,Name") || text.trimStart().startsWith("#%2C") || url.includes("source=intel-site-csv");
     if (isRawCSV) {
@@ -203,7 +204,7 @@ function parseIntel(url, prov, text, source="") {
     }
   } else {
     result.type = "unknown";
-    result.data = { text };
+    result.data = { text, raw: text };
   }
   return result;
 }
@@ -227,9 +228,29 @@ function decodeCombo(combo) {
   return result;
 }
 
+async function saveRawPageIntel(sb, parsed, prov) {
+  try {
+    const { error } = await sb.from("intel_page_ingest").insert({
+      kd_code: parsed.kd || MY_KD,
+      province: prov || parsed.prov || null,
+      source: parsed.source || null,
+      tab: parsed.tab || null,
+      url: parsed.url || null,
+      data_type: parsed.type || "unknown",
+      raw_text: parsed.data?.raw || parsed.data?.text || null,
+      parsed: parsed.data || {}
+    });
+    if (error) logger.error(`[RAW PAGE SAVE ERROR] ${error.message}`);
+    else logger.info(`[RAW PAGE SAVED] type=${parsed.type} tab=${parsed.tab || ""} kd=${parsed.kd || MY_KD} prov=${prov || ""}`);
+  } catch (e) {
+    logger.error(`[RAW PAGE SAVE CATCH] ${e.message}`);
+  }
+}
+
 async function saveIntel(parsed, prov) {
   const sb = supabaseService.getClient();
   if (!sb) return;
+  await saveRawPageIntel(sb, parsed, prov);
   try {
     if (parsed.type === "throne") {
       const { data, error } = await sb.from("intel_throne").upsert({
@@ -271,7 +292,7 @@ async function saveIntel(parsed, prov) {
       const { error: sciErr } = await sb.from("intel_science").upsert({
         province: prov,
         kd_code: parsed.kd,
-        alchemy: parseInt(sci.alchemy || 0), artisan: parseInt(sci.artisan || 0), bookkeeping: parseInt(sci.bookkeeping || 0), channeling: parseInt(sci.channeling || 0), crime: parseInt(sci.crime || 0), finesse: parseInt(sci.finesse || 0), heroism: parseInt(sci.heroism || 0), housing: parseInt(sci.housing || 0), production: parseInt(sci.production || 0), resilience: parseInt(sci.resilience || 0), sorcery: parseInt(sci.sorcery || 0), strategy: parseInt(sci.strategy || 0), tactics: parseInt(sci.tactics || 0), tools: parseInt(sci.tools || 0), valor: parseInt(sci.valor || 0), siege: parseInt(sci.siege || 0), shielding: parseInt(sci.shielding || 0), cunning: parseInt(sci.cunning || 0), arcana: parseInt(sci.arcana || 0), updated_at: new Date().toISOString()
+        alchemy: parseInt(sci.alchemy || 0), artisan: parseInt(sci.artisan || 0), bookkeeping: parseInt(sci.bookkeeping || 0), channeling: parseInt(sci.channeling || 0), crime: parseInt(sci.crime || 0), finesse: parseInt(sci.finesse || 0), heroism: parseInt(sci.heroism || 0), housing: parseInt(sci.housing || 0), production: parseInt(sci.production || 0), resilience: parseInt(sci.resilience || 0), sorcery: parseInt(sci.sorcery || 0), strategy: parseInt(sci.strategy || 0), tactics: parseInt(sci.tactics || 0), tools: parseInt(sci.tools || 0), valor: parseInt(sci.valor || 0), siege: parseInt(sci.siege || 0), shielding: parseInt(sci.shielding || 0), cunning: parseInt(sci.cunning || 0), arcana: parseInt(sci.arcana || 0), science_effects: effects, updated_at: new Date().toISOString()
       }, { onConflict: "province,kd_code" });
       if (sciErr) logger.error(`[SCIENCE SAVE ERROR] ${sciErr.message}`);
     } else if (parsed.type === "survey") {
@@ -301,7 +322,33 @@ async function saveIntel(parsed, prov) {
       if (error) logger.error(`[STATE SAVE ERROR] ${error.message}`);
     } else if (parsed.type === "news") {
       for (const event of (parsed.data.events || [])) {
-        const { error } = await sb.from("news_events").insert({ kd_code: parsed.kd, province: prov, event_type: event.type || "news", event_text: event.text || event.raw || "", event_time: event.time || new Date().toISOString() });
+        const row = {
+          kd_code: parsed.kd,
+          source_province: prov || null,
+          event_type: event.event_type || "news",
+          event_text: event.raw || event.text || "",
+          date: event.date || null,
+          attacker_name: event.attacker_name || null,
+          attacker_kd: event.attacker_kd || null,
+          defender_name: event.defender_name || null,
+          defender_kd: event.defender_kd || null,
+          acres: Number(event.acres || 0) || null,
+          troops_lost: event.troops_lost || null,
+          troops_killed: Number(event.troops_killed || 0) || null,
+          books_looted: Number(event.books_looted || 0) || null,
+          food_stolen: Number(event.food_stolen || 0) || null,
+          gold_stolen: Number(event.gold_stolen || 0) || null,
+          runes_stolen: Number(event.runes_stolen || 0) || null,
+          troops_sent: Number(event.troops_sent || 0) || null,
+          buildings_survived: Number(event.buildings_survived || 0) || null,
+          credits_gained: Number(event.credits_gained || 0) || null,
+          peasants_settled: Number(event.peasants_settled || 0) || null,
+          return_days: event.return_days != null ? Number(event.return_days) : null,
+          return_date: event.return_date || null,
+          raw: event.raw || event.text || null,
+          created_at: event.created_at || new Date().toISOString(),
+        };
+        const { error } = await sb.from("news_events").insert(row);
         if (error) logger.error(`[NEWS SAVE ERROR] ${error.message}`);
       }
     } else if (parsed.type === "kingdom") {
@@ -454,7 +501,7 @@ function start() {
         console.log("[INTEL DATA SNIPPET]", data_simple.substring(0, 100));
         const tabParam = params.get("tab") || "";
         const source = params.get("source") || "";
-        const parsed = parseIntel(url, prov, data_simple, source);
+        const parsed = parseIntel(url, prov, data_simple, source, tabParam);
         if (kdParam) parsed.kd = kdParam;
         if (tabParam) parsed.tab = tabParam;
         console.log("[INTEL TYPE]", parsed.type);
@@ -477,6 +524,7 @@ function start() {
         if (INTEL_KEY && key !== INTEL_KEY) { res.writeHead(403); res.end("forbidden"); return; }
         if (!question) { res.writeHead(400); res.end("missing question"); return; }
         const { askOpenRouter } = require("./openrouterService");
+        const { getKingdomContext } = require("./aiContextService");
         const sb = supabaseService.getClient();
         const contextLines = [];
         if (sb) {
@@ -498,8 +546,11 @@ function start() {
           }
         }
 
-        const richContext = contextLines.join("\n");
-        const prompt = `You are Nexus, a war strategist for a Utopia kingdom. Answer concisely and tactically using real game mechanics.\n\nKINGDOM CONTEXT:\n${richContext}\n\n${context ? "ADDITIONAL CONTEXT:\n" + context + "\n\n" : ""}QUESTION: ${question}`;
+        const requestedKd = context.match(/(?:kingdom|kd)(?:[^0-9]*)(\d+:\d+)/i)?.[1] || process.env.MY_KD || "";
+        const requestedProvince = context.match(/(?:current province|province)\s*[:=]\s*([^\n]+)/i)?.[1]?.trim() || "";
+        const fullContext = await getKingdomContext({ kd: requestedKd, province: requestedProvince, question });
+        const richContext = [contextLines.join("\n"), fullContext.text].filter(Boolean).join("\n\n");
+        const prompt = `You are Nexus, a war strategist for a Utopia kingdom. Answer concisely and tactically using real game mechanics. Treat the supplied database context as the current source of truth. Do not invent missing values.\n\nKINGDOM CONTEXT:\n${richContext}\n\n${context ? "ADDITIONAL CONTEXT:\n" + context + "\n\n" : ""}QUESTION: ${question}`;
 
         let answer = null;
         try {
@@ -583,7 +634,9 @@ Provide:
 Be concise and tactical.`;
 
             const { askOpenRouter } = require("./openrouterService");
-            const analysis = await askOpenRouter(prompt);
+            const { getKingdomContext } = require("./aiContextService");
+            const fullContext = await getKingdomContext({ kd: process.env.MY_KD || "", question: "war report target ranking threat assessment war summary" });
+            const analysis = await askOpenRouter(prompt + `\n\nFULL NEXUS DATABASE CONTEXT:\n${fullContext.text}`);
 
             // Save to ai_summaries
             await sb.from("ai_summaries").insert({

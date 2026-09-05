@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../services/supabase";
+import { loadNexusConfig, getNexusConfig } from "../services/nexusConfig";
 
-const MY_KD = "6:9";
+let MY_KD = "";
 
 function timeAgo(ts) {
   const diff = Date.now() - new Date(ts).getTime();
@@ -153,6 +154,8 @@ export default function NewsPanel() {
   }, []);
 
   async function fetchAll() {
+    const config = await loadNexusConfig();
+    MY_KD = config?.kd || getNexusConfig().kd || "";
     const [{ data: i7 }, { data: news }] = await Promise.all([
       supabase.from("intel7_events").select("*").order("timestamp", { ascending: false }).limit(500),
       supabase.from("news_events").select("*").order("created_at", { ascending: false }).limit(500),

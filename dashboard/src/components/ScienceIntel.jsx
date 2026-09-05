@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../services/supabase";
+import { loadNexusConfig, getNexusConfig } from "../services/nexusConfig";
 
 const CATEGORY_EMOJI = {
   economy: "💰",
@@ -14,25 +15,25 @@ const CATEGORY_COLOR = {
 };
 
 const SCIENCE_KEYS = [
-  { key: "alchemy",     category: "economy",     name: "Alchemy" },
-  { key: "artisan",     category: "economy",     name: "Artisan" },
-  { key: "bookkeeping", category: "economy",     name: "Bookkeeping" },
-  { key: "housing",     category: "economy",     name: "Housing" },
-  { key: "production",  category: "economy",     name: "Production" },
-  { key: "tools",       category: "economy",     name: "Tools" },
-  { key: "heroism",     category: "military",    name: "Heroism" },
-  { key: "resilience",  category: "military",    name: "Resilience" },
-  { key: "siege",       category: "military",    name: "Siege" },
-  { key: "strategy",    category: "military",    name: "Strategy" },
-  { key: "tactics",     category: "military",    name: "Tactics" },
-  { key: "valor",       category: "military",    name: "Valor" },
-  { key: "arcana",      category: "arcane_arts", name: "Arcana" },
-  { key: "channeling",  category: "arcane_arts", name: "Channeling" },
-  { key: "crime",       category: "arcane_arts", name: "Crime" },
-  { key: "cunning",     category: "arcane_arts", name: "Cunning" },
-  { key: "finesse",     category: "arcane_arts", name: "Finesse" },
-  { key: "shielding",   category: "arcane_arts", name: "Shielding" },
-  { key: "sorcery",     category: "arcane_arts", name: "Sorcery" },
+  { key: "alchemy", category: "economy", name: "Alchemy" },
+  { key: "artisan", category: "economy", name: "Artisan" },
+  { key: "bookkeeping", category: "economy", name: "Bookkeeping" },
+  { key: "housing", category: "economy", name: "Housing" },
+  { key: "production", category: "economy", name: "Production" },
+  { key: "tools", category: "economy", name: "Tools" },
+  { key: "heroism", category: "military", name: "Heroism" },
+  { key: "resilience", category: "military", name: "Resilience" },
+  { key: "siege", category: "military", name: "Siege" },
+  { key: "strategy", category: "military", name: "Strategy" },
+  { key: "tactics", category: "military", name: "Tactics" },
+  { key: "valor", category: "military", name: "Valor" },
+  { key: "arcana", category: "arcane_arts", name: "Arcana" },
+  { key: "channeling", category: "arcane_arts", name: "Channeling" },
+  { key: "crime", category: "arcane_arts", name: "Crime" },
+  { key: "cunning", category: "arcane_arts", name: "Cunning" },
+  { key: "finesse", category: "arcane_arts", name: "Finesse" },
+  { key: "shielding", category: "arcane_arts", name: "Shielding" },
+  { key: "sorcery", category: "arcane_arts", name: "Sorcery" },
 ];
 
 function ScienceBar({ value, max, color }) {
@@ -49,28 +50,65 @@ export default function ScienceIntel() {
   const [scienceRules, setScienceRules] = useState({});
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState("all");
+  const [kd, setKd] = useState("");
+  const [error, setError] = useState("");
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => {
+    let cancelled = false;
 
-  async function fetchData() {
-    const [{ data: sciData }, { data: rulesData }] = await Promise.all([
-      supabase.from("intel_science").select("*").order("province"),
-      supabase.from("science_rules")
-        .select("science_name, multiplier, effect, category")
-        .eq("active", true).eq("age_number", 116)
-        .not("multiplier", "is", null),
-    ]);
-    const ruleMap = {};
-    if (rulesData) {
-      for (const r of rulesData) {
-        const key = r.science_name.toLowerCase();
-        if (!ruleMap[key]) ruleMap[key] = r;
+    async function fetchData() {
+      try {
+        const config = await loadNexusConfig();
+        const currentKd = config?.kd || getNexusConfig().kd || "";
+        if (!currentKd) {
+          if (!cancelled) {
+            setProvinces([]);
+            setKd("");
+            setError("Kingdom context is unavailable.");
+            setLoading(false);
+          }
+          return;
+        }
+
+        const [{ data: sciData, error: sciError }, { data: rulesData, error: rulesError }] = await Promise.all([
+          supabase.from("intel_science").select("*").eq("kd_code", currentKd).order("province"),
+          supabase.from("science_rules")
+            .select("science_name, multiplier, effect, category")
+            .eq("active", true).eq("age_number", 116)
+            .not("multiplier", "is", null),
+        ]);
+
+        if (cancelled) return;
+        if (sciError) throw sciError;
+        if (rulesError) throw rulesError;
+
+        const ruleMap = {};
+        for (const r of rulesData || []) {
+          const key = String(r.science_name || "").toLowerCase();
+          if (key && !ruleMap[key]) ruleMap[key] = r;
+        }
+
+        setKd(currentKd);
+        setScienceRules(ruleMap);
+        setProvinces(sciData || []);
+        setError("");
+      } catch (e) {
+        if (!cancelled) {
+          setProvinces([]);
+          setError(e?.message || "Unable to load science intelligence.");
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
       }
     }
-    setScienceRules(ruleMap);
-    setProvinces(sciData || []);
-    setLoading(false);
-  }
+
+    fetchData();
+    const iv = setInterval(fetchData, 30000);
+    return () => {
+      cancelled = true;
+      clearInterval(iv);
+    };
+  }, []);
 
   function getEffect(prov, key) {
     const effects = prov.science_effects || {};
@@ -96,11 +134,21 @@ export default function ScienceIntel() {
   }
 
   if (loading) return <div className="loading">⏳ Loading Science Intel...</div>;
-  if (provinces.length === 0) {
+
+  if (error) {
     return (
       <div className="panel">
         <h2>🔬 Science Intelligence</h2>
-        <p className="empty">No science data yet. Use /utopia intel and paste a science page.</p>
+        <p className="empty">{error}</p>
+      </div>
+    );
+  }
+
+  if (provinces.length === 0) {
+    return (
+      <div className="panel">
+        <h2>🔬 Science Intelligence · {kd}</h2>
+        <p className="empty">No science data for this kingdom yet. Load the Science page in Utopia to send a fresh snapshot.</p>
       </div>
     );
   }
@@ -109,9 +157,9 @@ export default function ScienceIntel() {
     <div className="intel-panel">
       <div className="panel">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 8 }}>
-          <h2 style={{ margin: 0 }}>🔬 Science Intelligence ({provinces.length})</h2>
+          <h2 style={{ margin: 0 }}>🔬 Science Intelligence · {kd} ({provinces.length})</h2>
           <div style={{ display: "flex", gap: 6 }}>
-            {["all","economy","military","arcane_arts"].map(cat => (
+            {["all", "economy", "military", "arcane_arts"].map(cat => (
               <button key={cat} onClick={() => setActiveCategory(cat)} style={{
                 padding: "4px 10px", borderRadius: 6,
                 border: "1px solid rgba(99,102,241,0.4)",
@@ -137,7 +185,7 @@ export default function ScienceIntel() {
                   <span style={{ color: "#475569", fontSize: 12, marginLeft: 8 }}>{prov.kd_code}</span>
                 </div>
                 <div style={{ color: "#64748b", fontSize: 12 }}>
-                  {getTotalBooks(prov).toLocaleString()} total books · Updated {new Date(prov.updated_at).toLocaleDateString()}
+                  {getTotalBooks(prov).toLocaleString()} total books · Updated {new Date(prov.updated_at).toLocaleString()}
                 </div>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 8 }}>
