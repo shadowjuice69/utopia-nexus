@@ -39,6 +39,9 @@ function parseIntel(url, prov, text, source="", tab="") {
     } catch(e) {
       result.data = { raw: text };
     }
+  } else if (source === "kd-stats-generic") {
+    result.type = "kd-stats-generic";
+    try { result.data = JSON.parse(text); } catch(e) { result.data = { category: "unknown", rows: [] }; }
   } else if (source === "kd-stats-buildings") {
     result.type = "kd-stats-buildings";
     try {
@@ -298,6 +301,17 @@ async function saveIntel(parsed, prov) {
     } else if (parsed.type === "survey") {
       const { error } = await sb.from("intel_buildings").upsert({ province: prov, kd_code: parsed.kd, buildings: parsed.data.buildings || {}, updated_at: new Date().toISOString() }, { onConflict: "province,kd_code" });
       if (error) logger.error(`[SURVEY SAVE ERROR] ${error.message}`);
+    } else if (parsed.type === "kd-stats-generic") {
+      const category = (parsed.data && parsed.data.category) || "unknown";
+      const rows = (parsed.data && parsed.data.rows) || [];
+      for (const r of rows) {
+        if (!r.province) continue;
+        const { error: gErr } = await sb.from("intel_kd_stats").upsert({
+          province: r.province, kd_code: parsed.kd, category: category, data: r.data || {}, updated_at: new Date().toISOString()
+        }, { onConflict: "province,kd_code,category" });
+        if (gErr) logger.error(`[KD STATS GENERIC SAVE ERROR] ${category}/${r.province}: ${gErr.message}`);
+        else logger.info(`[KD STATS GENERIC SAVED] ${category}/${r.province} (${parsed.kd})`);
+      }
     } else if (parsed.type === "kd-stats-buildings") {
       const KNOWN = ["Barren Land","Homes","Farms","Mills","Banks","Training Grounds","Armouries","Military Barracks","Forts","Castles","Hospitals","Guilds","Towers","Thieves' Dens","Watch Towers","Universities","Libraries","Stables","Dungeons"];
       const provinces = parsed.data.provinces || [];
