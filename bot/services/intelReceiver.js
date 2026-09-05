@@ -299,7 +299,33 @@ async function saveIntel(parsed, prov) {
       if (error) logger.error(`[STATE SAVE ERROR] ${error.message}`);
     } else if (parsed.type === "news") {
       for (const event of (parsed.data.events || [])) {
-        const { error } = await sb.from("news_events").insert({ kd_code: parsed.kd, province: prov, event_type: event.type || "news", event_text: event.text || event.raw || "", event_time: event.time || new Date().toISOString() });
+        const row = {
+          kd_code: parsed.kd,
+          source_province: prov || null,
+          event_type: event.event_type || "news",
+          event_text: event.raw || event.text || "",
+          date: event.date || null,
+          attacker_name: event.attacker_name || null,
+          attacker_kd: event.attacker_kd || null,
+          defender_name: event.defender_name || null,
+          defender_kd: event.defender_kd || null,
+          acres: Number(event.acres || 0) || null,
+          troops_lost: event.troops_lost || null,
+          troops_killed: Number(event.troops_killed || 0) || null,
+          books_looted: Number(event.books_looted || 0) || null,
+          food_stolen: Number(event.food_stolen || 0) || null,
+          gold_stolen: Number(event.gold_stolen || 0) || null,
+          runes_stolen: Number(event.runes_stolen || 0) || null,
+          troops_sent: Number(event.troops_sent || 0) || null,
+          buildings_survived: Number(event.buildings_survived || 0) || null,
+          credits_gained: Number(event.credits_gained || 0) || null,
+          peasants_settled: Number(event.peasants_settled || 0) || null,
+          return_days: event.return_days != null ? Number(event.return_days) : null,
+          return_date: event.return_date || null,
+          raw: event.raw || event.text || null,
+          created_at: event.created_at || new Date().toISOString(),
+        };
+        const { error } = await sb.from("news_events").insert(row);
         if (error) logger.error(`[NEWS SAVE ERROR] ${error.message}`);
       }
     } else if (parsed.type === "kingdom") {
@@ -475,6 +501,7 @@ function start() {
         if (INTEL_KEY && key !== INTEL_KEY) { res.writeHead(403); res.end("forbidden"); return; }
         if (!question) { res.writeHead(400); res.end("missing question"); return; }
         const { askOpenRouter } = require("./openrouterService");
+        const { getKingdomContext } = require("./aiContextService");
         const sb = supabaseService.getClient();
         const contextLines = [];
         if (sb) {
@@ -496,8 +523,11 @@ function start() {
           }
         }
 
-        const richContext = contextLines.join("\n");
-        const prompt = `You are Nexus, a war strategist for a Utopia kingdom. Answer concisely and tactically using real game mechanics.\n\nKINGDOM CONTEXT:\n${richContext}\n\n${context ? "ADDITIONAL CONTEXT:\n" + context + "\n\n" : ""}QUESTION: ${question}`;
+        const requestedKd = context.match(/(?:kingdom|kd)(?:[^0-9]*)(\d+:\d+)/i)?.[1] || process.env.MY_KD || "";
+        const requestedProvince = context.match(/(?:current province|province)\s*[:=]\s*([^\n]+)/i)?.[1]?.trim() || "";
+        const fullContext = await getKingdomContext({ kd: requestedKd, province: requestedProvince, question });
+        const richContext = [contextLines.join("\n"), fullContext.text].filter(Boolean).join("\n\n");
+        const prompt = `You are Nexus, a war strategist for a Utopia kingdom. Answer concisely and tactically using real game mechanics. Treat the supplied database context as the current source of truth. Do not invent missing values.\n\nKINGDOM CONTEXT:\n${richContext}\n\n${context ? "ADDITIONAL CONTEXT:\n" + context + "\n\n" : ""}QUESTION: ${question}`;
 
         let answer = null;
         try {
@@ -581,7 +611,9 @@ Provide:
 Be concise and tactical.`;
 
             const { askOpenRouter } = require("./openrouterService");
-            const analysis = await askOpenRouter(prompt);
+            const { getKingdomContext } = require("./aiContextService");
+            const fullContext = await getKingdomContext({ kd: process.env.MY_KD || "", question: "war report target ranking threat assessment war summary" });
+            const analysis = await askOpenRouter(prompt + `\n\nFULL NEXUS DATABASE CONTEXT:\n${fullContext.text}`);
 
             // Save to ai_summaries
             await sb.from("ai_summaries").insert({

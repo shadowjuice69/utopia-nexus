@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { supabase } from "../services/supabase";
-
-const MY_KD = "6:9";
+import { loadNexusConfig, getNexusConfig } from "../services/nexusConfig";
 
 function formatBuild(build) {
   const lines = [`${build.name || "Reference Build"} — ${build.build_type || "custom"} — v${build.version || 1}`];
