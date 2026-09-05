@@ -1,5 +1,6 @@
 name: Fix Science Parser
 
+# One-time safe repair for the v7.0.5 receiver.
 on:
   push:
     branches: [main]
@@ -19,28 +20,22 @@ jobs:
         shell: python
         run: |
           from pathlib import Path
-
           p = Path('bot/services/intelReceiver.js')
           s = p.read_text()
-
           old_n = 'text.split("\\\\n")'
           new_n = 'text.split(/\\r?\\n/)'
           old_t = 'l.split("\\\\t")'
           new_t = 'l.split(/\\t/)'
-
           if old_n not in s:
               raise SystemExit('Expected receiver newline pattern was not found; refusing to modify file.')
           if old_t not in s:
               raise SystemExit('Expected receiver tab pattern was not found; refusing to modify file.')
-
           s2 = s.replace(old_n, new_n).replace(old_t, new_t)
-
           marker = 'result.data = { science: scienceData, science_effects: scienceEffects };'
           replacement = 'result.data = { science: scienceData, science_effects: scienceEffects, raw: text };'
           if marker not in s2:
               raise SystemExit('Expected Science result marker was not found; refusing to modify file.')
           s2 = s2.replace(marker, replacement, 1)
-
           p.write_text(s2)
           print('Science parser patch applied successfully.')
 
