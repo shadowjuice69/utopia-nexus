@@ -115,7 +115,7 @@ export default function IntelPanel() {
 
     if (data) {
       setProvinces(data);
-      const me = data.find(p => p.name === "Sumi Gaeshi");
+      const me = data.find(p => p.name === "Daddy Long Legs");
       if (me?.nw) setMyNw(parseNW(me.nw));
     }
     setLoading(false);
