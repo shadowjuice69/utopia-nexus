@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Utopia Nexus Universal Intel Scraper
 // @namespace    utopia-nexus
-// @version      7.0.8
+// @version      7.0.12
 // @updateURL    https://raw.githubusercontent.com/shadowjuice69/utopia-nexus/main/tampermonkey/nexus-scraper.user.js
 // @downloadURL  https://raw.githubusercontent.com/shadowjuice69/utopia-nexus/main/tampermonkey/nexus-scraper.user.js
 // @description  Universal Utopia intel collector with kingdom cycler and AI analysis trigger
@@ -324,15 +324,13 @@ function extractStat(text, regex) {
 
 function scrapeProvinceTable() {
   let provinces = [];
-  let tables = document.querySelectorAll("table");
+  // The real roster table has a unique, stable id — target it directly instead of
+  // guessing by header text (the kingdom summary box's "Total Provinces" cell used to
+  // false-match a loose "province" substring check and get scraped instead).
+  let rosterTable = document.getElementById("clone_kingdom") || document.querySelector("table.tablesorter");
+  let tables = rosterTable ? [rosterTable] : [];
 
   for (let table of tables) {
-    let headers = table.querySelectorAll("th");
-    let headerText = Array.from(headers).map(h => h.textContent.trim().toLowerCase()).join(",");
-
-    // Find the provinces table
-    if (!headerText.includes("province") && !headerText.includes("race")) continue;
-
     let rows = table.querySelectorAll("tr");
     let colMap = {};
 
@@ -471,9 +469,17 @@ function scrapeArmiesTable() {
   return fullText.substring(start, start + 12000);
 }
 
+function findFirstAnchor(html, anchors) {
+  for (let a of anchors) {
+    let idx = html.indexOf(a);
+    if (idx !== -1) return idx;
+  }
+  return -1;
+}
+
 function copyDebugHTML() {
   let html = document.body.innerHTML;
-  let idx = html.indexOf("Combo");
+  let idx = findFirstAnchor(html, ["Combo", "Province", "Race"]);
   let start = Math.max(0, idx - 500);
   let snippet = html.substring(start, start + 16000);
   GM_setClipboard(snippet);
@@ -482,10 +488,13 @@ function copyDebugHTML() {
 }
 
 function copyDebugRow() {
-  // Grab a data row instead of headers - look for role="row" past the header area
   let html = document.body.innerHTML;
   let idx = html.indexOf("role=\"row\"", html.indexOf("columnheader") + 100);
   if (idx === -1) idx = html.indexOf("gridcell");
+  if (idx === -1) {
+    // Not a MUI grid - grab a chunk around the first real <table> instead
+    idx = html.search(/<table/i);
+  }
   let start = Math.max(0, idx - 200);
   let snippet = html.substring(start, start + 12000);
   GM_setClipboard(snippet);
@@ -493,79 +502,314 @@ function copyDebugRow() {
   setStatus("Copied row ~12000 chars to clipboard");
 }
 
-function scrapeKDStatsBuildings() {
-  let tables = document.querySelectorAll("table");
-  let statsTable = null;
-  for (let t of tables) {
-    let headerText = (t.querySelector("tr") || {}).innerText || "";
-    if (headerText.includes("Combo") && headerText.includes("NW")) { statsTable = t; break; }
-  }
-  if (!statsTable) return [];
+function getKDStatsScroller() {
+  return document.querySelector(".MuiDataGrid-virtualScroller");
+}
 
-  let rows = statsTable.querySelectorAll("tr");
-  let headerCells = Array.from(rows[0].querySelectorAll("th, td")).map(c => c.textContent.trim());
-
-  let colMap = {};
-  let hoCount = 0;
-  let ABBR = { Far:"Farms", Mill:"Mills", Bank:"Banks", TGs:"Training Grounds", Ar:"Armouries",
-    Rax:"Military Barracks", Fort:"Forts", Cast:"Castles", Guild:"Guilds", To:"Towers",
-    TDs:"Thieves' Dens", WTs:"Watch Towers", Univ:"Universities", Libs:"Libraries",
-    Stab:"Stables", Du:"Dungeons" };
-  headerCells.forEach((h, i) => {
-    if (h === "Ho") { hoCount++; colMap[i] = hoCount === 1 ? "Homes" : "Hospitals"; }
-    else if (ABBR[h]) colMap[i] = ABBR[h];
+function getBuildingFieldMap() {
+  let ABBR = { Home:"Homes", Farm:"Farms", Mill:"Mills", Bank:"Banks", TGs:"Training Grounds",
+    Ar:"Armouries", Rax:"Military Barracks", Fort:"Forts", Cast:"Castles", Hosp:"Hospitals",
+    Guild:"Guilds", To:"Towers", TDs:"Thieves' Dens", WTs:"Watch Towers", Univ:"Universities",
+    Libs:"Libraries", Stab:"Stables", Du:"Dungeons" };
+  let map = {};
+  document.querySelectorAll('[role="columnheader"][data-field]').forEach(function (h) {
+    let field = h.getAttribute("data-field");
+    if (field && field.indexOf("bld*") === 0) {
+      let titleEl = h.querySelector(".MuiDataGrid-columnHeaderTitle");
+      let title = titleEl ? titleEl.textContent.trim() : field;
+      map[field] = ABBR[title] || null; // null = skip (e.g. Barr/Barren Land, unrecognized)
+    }
   });
+  return map;
+}
 
-  let nameIdx = headerCells.indexOf("Name");
+function scrapeVisibleKDStatsRows(bldMap) {
   let results = [];
-  for (let r = 1; r < rows.length; r++) {
-    let cells = rows[r].querySelectorAll("td");
-    if (!cells.length || nameIdx === -1) continue;
-    let name = (cells[nameIdx] && cells[nameIdx].textContent.trim()) || "";
-    name = name.replace(/\s*\([MS]\)\s*/g, "").replace(/\*/g, "").trim();
-    if (!name || name === "-") continue;
+  document.querySelectorAll('[role="row"][data-id]').forEach(function (row) {
+    let nameCell = row.querySelector('[data-field="name"]');
+    if (!nameCell) return;
+    let name = nameCell.textContent.trim();
+    if (!name) return;
 
     let buildings = {};
-    Object.keys(colMap).forEach(idx => {
-      let raw = (cells[idx] && cells[idx].textContent.trim()) || "";
-      let num = parseFloat(raw.replace("%", "").replace(/,/g, ""));
-      if (!isNaN(num)) buildings[colMap[idx]] = num;
+    row.querySelectorAll('[data-field^="bld*"]').forEach(function (cell) {
+      let field = cell.getAttribute("data-field");
+      let label = bldMap[field];
+      if (!label) return;
+      let raw = cell.textContent.trim();
+      let m = raw.match(/^([\d.]+)%/);
+      if (m) buildings[label] = parseFloat(m[1]);
     });
-    results.push({ province: name, buildings });
-  }
+
+    results.push({ id: row.getAttribute("data-id"), province: name, buildings: buildings });
+  });
   return results;
 }
 
+function scrollAndCollectKDStats(onDone) {
+  let scroller = getKDStatsScroller();
+  let bldMap = getBuildingFieldMap();
+  if (!scroller || Object.keys(bldMap).length === 0) { onDone([]); return; }
+
+  let collected = {};
+  let stableCount = 0;
+  let lastSize = -1;
+
+  function step() {
+    scrapeVisibleKDStatsRows(bldMap).forEach(function (r) { collected[r.id] = r; });
+
+    let atBottom = (scroller.scrollTop + scroller.clientHeight) >= (scroller.scrollHeight - 5);
+    let size = Object.keys(collected).length;
+
+    if (atBottom || size === lastSize) stableCount++;
+    else stableCount = 0;
+    lastSize = size;
+
+    if (atBottom && stableCount >= 2) {
+      onDone(Object.values(collected));
+      return;
+    }
+
+    scroller.scrollTop += scroller.clientHeight * 0.8;
+    setTimeout(step, 250);
+  }
+  step();
+}
+
 function sendKDStatsBuildings() {
-  let data = scrapeKDStatsBuildings();
-  if (!data.length) { setStatus("No KD Stats table found", false); return; }
+  setStatus("Scanning KD Stats (scrolling)...");
+  scrollAndCollectKDStats(function (data) {
+    if (!data.length) { setStatus("No KD Stats table found", false); return; }
 
-  let payload = [
-    "key=" + encodeURIComponent(KEY),
-    "source=kd-stats-buildings",
-    "kd=" + encodeURIComponent(getKD()),
-    "tab=kd_stats_buildings",
-    "prov=Unknown",
-    "url=" + encodeURIComponent(location.href),
-    "data_simple=" + encodeURIComponent(JSON.stringify({ provinces: data }))
-  ].join("&");
+    let payload = [
+      "key=" + encodeURIComponent(KEY),
+      "source=kd-stats-buildings",
+      "kd=" + encodeURIComponent(getKD()),
+      "tab=kd_stats_buildings",
+      "prov=Unknown",
+      "url=" + encodeURIComponent(location.href),
+      "data_simple=" + encodeURIComponent(JSON.stringify({ provinces: data.map(function (d) { return { province: d.province, buildings: d.buildings }; }) }))
+    ].join("&");
 
-  setStatus("Sending KD buildings...");
+    setStatus("Sending KD buildings (" + data.length + ")...");
 
-  GM_xmlhttpRequest({
-    method: "POST",
-    url: ENDPOINT,
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    data: payload,
-    onload: function (r) {
-      if (r.status === 200) {
-        setStatus("KD Buildings saved (" + data.length + ")");
-        toast("Saved " + data.length + " provinces buildings", true);
-      } else {
-        setStatus("HTTP " + r.status, false);
+    GM_xmlhttpRequest({
+      method: "POST",
+      url: ENDPOINT,
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      data: payload,
+      onload: function (r) {
+        if (r.status === 200) {
+          setStatus("KD Buildings saved (" + data.length + ")");
+          toast("Saved " + data.length + " provinces buildings", true);
+        } else {
+          setStatus("HTTP " + r.status, false);
+        }
+      },
+      onerror: function () { setStatus("Connection failed", false); }
+    });
+  });
+}
+
+function scrollAndCollectGeneric(scrapeRowsFn, onDone) {
+  let scroller = document.querySelector(".MuiDataGrid-virtualScroller");
+  if (!scroller) { onDone([]); return; }
+
+  let collected = {};
+  let stableCount = 0;
+  let lastSize = -1;
+
+  function step() {
+    scrapeRowsFn().forEach(function (r) { collected[r.id] = r; });
+
+    let atBottom = (scroller.scrollTop + scroller.clientHeight) >= (scroller.scrollHeight - 5);
+    let size = Object.keys(collected).length;
+
+    if (atBottom || size === lastSize) stableCount++;
+    else stableCount = 0;
+    lastSize = size;
+
+    if (atBottom && stableCount >= 2) {
+      onDone(Object.values(collected));
+      return;
+    }
+
+    scroller.scrollTop += scroller.clientHeight * 0.8;
+    setTimeout(step, 250);
+  }
+  step();
+}
+
+function scrapeMilitaryRows() {
+  let fields = ["slot","name","location","combo","honor","land","nw","ome","dme","off","def",
+    "offHome","defHome","osPoints","dsPoints","ppa","nonPeon","thieves","wizards",
+    "peons","solds","ospecs","dspecs","leets","horses","prisoners"];
+  let results = [];
+  document.querySelectorAll('[role="row"][data-id]').forEach(function (row) {
+    let nameCell = row.querySelector('[data-field="name"]');
+    if (!nameCell) return;
+    let name = nameCell.textContent.trim();
+    if (!name) return;
+    let data = {};
+    fields.forEach(function (f) {
+      let cell = row.querySelector('[data-field="' + f + '"]');
+      if (cell) data[f] = cell.textContent.trim();
+    });
+    results.push({ id: row.getAttribute("data-id"), province: name, data: data });
+  });
+  return results;
+}
+
+function sendMilitaryStats() {
+  setStatus("Scanning Military (scrolling)...");
+  scrollAndCollectGeneric(scrapeMilitaryRows, function (rows) {
+    if (!rows.length) { setStatus("No military grid found", false); return; }
+    let payload = [
+      "key=" + encodeURIComponent(KEY),
+      "source=kd-stats-generic",
+      "kd=" + encodeURIComponent(getKD()),
+      "tab=kd_stats_generic",
+      "prov=Unknown",
+      "url=" + encodeURIComponent(location.href),
+      "data_simple=" + encodeURIComponent(JSON.stringify({ category: "military", rows: rows.map(function (r) { return { province: r.province, data: r.data }; }) }))
+    ].join("&");
+    setStatus("Sending military (" + rows.length + ")...");
+    GM_xmlhttpRequest({
+      method: "POST", url: ENDPOINT,
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      data: payload,
+      onload: function (r) {
+        if (r.status === 200) { setStatus("Military saved (" + rows.length + ")"); toast("Saved " + rows.length + " provinces military", true); }
+        else setStatus("HTTP " + r.status, false);
+      },
+      onerror: function () { setStatus("Connection failed", false); }
+    });
+  });
+}
+
+function scrapeGainsRows() {
+  let results = [];
+  document.querySelectorAll('[role="row"][data-id]').forEach(function (row) {
+    let nameCell = row.querySelector('[data-field="name"]');
+    if (!nameCell) return;
+    let name = nameCell.textContent.trim();
+    if (!name) return;
+    let networthCell = row.querySelector('[data-field="networth"]');
+    let networth = networthCell ? networthCell.textContent.trim() : "";
+    let locationCell = row.querySelector('[data-field="location"]');
+    let location = locationCell ? locationCell.textContent.trim() : "";
+    let gains = {};
+    row.querySelectorAll('[data-field^="#"]').forEach(function (cell) {
+      let field = cell.getAttribute("data-field");
+      let targetSlot = field.replace("#", "");
+      let raw = cell.textContent.trim();
+      let m = raw.match(/^([\d.]+)a\s*\(([\d.]+)%\)/);
+      if (m) gains[targetSlot] = { acres: parseFloat(m[1]), pct: parseFloat(m[2]) };
+    });
+    results.push({ id: row.getAttribute("data-id"), province: name, data: { location: location, networth: networth, gains: gains } });
+  });
+  return results;
+}
+
+function sendGainsStats() {
+  setStatus("Scanning Gains (scrolling)...");
+  scrollAndCollectGeneric(scrapeGainsRows, function (rows) {
+    if (!rows.length) { setStatus("No gains grid found", false); return; }
+    let payload = [
+      "key=" + encodeURIComponent(KEY),
+      "source=kd-stats-generic",
+      "kd=" + encodeURIComponent(getKD()),
+      "tab=kd_stats_generic",
+      "prov=Unknown",
+      "url=" + encodeURIComponent(location.href),
+      "data_simple=" + encodeURIComponent(JSON.stringify({ category: "gains", rows: rows.map(function (r) { return { province: r.province, data: r.data }; }) }))
+    ].join("&");
+    setStatus("Sending gains (" + rows.length + ")...");
+    GM_xmlhttpRequest({
+      method: "POST", url: ENDPOINT,
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      data: payload,
+      onload: function (r) {
+        if (r.status === 200) { setStatus("Gains saved (" + rows.length + ")"); toast("Saved " + rows.length + " provinces gains", true); }
+        else setStatus("HTTP " + r.status, false);
+      },
+      onerror: function () { setStatus("Connection failed", false); }
+    });
+  });
+}
+
+function getScienceFieldMap() {
+  let map = {};
+  document.querySelectorAll('[role="columnheader"][data-field]').forEach(function (h) {
+    let field = h.getAttribute("data-field");
+    if (field && field.indexOf("boo*") === 0) {
+      let titleEl = h.querySelector(".MuiDataGrid-columnHeaderTitle");
+      map[field] = titleEl ? titleEl.textContent.trim() : field;
+    }
+  });
+  return map;
+}
+
+function scrapeScienceRows(bookMap) {
+  let results = [];
+  document.querySelectorAll('[role="row"][data-id]').forEach(function (row) {
+    let nameCell = row.querySelector('[data-field="name"]');
+    if (!nameCell) return;
+    let name = nameCell.textContent.trim();
+    if (!name) return;
+
+    let stockedCell = row.querySelector('[data-field="stockedBooks"]');
+    let allocatedCell = row.querySelector('[data-field="allocatedBooks"]');
+    let locationCell = row.querySelector('[data-field="location"]');
+    let location = locationCell ? locationCell.textContent.trim() : "";
+    let books = {};
+    row.querySelectorAll('[data-field^="boo*"]').forEach(function (cell) {
+      let field = cell.getAttribute("data-field");
+      let label = bookMap[field] || field;
+      let raw = cell.textContent.trim();
+      let num = parseFloat(raw.replace("%", "").replace(/,/g, ""));
+      if (!isNaN(num)) books[label] = num;
+    });
+
+    results.push({
+      id: row.getAttribute("data-id"),
+      province: name,
+      data: {
+        location: location,
+        stockedBooks: stockedCell ? stockedCell.textContent.trim() : "",
+        allocatedBooks: allocatedCell ? allocatedCell.textContent.trim() : "",
+        books: books
       }
-    },
-    onerror: function () { setStatus("Connection failed", false); }
+    });
+  });
+  return results;
+}
+
+function sendScienceStats() {
+  setStatus("Scanning Science (scrolling)...");
+  let bookMap = getScienceFieldMap();
+  scrollAndCollectGeneric(function () { return scrapeScienceRows(bookMap); }, function (rows) {
+    if (!rows.length) { setStatus("No science grid found", false); return; }
+    let payload = [
+      "key=" + encodeURIComponent(KEY),
+      "source=kd-stats-generic",
+      "kd=" + encodeURIComponent(getKD()),
+      "tab=kd_stats_generic",
+      "prov=Unknown",
+      "url=" + encodeURIComponent(location.href),
+      "data_simple=" + encodeURIComponent(JSON.stringify({ category: "science", rows: rows.map(function (r) { return { province: r.province, data: r.data }; }) }))
+    ].join("&");
+    setStatus("Sending science (" + rows.length + ")...");
+    GM_xmlhttpRequest({
+      method: "POST", url: ENDPOINT,
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      data: payload,
+      onload: function (r) {
+        if (r.status === 200) { setStatus("Science saved (" + rows.length + ")"); toast("Saved " + rows.length + " provinces science", true); }
+        else setStatus("HTTP " + r.status, false);
+      },
+      onerror: function () { setStatus("Connection failed", false); }
+    });
   });
 }
 
@@ -771,8 +1015,44 @@ function addNexusUI() {
     document.body.appendChild(btn2);
   }
 
+  if (location.hostname.includes("intel.utopia.site") && !document.getElementById("nexus-military-btn")) {
+    let btnM = document.createElement("button");
+    btnM.id = "nexus-military-btn";
+    btnM.textContent = "KD Military";
+    btnM.style.cssText =
+      "position:fixed;bottom:180px;right:20px;z-index:2147483647;" +
+      "padding:10px 16px;background:#1d4ed8;color:white;" +
+      "border:none;border-radius:8px;font:bold 14px monospace;cursor:pointer;";
+    btnM.onclick = function () { sendMilitaryStats(); };
+    document.body.appendChild(btnM);
+  }
+
+  if (location.hostname.includes("intel.utopia.site") && !document.getElementById("nexus-gains-btn")) {
+    let btnG = document.createElement("button");
+    btnG.id = "nexus-gains-btn";
+    btnG.textContent = "KD Gains";
+    btnG.style.cssText =
+      "position:fixed;bottom:220px;right:20px;z-index:2147483647;" +
+      "padding:10px 16px;background:#15803d;color:white;" +
+      "border:none;border-radius:8px;font:bold 14px monospace;cursor:pointer;";
+    btnG.onclick = function () { sendGainsStats(); };
+    document.body.appendChild(btnG);
+  }
+
+  if (location.hostname.includes("intel.utopia.site") && !document.getElementById("nexus-science-btn")) {
+    let btnS = document.createElement("button");
+    btnS.id = "nexus-science-btn";
+    btnS.textContent = "KD Science";
+    btnS.style.cssText =
+      "position:fixed;bottom:260px;right:20px;z-index:2147483647;" +
+      "padding:10px 16px;background:#7e22ce;color:white;" +
+      "border:none;border-radius:8px;font:bold 14px monospace;cursor:pointer;";
+    btnS.onclick = function () { sendScienceStats(); };
+    document.body.appendChild(btnS);
+  }
+
   // Debug: copy DOM structure button (intel.utopia.site only)
-  if (location.hostname.includes("intel.utopia.site") && !document.getElementById("nexus-debug-btn")) {
+  if (!document.getElementById("nexus-debug-btn")) {
     let btn3 = document.createElement("button");
     btn3.id = "nexus-debug-btn";
     btn3.textContent = "Copy DOM";
@@ -785,7 +1065,7 @@ function addNexusUI() {
   }
 
   // Debug: copy a data row's DOM structure
-  if (location.hostname.includes("intel.utopia.site") && !document.getElementById("nexus-debug-row-btn")) {
+  if (!document.getElementById("nexus-debug-row-btn")) {
     let btn4 = document.createElement("button");
     btn4.id = "nexus-debug-row-btn";
     btn4.textContent = "Copy Row";
