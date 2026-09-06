@@ -384,6 +384,20 @@ async function saveIntel(parsed, prov) {
         updated_at: new Date().toISOString()
       }, { onConflict: "kd_code" });
       if (error) logger.error(`[KINGDOM PAGE SAVE ERROR] ${error.message}`);
+
+      const kpProvinces = kpd.provinces || [];
+      for (const p of kpProvinces) {
+        if (!p.name) continue;
+        const provUpsert = { province: p.name, kd_code: parsed.kd, updated_at: new Date().toISOString() };
+        if (p.race) provUpsert.race = p.race;
+        if (p.land) provUpsert.land = parseInt(p.land) || null;
+        if (p.nw) provUpsert.networth = p.nw;
+        if (p.nwpa) provUpsert.nwpa = parseFloat(p.nwpa) || null;
+        if (p.nobility) provUpsert.honor = p.nobility;
+        const { error: provErr } = await sb.from("intel_throne").upsert(provUpsert, { onConflict: "province,kd_code" });
+        if (provErr) logger.error(`[KINGDOM PAGE PROVINCE SAVE ERROR] ${p.name}: ${provErr.message}`);
+        else logger.info(`[KINGDOM PAGE PROVINCE SAVED] ${p.name} (${parsed.kd})`);
+      }
     } else if (parsed.type === "intel-site") {
       const siteData = parsed.data || {};
       const kd = parsed.kd || MY_KD;
