@@ -1,0 +1,61 @@
+name: Fix kingdom page scraper
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Patch kingdom name extraction
+        shell: bash
+        run: |
+          set -e
+          python3 - <<'PY'
+          from pathlib import Path
+
+          paths = [
+              Path('tampermonkey/nexus-scraper.user.js'),
+              Path('tampermonkey/nexus-scraper-v7.0.5.user.txt'),
+          ]
+
+          old = 'text.match(/The kingdom of (.+?)[\\n\\r(]/i)'
+          new = 'text.match(/The(?:\\s+Emerging)?\\s+kingdom of\\s+(.+?)[\\n\\r(]/i)'
+
+          changed = False
+          for path in paths:
+              if not path.exists():
+                  continue
+              text = path.read_text()
+              if old in text:
+                  text = text.replace(old, new)
+                  path.write_text(text)
+                  print(f'patched {path}')
+                  changed = True
+              elif new in text:
+                  print(f'already patched {path}')
+
+          if not changed:
+              print('No scraper patch needed.')
+          PY
+
+      - name: Commit patch
+        shell: bash
+        run: |
+          set -e
+          if git diff --quiet; then
+            echo 'No changes to commit.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add tampermonkey/nexus-scraper.user.js tampermonkey/nexus-scraper-v7.0.5.user.txt
+          git commit -m 'Fix kingdom name extraction for Emerging kingdoms'
+          git push origin HEAD:main
