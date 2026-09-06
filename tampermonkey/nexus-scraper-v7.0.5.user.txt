@@ -245,7 +245,7 @@ function scrapeKingdomPage(callback) {
   let text = document.body.innerText;
 
   // Kingdom name
-  let kdNameMatch = text.match(/The kingdom of (.+?)[\n\r(]/i);
+  let kdNameMatch = text.match(/The(?:\s+Emerging)?\s+kingdom of\s+(.+?)[\n\r(]/i);
   let kdName = kdNameMatch ? kdNameMatch[1].trim() : "Unknown";
 
   // KD code from URL path /wol/game/kingdom_details/ISLAND/KD
