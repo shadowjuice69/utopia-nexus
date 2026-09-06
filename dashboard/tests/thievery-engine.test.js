@@ -21,9 +21,9 @@ test('Age 116 Thieves Dens base bonus is 3% per percent TD', () => {
   assert.equal(thievesDensTpaMultiplier(20), 1.6);
 });
 
-test('Age 116 Rogue gets +75% Thieves Dens effectiveness', () => {
-  assert.equal(AGE_116_RULES.thievesDens.rogueEffectivenessMultiplier, 1.75);
-  assert.equal(thievesDensTpaMultiplier(20, 1.75), 2.05);
+test('Age 116 Rogue gets +100% Thieves Dens effectiveness', () => {
+  assert.equal(AGE_116_RULES.thievesDens.rogueEffectivenessMultiplier, 2);
+  assert.equal(thievesDensTpaMultiplier(20, 2), 2.2);
 });
 
 test('Age 116 Thieves Dens loss reduction is 3.3% per percent TD capped at 90%', () => {
