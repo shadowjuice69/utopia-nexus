@@ -1,8 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  AGE_116_DATA,
   AGE_116_OPERATIONS,
   AGE_116_RULES,
+  raceModifiers,
+  personalityModifiers,
+  resolveThieveryModifiers,
   rawTpa,
   thievesDensTpaMultiplier,
   thievesDensLossReduction,
@@ -22,7 +26,6 @@ test('Age 116 Thieves Dens base bonus is 3% per percent TD', () => {
 });
 
 test('Age 116 Rogue gets +100% Thieves Dens effectiveness', () => {
-  assert.equal(AGE_116_RULES.thievesDens.rogueEffectivenessMultiplier, 2);
   assert.equal(thievesDensTpaMultiplier(20, 2), 2.2);
 });
 
@@ -34,6 +37,37 @@ test('Age 116 Thieves Dens loss reduction is 3.3% per percent TD capped at 90%',
 test('Age 116 Watch Tower catch chance is 2.3% per percent WT', () => {
   assert.equal(watchTowersCatchChance(10), 0.23);
   assert.equal(watchTowersCatchChance(100), 1);
+});
+
+test('every Age 116 race is present and check-mark verified', () => {
+  assert.equal(Object.keys(AGE_116_DATA.races).length, 10);
+  for (const race of Object.values(AGE_116_DATA.races)) assert.equal(race.verified, true);
+});
+
+test('every Age 116 personality is present and check-mark verified', () => {
+  assert.equal(Object.keys(AGE_116_DATA.personalities).length, 11);
+  for (const personality of Object.values(AGE_116_DATA.personalities)) assert.equal(personality.verified, true);
+});
+
+test('race and personality bonuses come from age data, not calculator constants', () => {
+  assert.equal(raceModifiers('Faery').thievery.tpaMultiplier, 1.20);
+  assert.equal(raceModifiers('Halfling').thievery.tpaMultiplier, 1.30);
+  assert.equal(personalityModifiers('Heretic').thievery.tpaMultiplier, 1.35);
+  assert.equal(personalityModifiers('Rogue').thievery.thievesDensEffectivenessMultiplier, 2.00);
+});
+
+test('verified race/personality data resolves into calculator modifiers', () => {
+  const mods = resolveThieveryModifiers({ race: 'Faery', personality: 'Rogue' });
+  assert.equal(mods.racialTpaMultiplier, 1.20);
+  assert.equal(mods.personalityTpaMultiplier, 1.25);
+  assert.equal(mods.crimeScienceMultiplier, 1.40);
+  assert.equal(mods.thievesDensEffectivenessMultiplier, 2.00);
+  assert.equal(mods.verified, true);
+});
+
+test('unknown race/personality is rejected instead of guessed', () => {
+  assert.throws(() => raceModifiers('FutureRace'), /Unknown race/);
+  assert.throws(() => personalityModifiers('FuturePersonality'), /Unknown personality/);
 });
 
 test('modified TPA composes the published multiplicative modifiers', () => {
@@ -65,10 +99,7 @@ test('published yield equation applies NW and modifiers', () => {
     targetNetworth: 80000,
     gainsPerThief: 0.1,
     resourcesLostFraction: 0.5,
-    modifiers: {
-      racialMultiplier: 1.2,
-      targetWatchtowersReduction: 0.1,
-    },
+    modifiers: { racialMultiplier: 1.2, targetWatchtowersReduction: 0.1 },
   });
   assert.equal(result.value, 4.32);
 });
