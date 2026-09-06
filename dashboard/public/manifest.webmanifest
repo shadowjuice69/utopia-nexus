@@ -1,0 +1,19 @@
+{
+  "name": "Utopia Nexus",
+  "short_name": "Nexus",
+  "description": "Utopia Nexus command dashboard",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#0b1020",
+  "theme_color": "#111827",
+  "icons": [
+    {
+      "src": "/utopia-nexus-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
