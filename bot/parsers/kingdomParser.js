@@ -21,7 +21,7 @@ function parseKingdom(text) {
   const kd = source.match(/\((\d+:\d+)\)/);
   if (kd) result.kd_code = kd[1];
 
-  const name = source.match(/The kingdom of\s+(.+?)\s*\((\d+:\d+)\)/i);
+  const name = source.match(/The(?:\s+Emerging)?\s+kingdom of\s+(.+?)\s*\((\d+:\d+)\)/i);
   if (name) {
     result.kingdom_name = clean(name[1]);
     result.kd_name = result.kingdom_name;
@@ -40,7 +40,6 @@ function parseKingdom(text) {
   result.nw_rank = nwRank ? number(nwRank[1]) : null;
   result.land_rank = landRank ? number(landRank[1]) : null;
 
-  // Text fallback for kingdom pages where the DOM table has already been flattened.
   const lines = source.split(/\r?\n/).map(clean).filter(Boolean);
   for (const line of lines) {
     if (!result.kd_code && /\(\d+:\d+\)/.test(line)) {
