@@ -2,7 +2,7 @@
  * Utopia Age 116 thievery calculation engine.
  * Pure calculation module: no dashboard, API, database, or browser dependencies.
  *
- * Source basis: Utopia Guide — Thievery (Age 116) and Age 116 revised mechanics.
+ * Source basis: official Utopia-Game Age 116 data plus current Age 116 revised mechanics.
  * Unknown mechanics are never silently guessed.
  */
 
@@ -14,7 +14,8 @@ export const AGE_116_RULES = Object.freeze({
     tpaEffectivenessPerPercent: 0.03,
     thiefLossReductionPerPercent: 0.033,
     maxThiefLossReduction: 0.90,
-    rogueEffectivenessMultiplier: 1.75,
+    // Official Utopia-Game Age 116: Rogue has +100% Thieves' Den effectiveness.
+    rogueEffectivenessMultiplier: 2.00,
   }),
   watchTowers: Object.freeze({
     catchChancePerPercent: 0.023,
@@ -103,7 +104,7 @@ export function modifiedTpa(stats) {
   }
   if (stats.invisibilityMultiplier === undefined) assumptions.push('Invisibility is assumed inactive.');
   if (stats.dragonTpaMultiplier === undefined) assumptions.push('No dragon TPA penalty is assumed.');
-  if (stats.thievesDensEffectivenessMultiplier === undefined) assumptions.push('Base Thieves\' Dens effectiveness is assumed.');
+  if (stats.thievesDensEffectivenessMultiplier === undefined) assumptions.push("Base Thieves' Dens effectiveness is assumed.");
 
   return {
     value: raw
