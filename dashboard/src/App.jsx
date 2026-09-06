@@ -21,7 +21,7 @@ import Intel7 from "./components/Intel7";
 import IntelDataVault from "./components/IntelDataVault";
 import AlertPanel from "./components/AlertPanel";
 import AttackCalc from "./components/AttackCalc";
-import ThieveryCalculator from "./components/ThieveryCalculator";
+import ThieveryCalculator from "./components/ThieveryCalculatorFixed";
 import AIWarReport from "./components/AIWarReport";
 import AITargets from "./components/AITargets";
 import AIAssistant from "./components/AIAssistant";
