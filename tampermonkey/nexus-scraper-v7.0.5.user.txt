@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Utopia Nexus Universal Intel Scraper
 // @namespace    utopia-nexus
-// @version      7.0.5
+// @version      7.0.8
 // @updateURL    https://raw.githubusercontent.com/shadowjuice69/utopia-nexus/main/tampermonkey/nexus-scraper.user.js
 // @downloadURL  https://raw.githubusercontent.com/shadowjuice69/utopia-nexus/main/tampermonkey/nexus-scraper.user.js
 // @description  Universal Utopia intel collector with kingdom cycler and AI analysis trigger
