@@ -11,10 +11,18 @@ function StatCard({ label, value, color = "#38bdf8" }) {
   );
 }
 
+function prettyLabel(key) {
+  return key
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/^./, s => s.toUpperCase());
+}
+
 function ProvinceModal({ province, onClose }) {
   const [tab, setTab] = useState("overview");
   const [lastAttack, setLastAttack] = useState(null);
   const [buildings, setBuildings] = useState(province?.buildings || {});
+  const [kdMilitary, setKdMilitary] = useState(null);
+  const [kdScience, setKdScience] = useState(null);
 
   useEffect(() => {
     if (!province?.name) return;
@@ -27,12 +35,32 @@ function ProvinceModal({ province, onClose }) {
 
   useEffect(() => {
     if (!province?.name) return;
-    supabase.from("intel_buildings").select("buildings, updated_at")
-      .ilike("province", province.name).limit(1)
-      .then(({ data }) => {
-        if (data && data[0]?.buildings) setBuildings(data[0].buildings);
-      });
-  }, [province?.name]);
+    let q = supabase.from("intel_buildings").select("buildings, updated_at").ilike("province", province.name);
+    if (province.kd_code) q = q.eq("kd_code", province.kd_code);
+    q.limit(1).then(({ data }) => {
+      if (data && data[0]?.buildings) setBuildings(data[0].buildings);
+    });
+  }, [province?.name, province?.kd_code]);
+
+  useEffect(() => {
+    if (!province?.name) return;
+    let q = supabase.from("intel_kd_stats").select("data, updated_at")
+      .eq("category", "military").ilike("province", province.name);
+    if (province.kd_code) q = q.eq("kd_code", province.kd_code);
+    q.limit(1).then(({ data }) => {
+      if (data && data[0]?.data) setKdMilitary(data[0].data);
+    });
+  }, [province?.name, province?.kd_code]);
+
+  useEffect(() => {
+    if (!province?.name) return;
+    let q = supabase.from("intel_kd_stats").select("data, updated_at")
+      .eq("category", "science").ilike("province", province.name);
+    if (province.kd_code) q = q.eq("kd_code", province.kd_code);
+    q.limit(1).then(({ data }) => {
+      if (data && data[0]?.data) setKdScience(data[0].data);
+    });
+  }, [province?.name, province?.kd_code]);
 
   if (!province) return null;
 
@@ -53,6 +81,8 @@ function ProvinceModal({ province, onClose }) {
     crime: "🗡️", channeling: "🔮", shielding: "🛡️", cunning: "🧠",
     sorcery: "✨", finesse: "🎯"
   };
+
+  const MILITARY_SKIP_FIELDS = new Set(["slot", "name", "location", "combo", "honor", "land", "nw"]);
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -109,25 +139,46 @@ function ProvinceModal({ province, onClose }) {
         )}
 
         {tab === "military" && (
-          <div className="modal-stats">
-            <StatCard label="Offense" value={Number(province.off || 0).toLocaleString()} color="#f87171" />
-            <StatCard label="Defense" value={Number(province.def || 0).toLocaleString()} color="#fb923c" />
-            <StatCard label="Soldiers" value={province.soldiers || "0"} color="#94a3b8" />
-            <StatCard label="Off Specs" value={province.off_specs || "0"} color="#38bdf8" />
-            <StatCard label="Def Specs" value={province.def_specs || "0"} color="#fb923c" />
-            <StatCard label="Elites" value={province.elites || "0"} color="#facc15" />
-            <StatCard label="Thieves" value={province.thieves || "0"} color="#a78bfa" />
-            <StatCard label="Wizards" value={province.wizards || "0"} color="#a78bfa" />
-            <StatCard label="War Horses" value={province.war_horses || "0"} color="#94a3b8" />
-            <StatCard label="Prisoners" value={province.prisoners || "0"} color="#f87171" />
-            <StatCard label="Generals" value={province.generals || "—"} color="#facc15" />
-            <StatCard label="OME" value={province.ome ? `${province.ome}%` : "—"} color="#4ade80" />
-          </div>
+          kdMilitary ? (
+            <div className="modal-stats">
+              {Object.entries(kdMilitary)
+                .filter(([key]) => !MILITARY_SKIP_FIELDS.has(key))
+                .map(([key, val]) => (
+                  <StatCard key={key} label={prettyLabel(key)} value={String(val)} color="#38bdf8" />
+                ))}
+            </div>
+          ) : (
+            <div className="modal-stats">
+              <StatCard label="Offense" value={Number(province.off || 0).toLocaleString()} color="#f87171" />
+              <StatCard label="Defense" value={Number(province.def || 0).toLocaleString()} color="#fb923c" />
+              <StatCard label="Soldiers" value={province.soldiers || "0"} color="#94a3b8" />
+              <StatCard label="Off Specs" value={province.off_specs || "0"} color="#38bdf8" />
+              <StatCard label="Def Specs" value={province.def_specs || "0"} color="#fb923c" />
+              <StatCard label="Elites" value={province.elites || "0"} color="#facc15" />
+              <StatCard label="Thieves" value={province.thieves || "0"} color="#a78bfa" />
+              <StatCard label="Wizards" value={province.wizards || "0"} color="#a78bfa" />
+              <StatCard label="War Horses" value={province.war_horses || "0"} color="#94a3b8" />
+              <StatCard label="Prisoners" value={province.prisoners || "0"} color="#f87171" />
+              <StatCard label="Generals" value={province.generals || "—"} color="#facc15" />
+              <StatCard label="OME" value={province.ome ? `${province.ome}%` : "—"} color="#4ade80" />
+            </div>
+          )
         )}
 
         {tab === "science" && (
           <div>
-            {Object.keys(science).length === 0 ? (
+            {kdScience?.books && Object.keys(kdScience.books).length > 0 ? (
+              <div>
+                <div className="modal-stats">
+                  {Object.entries(kdScience.books).map(([key, val]) => (
+                    <StatCard key={key} label={`🔬 ${key}`} value={`${val}%`} color="#38bdf8" />
+                  ))}
+                </div>
+                <div style={{ marginTop: 12, color: "#475569", fontSize: 11, textAlign: "center" }}>
+                  Stocked: {kdScience.stockedBooks || "0"} · Allocated: {kdScience.allocatedBooks || "0"}
+                </div>
+              </div>
+            ) : Object.keys(science).length === 0 ? (
               <p className="empty">No science data — paste science page via /utopia intel</p>
             ) : (
               <div className="modal-stats">

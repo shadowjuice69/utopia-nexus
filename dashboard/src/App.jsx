@@ -9,6 +9,7 @@ import KingdomOverview from "./components/KingdomOverview";
 import NewsPanel from "./components/NewsPanel";
 import BuildingIntel from "./components/BuildingIntel";
 import ScienceIntel from "./components/ScienceIntel";
+import { KDMilitaryIntel, KDScienceIntel, KDGainsIntel } from "./components/KDStatsIntel";
 import ScienceCalculator from './components/ScienceCalculator';
 import MembersPanel from "./components/MembersPanel";
 import WarRoom from "./components/WarRoom";
@@ -37,6 +38,9 @@ const GROUPS = [
     { id: "news", label: "News", component: NewsPanel },
     { id: "buildings", label: "Buildings", component: BuildingIntel },
     { id: "science", label: "Science", component: ScienceIntel },
+    { id: "kd-military", label: "KD Military", component: KDMilitaryIntel },
+    { id: "kd-science", label: "KD Science", component: KDScienceIntel },
+    { id: "kd-gains", label: "KD Gains", component: KDGainsIntel },
     { id: "science-calc", label: 'Sci Calc', component: ScienceCalculator },
     { id: "members", label: "Members", component: MembersPanel },
   ] },

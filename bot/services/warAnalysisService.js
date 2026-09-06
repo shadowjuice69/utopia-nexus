@@ -11,13 +11,14 @@ async function getWarData() {
   try {
     const since = new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString();
 
-    const [attacks, hostileOps, intelMilitary, intelThrone, intelOps, allyOps] = await Promise.all([
+    const [attacks, hostileOps, intelMilitary, intelThrone, intelOps, allyOps, intelKdStats] = await Promise.all([
       supabase.from("attacks").select("*").gte("timestamp", since).order("timestamp", { ascending: false }).limit(50),
       supabase.from("hostile_ops").select("*").gte("timestamp", since).order("timestamp", { ascending: false }).limit(100),
       supabase.from("intel_military").select("*").neq("kd_code", process.env.MY_KD).limit(20),
       supabase.from("intel_throne").select("*").neq("kd_code", process.env.MY_KD).limit(20),
     supabase.from("intel_ops").select("*").limit(50),
       getRecentOps(72),
+      supabase.from("intel_kd_stats").select("*").eq("category", "military").neq("kd_code", process.env.MY_KD).limit(20),
     ]);
 
     if (attacks.error) logger.error(`[ATTACKS ERROR] ${attacks.error.message}`);
@@ -25,6 +26,7 @@ async function getWarData() {
     if (intelMilitary.error) logger.error(`[INTEL MIL ERROR] ${intelMilitary.error.message}`);
     if (intelThrone.error) logger.error(`[INTEL THRONE ERROR] ${intelThrone.error.message}`);
     if (intelOps.error) logger.error(`[INTEL OPS ERROR] ${intelOps.error.message}`);
+    if (intelKdStats.error) logger.error(`[INTEL KD STATS ERROR] ${intelKdStats.error.message}`);
 
     return {
       attacks: attacks.data || [],
@@ -33,6 +35,7 @@ async function getWarData() {
       intelThrone: intelThrone.data || [],
     intelOps: intelOps.data || [],
       allyOps: allyOps || [],
+      intelKdStats: intelKdStats.data || [],
     };
   } catch (err) {
     logger.error(`[WAR ANALYSIS ERROR] ${err.message}`);
@@ -45,9 +48,9 @@ async function analyzeWar() {
   const data = await getWarData();
   if (!data) return null;
 
-  const { attacks, hostileOps, intelMilitary, intelThrone, intelOps, allyOps } = data;
+  const { attacks, hostileOps, intelMilitary, intelThrone, intelOps, allyOps, intelKdStats } = data;
 
-  logger.info(`[WAR DATA] attacks=${attacks.length} ops=${hostileOps.length} allyOps=${allyOps.length} mil=${intelMilitary.length} throne=${intelThrone.length}`);
+  logger.info(`[WAR DATA] attacks=${attacks.length} ops=${hostileOps.length} allyOps=${allyOps.length} mil=${intelMilitary.length} throne=${intelThrone.length} kdStats=${intelKdStats.length}`);
 
   if (attacks.length === 0 && hostileOps.length === 0 && allyOps.length === 0) {
     return "No war activity found in the last 72 hours.";
@@ -64,6 +67,11 @@ async function analyzeWar() {
   const militarySummary = intelMilitary.slice(0, 10).map(m =>
     `${m.province} (${m.kd_code}) Off:${m.offense} Def:${m.defense} Armies:${(m.armies||[]).length}`
   ).join("\n");
+
+  const kdStatsSummary = intelKdStats.slice(0, 10).map(k => {
+    const d = k.data || {};
+    return `${k.province} (${k.kd_code}) Off:${d.off||"?"} Def:${d.def||"?"} OME:${d.ome||"?"}% DME:${d.dme||"?"}%`;
+  }).join("\n");
 
   const throneSummary = intelThrone.slice(0, 10).map(t =>
     `${t.province} (${t.kd_code}) ${t.race||'?'} NW:${t.networth} Land:${t.land} Off:${t.offense} Def:${t.defense} TPA:${t.tpa}`
@@ -89,6 +97,8 @@ OPS(${hostileOps.length}): ${opsSummary||"None"}
 ALLY OPS(${allyOps.length}): ${allyOpsSummary||"None"}
 
 ENEMY MIL: ${militarySummary||"None"}
+
+ENEMY MIL (KD STATS): ${kdStatsSummary||"None"}
 
 ENEMY THRONE: ${throneSummary||"None"}
 
