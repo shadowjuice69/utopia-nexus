@@ -2,8 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   AGE_116_OPERATIONS,
+  AGE_116_RULES,
   rawTpa,
   thievesDensTpaMultiplier,
+  thievesDensLossReduction,
+  watchTowersCatchChance,
   modifiedTpa,
   networthFactor,
   thieveryYield,
@@ -18,8 +21,19 @@ test('Age 116 Thieves Dens base bonus is 3% per percent TD', () => {
   assert.equal(thievesDensTpaMultiplier(20), 1.6);
 });
 
-test('Rogue TD effectiveness doubles the base TD effect when supplied', () => {
-  assert.equal(thievesDensTpaMultiplier(20, 2), 2.2);
+test('Age 116 Rogue gets +75% Thieves Dens effectiveness', () => {
+  assert.equal(AGE_116_RULES.thievesDens.rogueEffectivenessMultiplier, 1.75);
+  assert.equal(thievesDensTpaMultiplier(20, 1.75), 2.05);
+});
+
+test('Age 116 Thieves Dens loss reduction is 3.3% per percent TD capped at 90%', () => {
+  assert.equal(thievesDensLossReduction(20), 0.66);
+  assert.equal(thievesDensLossReduction(100), 0.90);
+});
+
+test('Age 116 Watch Tower catch chance is 2.3% per percent WT', () => {
+  assert.equal(watchTowersCatchChance(10), 0.23);
+  assert.equal(watchTowersCatchChance(100), 1);
 });
 
 test('modified TPA composes the published multiplicative modifiers', () => {
