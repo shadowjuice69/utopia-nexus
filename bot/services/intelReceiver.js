@@ -479,7 +479,7 @@ async function saveIntel(parsed, prov) {
         }
       }
     }
-    logger.info(`[INTEL SAVED] ${parsed.type} for ${prov}`);
+    logger.info(`[INTEL SAVED] ${parsed.type} for kd=${parsed.kd || MY_KD} prov=${prov || parsed.prov || ""}`);
   } catch(e) { logger.error(`[INTEL ERROR] ${e.message}`); }
 }
 
