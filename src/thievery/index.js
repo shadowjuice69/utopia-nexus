@@ -22,7 +22,7 @@ const AGE_116_RULES = Object.freeze({
   scienceExponent: 1 / 2.125,
 });
 
-export { AGE_116_RULES };
+export { AGE_116_DATA, AGE_116_RULES };
 export const AGE_DATA = Object.freeze({ 116: AGE_116_DATA });
 export const AGE_116_OPERATIONS = AGE_116_DATA.operations;
 
