@@ -8,6 +8,28 @@
 
 const positive = (value, fallback = 1) => value ?? fallback;
 
+/** Age 116 verified ruleset constants. Percent inputs are whole percentages (e.g. 20 = 20%). */
+export const AGE_116_RULES = Object.freeze({
+  thievesDens: Object.freeze({
+    tpaEffectivenessPerPercent: 0.03,
+    thiefLossReductionPerPercent: 0.033,
+    maxThiefLossReduction: 0.90,
+    rogueEffectivenessMultiplier: 1.75,
+  }),
+  watchTowers: Object.freeze({
+    catchChancePerPercent: 0.023,
+    maxCatchChance: 1,
+    // The current Age 116 sources verify the 2.3% catch chance, but do not
+    // publish a current official numeric damage-reduction coefficient here.
+    damageReductionPerPercent: undefined,
+  }),
+  stealth: Object.freeze({
+    baseRecoveryPerTick: 3,
+    minimumToOperate: 0.05,
+  }),
+  shieldingScienceMultiplier: 0.0350,
+});
+
 function assertNonNegative(name, value) {
   if (!Number.isFinite(value) || value < 0) throw new Error(`${name} must be a finite number >= 0`);
 }
@@ -22,7 +44,35 @@ export function rawTpa(thieves, acres) {
 export function thievesDensTpaMultiplier(thievesDensPct, effectivenessMultiplier = 1) {
   assertNonNegative('thievesDensPct', thievesDensPct);
   assertNonNegative('effectivenessMultiplier', effectivenessMultiplier);
-  return 1 + thievesDensPct * 0.03 * effectivenessMultiplier;
+  return 1 + thievesDensPct * AGE_116_RULES.thievesDens.tpaEffectivenessPerPercent * effectivenessMultiplier;
+}
+
+/** Age 116 thief-loss reduction: 3.3% per 1% TD, capped at 90%. */
+export function thievesDensLossReduction(thievesDensPct, effectivenessMultiplier = 1) {
+  assertNonNegative('thievesDensPct', thievesDensPct);
+  assertNonNegative('effectivenessMultiplier', effectivenessMultiplier);
+  return Math.min(
+    AGE_116_RULES.thievesDens.maxThiefLossReduction,
+    thievesDensPct * AGE_116_RULES.thievesDens.thiefLossReductionPerPercent * effectivenessMultiplier,
+  );
+}
+
+/** Age 116 Watch Tower catch chance: 2.3% per 1% WT, capped at 100%. */
+export function watchTowersCatchChance(watchTowersPct) {
+  assertNonNegative('watchTowersPct', watchTowersPct);
+  return Math.min(
+    AGE_116_RULES.watchTowers.maxCatchChance,
+    watchTowersPct * AGE_116_RULES.watchTowers.catchChancePerPercent,
+  );
+}
+
+/**
+ * Watch Tower damage reduction is intentionally unresolved until a current
+ * Age 116 official numeric coefficient is verified. Do not substitute 2.4 here.
+ */
+export function watchTowersDamageReduction(watchTowersPct) {
+  assertNonNegative('watchTowersPct', watchTowersPct);
+  throw new Error('Age 116 Watch Tower damage-reduction coefficient is not verified from an authoritative current source.');
 }
 
 /**
@@ -36,7 +86,10 @@ export function modifiedTpa(stats) {
   const warnings = [];
   const assumptions = [];
   const raw = rawTpa(stats.thieves, stats.acres);
-  const td = thievesDensTpaMultiplier(stats.thievesDensPct ?? 0);
+  const td = thievesDensTpaMultiplier(
+    stats.thievesDensPct ?? 0,
+    stats.thievesDensEffectivenessMultiplier ?? 1,
+  );
 
   for (const [key, label] of [
     ['thievesDensPct', "Thieves' Dens percentage"],
@@ -50,6 +103,7 @@ export function modifiedTpa(stats) {
   }
   if (stats.invisibilityMultiplier === undefined) assumptions.push('Invisibility is assumed inactive.');
   if (stats.dragonTpaMultiplier === undefined) assumptions.push('No dragon TPA penalty is assumed.');
+  if (stats.thievesDensEffectivenessMultiplier === undefined) assumptions.push('Base Thieves\' Dens effectiveness is assumed.');
 
   return {
     value: raw
@@ -120,7 +174,7 @@ export function optimalThieves(targetResources, maxPercent, gainsPerThief, racia
 export const AGE_116_OPERATIONS = Object.freeze({
   spy_on_throne: { id: 'spy_on_throne', name: 'Spy on Throne', category: 'espionage', difficulty: 'very-low', stealthCost: 0.01, relations: 'none' },
   spy_on_defense: { id: 'spy_on_defense', name: 'Spy on Defense', category: 'espionage', difficulty: 'very-low', stealthCost: 0.01, relations: 'none' },
-  spy_on_exploration: { id: 'spy_on_exploration', name: 'Spy on Exploration', category: 'espionage', difficulty: 'very-low', stealthCost: 0.02, relations: 'none' },
+  spy_on_exploration: { id: 'spy_on_exploration', name: 'Spy on Exploration', category: 'espionage', difficulty: 'low', stealthCost: 0.02, relations: 'none' },
   snatch_news: { id: 'snatch_news', name: 'Snatch News', category: 'espionage', difficulty: 'low', stealthCost: 0.02, relations: 'none' },
   infiltrate: { id: 'infiltrate', name: 'Infiltrate', category: 'espionage', difficulty: 'low', stealthCost: 0.02, relations: 'none' },
   survey: { id: 'survey', name: 'Survey', category: 'espionage', difficulty: 'low', stealthCost: 0.02, relations: 'none' },
