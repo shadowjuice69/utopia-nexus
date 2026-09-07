@@ -10,7 +10,7 @@ const musicPlayer = require('./services/musicPlayerService');
 const music7 = require('./core/intel7');
 const interactions = require('./core/interactions');
 const commands = require('./core/commands');
-const dataSteward = require('./services/dataStewardService');
+const dataSteward = require('./services/dataStewardBootstrap');
 
 if (!process.env.DISCORD_TOKEN) throw new Error('DISCORD_TOKEN is required');
 
