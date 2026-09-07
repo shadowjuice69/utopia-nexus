@@ -29,48 +29,34 @@ import AITargets from "./components/AITargets";
 import AIAssistant from "./components/AIAssistant";
 import AdvisorLog from "./components/AdvisorLog";
 import AIBuildManager from "./components/AIBuildManager";
+import DataSteward from "./components/DataSteward";
 import RepoTools from "./components/RepoTools";
 import Login from "./components/Login";
 const GROUPS = [
   { id: "kingdom", label: "KINGDOM", color: "#fbbf24", tabs: [
-    { id: "overview", label: "Overview", component: KingdomOverview },
-    { id: "news", label: "News", component: NewsPanel },
-    { id: "buildings", label: "Buildings", component: BuildingIntel },
-    { id: "science", label: "Science", component: ScienceIntel },
-    { id: "kd-military", label: "KD Military", component: KDMilitaryIntel },
-    { id: "kd-science", label: "KD Science", component: KDScienceIntel },
-    { id: "kd-gains", label: "KD Gains", component: KDGainsIntel },
-    { id: "science-calc", label: 'Sci Calc', component: ScienceCalculator },
+    { id: "overview", label: "Overview", component: KingdomOverview }, { id: "news", label: "News", component: NewsPanel },
+    { id: "buildings", label: "Buildings", component: BuildingIntel }, { id: "science", label: "Science", component: ScienceIntel },
+    { id: "kd-military", label: "KD Military", component: KDMilitaryIntel }, { id: "kd-science", label: "KD Science", component: KDScienceIntel },
+    { id: "kd-gains", label: "KD Gains", component: KDGainsIntel }, { id: "science-calc", label: 'Sci Calc', component: ScienceCalculator },
     { id: "members", label: "Members", component: MembersPanel },
   ] },
   { id: "war", label: "WAR", color: "#f87171", tabs: [
-    { id: "warroom", label: "War Room", component: WarRoom },
-    { id: "waves", label: "Waves", component: WaveTracker },
-    { id: "attacks", label: "Attack Log", component: AttackLog },
-    { id: "summary", label: "Summary", component: AttackSummary },
-    { id: "enemies", label: "Enemy Kingdoms", component: EnemyKingdoms },
-    { id: "queue", label: "Intel Queue", component: IntelQueue },
+    { id: "warroom", label: "War Room", component: WarRoom }, { id: "waves", label: "Waves", component: WaveTracker },
+    { id: "attacks", label: "Attack Log", component: AttackLog }, { id: "summary", label: "Summary", component: AttackSummary },
+    { id: "enemies", label: "Enemy Kingdoms", component: EnemyKingdoms }, { id: "queue", label: "Intel Queue", component: IntelQueue },
   ] },
   { id: "ops", label: "OPS", color: "#a78bfa", tabs: [
-    { id: "intel7", label: "Intel 7", component: Intel7 },
-    { id: "vault", label: "Complete Vault", component: IntelDataVault },
-    { id: "hostileops", label: "Hostile Ops", component: OpsIntel },
-    { id: "spells", label: "Spells", component: SpellTracker },
-    { id: "alerts", label: "Alerts", component: AlertPanel },
-    { id: "calc", label: "Calculator", component: AttackCalc },
-    { id: "thievery", label: "Thievery", component: ThieveryCalculator },
-    { id: "ambush", label: "Ambush", component: AmbushCalculator },
+    { id: "intel7", label: "Intel 7", component: Intel7 }, { id: "vault", label: "Complete Vault", component: IntelDataVault },
+    { id: "hostileops", label: "Hostile Ops", component: OpsIntel }, { id: "spells", label: "Spells", component: SpellTracker },
+    { id: "alerts", label: "Alerts", component: AlertPanel }, { id: "calc", label: "Calculator", component: AttackCalc },
+    { id: "thievery", label: "Thievery", component: ThieveryCalculator }, { id: "ambush", label: "Ambush", component: AmbushCalculator },
   ] },
   { id: "ai", label: "AI", color: "#34d399", tabs: [
-    { id: "warreport", label: "War Report", component: AIWarReport },
-    { id: "targets", label: "Targets", component: AITargets },
-    { id: "ask", label: "Ask", component: AIAssistant },
-    { id: "advisorlog", label: "Advisor Log", component: AdvisorLog },
-    { id: "builds", label: "Reference Builds", component: AIBuildManager },
+    { id: "warreport", label: "War Report", component: AIWarReport }, { id: "targets", label: "Targets", component: AITargets },
+    { id: "ask", label: "Ask", component: AIAssistant }, { id: "advisorlog", label: "Advisor Log", component: AdvisorLog },
+    { id: "builds", label: "Reference Builds", component: AIBuildManager }, { id: "steward", label: "Data Steward", component: DataSteward },
   ] },
-  { id: "tools", label: "TOOLS", color: "#60a5fa", tabs: [
-    { id: "repo-tools", label: "Repo Toolkit", component: RepoTools },
-  ] },
+  { id: "tools", label: "TOOLS", color: "#60a5fa", tabs: [{ id: "repo-tools", label: "Repo Toolkit", component: RepoTools }] },
 ];
 export default function App(){
  const[authed,setAuthed]=useState(false),[authReady,setAuthReady]=useState(false),[activeGroup,setActiveGroup]=useState("kingdom"),[activeTab,setActiveTab]=useState("overview"),[tick,setTick]=useState(null),[configReady,setConfigReady]=useState(false);
