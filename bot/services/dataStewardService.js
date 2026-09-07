@@ -6,7 +6,9 @@ const logger = require("./logger");
 const ALERT_USER_ID = process.env.DATA_STEWARD_DISCORD_USER_ID || "653534906277822494";
 const ENABLED = String(process.env.DATA_STEWARD_ENABLED || "true").toLowerCase() !== "false";
 let discordClient = null;
-
+let polling = false;
+let lastPageId = 0;
+let lastIngestId = 0;
 const ROUTES = {
   throne: { table: "intel_throne", dashboard: "Province Intel", fields: ["race","ruler","land","networth","honor","offense","defense","be","peasants","troops","thieves","wizards","tpa","wpa","spells"] },
   survey: { table: "intel_buildings", dashboard: "Buildings", fields: ["buildings"] },
@@ -15,7 +17,7 @@ const ROUTES = {
   state: { table: "intel_state", dashboard: "Province State", fields: ["peasants","army","thieves","wizards","total_pop","max_pop","unemployed","unfilled_jobs","employment_pct","daily_income","daily_wages","networth","land","honor","map","income_yesterday","wages_yesterday","draft_yesterday","net_yesterday","peasants_yesterday","food_grown_yesterday","food_needed_yesterday","food_decay_yesterday","food_net_yesterday","runes_produced_yesterday","runes_decay_yesterday","runes_net_yesterday","income_month","wages_month","draft_month","net_month","peasants_month","food_grown_month","food_needed_month","food_decay_month","food_net_month","runes_produced_month","runes_decay_month","runes_net_month"] },
   news: { table: "news_events", dashboard: "News / War", fields: ["events"] },
   "intel-site": { table: "intel_complete_vault", dashboard: "Complete Vault / Intel 7", fields: ["rows","raw"] },
-  "kingdom": { table: "kingdoms", dashboard: "Kingdom Overview", fields: ["name","total_provinces","total_nw","total_land","stance","ranks","data"] },
+  kingdom: { table: "kingdoms", dashboard: "Kingdom Overview", fields: ["name","total_provinces","total_nw","total_land","stance","ranks","data"] },
   "kingdom-page": { table: "kingdoms", dashboard: "Kingdom Overview", fields: ["kd_code","name","total_provinces","total_nw","total_land","stance","data"] },
   "kd-stats-generic": { table: "intel_kd_stats", dashboard: "KD Stats", fields: ["category","rows","data"] },
   "kd-stats-buildings": { table: "intel_buildings", dashboard: "Buildings / KD Stats", fields: ["provinces","buildings"] }
@@ -28,7 +30,6 @@ function fingerprint(issue) {
     issue.kd_code, issue.province, issue.reason
   ])).digest("hex");
 }
-
 function excerpt(value, max = 1400) {
   const text = typeof value === "string" ? value : JSON.stringify(value);
   return text.length > max ? text.slice(0, max) + "…" : text;
@@ -39,26 +40,13 @@ async function upsertIssue(issue) {
   if (!sb) return null;
   const fp = fingerprint(issue);
   const row = {
-    fingerprint: fp,
-    status: "open",
-    severity: issue.severity || "medium",
-    issue_type: issue.issue_type,
-    source_type: issue.source_type || null,
-    source: issue.source || null,
-    source_id: issue.source_id || null,
-    kd_code: issue.kd_code || null,
-    province: issue.province || null,
-    field_name: issue.field_name || null,
-    observed_value: excerpt(issue.observed_value, 1000),
-    raw_excerpt: excerpt(issue.raw_excerpt, 1800),
-    destination_table: issue.destination_table || null,
-    destination_dashboard: issue.destination_dashboard || null,
-    reason: issue.reason,
-    recommendation: issue.recommendation || null,
-    confidence: issue.confidence ?? null,
-    ai_analysis: issue.ai_analysis || {},
-    last_seen: new Date().toISOString(),
-    updated_at: new Date().toISOString()
+    fingerprint: fp, status: "open", severity: issue.severity || "medium", issue_type: issue.issue_type,
+    source_type: issue.source_type || null, source: issue.source || null, source_id: issue.source_id || null,
+    kd_code: issue.kd_code || null, province: issue.province || null, field_name: issue.field_name || null,
+    observed_value: excerpt(issue.observed_value, 1000), raw_excerpt: excerpt(issue.raw_excerpt, 1800),
+    destination_table: issue.destination_table || null, destination_dashboard: issue.destination_dashboard || null,
+    reason: issue.reason, recommendation: issue.recommendation || null, confidence: issue.confidence ?? null,
+    ai_analysis: issue.ai_analysis || {}, last_seen: new Date().toISOString(), updated_at: new Date().toISOString()
   };
   const { data: existing } = await sb.from("nexus_data_steward_issues").select("id,status,occurrence_count").eq("fingerprint", fp).maybeSingle();
   if (existing) {
@@ -75,14 +63,9 @@ async function audit(issueId, payload) {
   const sb = supabaseService.getClient();
   if (!sb) return;
   const { error } = await sb.from("nexus_data_steward_audit").insert({
-    issue_id: issueId || null,
-    action: payload.action || "inspect",
-    source_type: payload.source_type || null,
-    source_id: payload.source_id || null,
-    decision: payload.decision || null,
-    confidence: payload.confidence ?? null,
-    destination_table: payload.destination_table || null,
-    destination_dashboard: payload.destination_dashboard || null,
+    issue_id: issueId || null, action: payload.action || "inspect", source_type: payload.source_type || null,
+    source_id: payload.source_id || null, decision: payload.decision || null, confidence: payload.confidence ?? null,
+    destination_table: payload.destination_table || null, destination_dashboard: payload.destination_dashboard || null,
     details: payload.details || {}
   });
   if (error) logger.warn(`[DATA STEWARD AUDIT] ${error.message}`);
@@ -130,18 +113,19 @@ async function inspect(parsed, prov) {
   const route = ROUTES[parsed.type];
   const data = parsed.data || {};
   const context = { source_type: parsed.type, source: parsed.source, kd_code: parsed.kd, province: prov || parsed.prov };
-
   if (!route) {
-    await raise({ ...context, issue_type: "unknown_data_type", severity: "high", observed_value: data, raw_excerpt: data.raw || data.text || "", reason: "The parser classified this payload as an unknown type, so Nexus has no trusted destination rule.", recommendation: "Add a parser classification and map the new data type to a database table and dashboard destination.", confidence: 99 });
+    await raise({ ...context, issue_type: "unknown_data_type", severity: "high", observed_value: data,
+      raw_excerpt: data.raw || data.text || "", reason: "The parser classified this payload as an unknown type, so Nexus has no trusted destination rule.",
+      recommendation: "Add a parser classification and map the new data type to a database table and dashboard destination.", confidence: 99 });
     return;
   }
-
-  const keys = Object.keys(data);
-  const unknownFields = keys.filter(k => !route.fields.includes(k));
+  const unknownFields = Object.keys(data).filter(k => !route.fields.includes(k));
   for (const field of unknownFields) {
-    await raise({ ...context, issue_type: "unmapped_field", severity: "medium", field_name: field, destination_table: route.table, destination_dashboard: route.dashboard, observed_value: data[field], raw_excerpt: data.raw || data.text || data[field], reason: `This field arrived in a recognized data domain but is not mapped by the Steward's destination contract.`, recommendation: `Decide whether ${field} belongs in ${route.table}; if it does, add schema storage and a dashboard mapping.`, confidence: 96 });
+    await raise({ ...context, issue_type: "unmapped_field", severity: "medium", field_name: field,
+      destination_table: route.table, destination_dashboard: route.dashboard, observed_value: data[field], raw_excerpt: data.raw || data.text || data[field],
+      reason: "This field arrived in a recognized data domain but is not mapped by the Steward's destination contract.",
+      recommendation: `Decide whether ${field} belongs in ${route.table}; if it does, add schema storage and a dashboard mapping.`, confidence: 96 });
   }
-
   if (parsed.type === "intel-site" && data.rows?.length) {
     const raw = data.rows.map(r => r.raw || "").join("\n");
     if (raw.length > 100) {
@@ -150,7 +134,12 @@ async function inspect(parsed, prov) {
         const cleaned = ai.replace(/^```json\s*/i, "").replace(/```$/i, "").trim();
         const result = JSON.parse(cleaned);
         if (result.has_unmapped_data) {
-          await raise({ ...context, issue_type: "ai_detected_unmapped_data", severity: result.confidence >= 90 ? "high" : "medium", field_name: Array.isArray(result.fields) ? result.fields.join(", ") : null, destination_table: result.destination_table || route.table, destination_dashboard: result.destination_dashboard || route.dashboard, observed_value: result.fields || raw.slice(0, 1000), raw_excerpt: raw.slice(0, 1800), reason: result.reason || "AI detected data without a verified Nexus destination.", recommendation: result.recommendation, confidence: Number(result.confidence || 0), ai_analysis: result });
+          await raise({ ...context, issue_type: "ai_detected_unmapped_data", severity: Number(result.confidence || 0) >= 90 ? "high" : "medium",
+            field_name: Array.isArray(result.fields) ? result.fields.join(", ") : null,
+            destination_table: result.destination_table || route.table, destination_dashboard: result.destination_dashboard || route.dashboard,
+            observed_value: result.fields || raw.slice(0, 1000), raw_excerpt: raw.slice(0, 1800),
+            reason: result.reason || "AI detected data without a verified Nexus destination.", recommendation: result.recommendation,
+            confidence: Number(result.confidence || 0), ai_analysis: result });
         }
       } catch (error) {
         logger.warn(`[DATA STEWARD AI INSPECTION] ${error.message}`);
@@ -159,4 +148,37 @@ async function inspect(parsed, prov) {
   }
 }
 
-module.exports = { setClient, inspect, raise, ROUTES };
+async function inspectIncomingRows() {
+  if (polling || !ENABLED) return;
+  const sb = supabaseService.getClient();
+  if (!sb) return;
+  polling = true;
+  try {
+    const { data: pages, error: pageError } = await sb.from("intel_page_ingest").select("id,kd_code,province,source,tab,url,data_type,raw_text,parsed").gt("id", lastPageId).order("id", { ascending: true }).limit(25);
+    if (pageError) throw pageError;
+    for (const row of pages || []) {
+      lastPageId = Math.max(lastPageId, Number(row.id));
+      await inspect({ type: row.data_type || "unknown", source: row.source, kd: row.kd_code, prov: row.province, url: row.url, data: row.parsed || { raw: row.raw_text || "" } }, row.province);
+    }
+    const { data: messages, error: ingestError } = await sb.from("intel7_ingest").select("id,discord_message_id,kd_code,channel_type,event_type,parsed,content").gt("id", lastIngestId).order("id", { ascending: true }).limit(25);
+    if (ingestError) throw ingestError;
+    for (const row of messages || []) {
+      lastIngestId = Math.max(lastIngestId, Number(row.id));
+      const parsed = row.parsed && typeof row.parsed === "object" ? row.parsed : { raw: row.content || "" };
+      await inspect({ type: row.event_type || "unknown", source: "intel7", kd: row.kd_code, data: parsed }, null);
+    }
+  } catch (error) {
+    logger.warn(`[DATA STEWARD POLLER] ${error.message}`);
+  } finally {
+    polling = false;
+  }
+}
+
+function start() {
+  if (!ENABLED) return;
+  logger.info(`[DATA STEWARD] continuous inspection enabled; Discord alert user configured`);
+  inspectIncomingRows().catch(() => {});
+  setInterval(() => inspectIncomingRows().catch(() => {}), 10000);
+}
+
+module.exports = { setClient, start, inspect, raise, ROUTES };
