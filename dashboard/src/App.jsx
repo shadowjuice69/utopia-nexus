@@ -23,6 +23,7 @@ import IntelDataVault from "./components/IntelDataVault";
 import AlertPanel from "./components/AlertPanel";
 import AttackCalc from "./components/AttackCalc";
 import ThieveryCalculator from "./components/ThieveryCalculatorFixed";
+import AmbushCalculator from "./components/AmbushCalculator";
 import AIWarReport from "./components/AIWarReport";
 import AITargets from "./components/AITargets";
 import AIAssistant from "./components/AIAssistant";
@@ -58,6 +59,7 @@ const GROUPS = [
     { id: "alerts", label: "Alerts", component: AlertPanel },
     { id: "calc", label: "Calculator", component: AttackCalc },
     { id: "thievery", label: "Thievery", component: ThieveryCalculator },
+    { id: "ambush", label: "Ambush", component: AmbushCalculator },
   ] },
   { id: "ai", label: "AI", color: "#34d399", tabs: [
     { id: "warreport", label: "War Report", component: AIWarReport },
