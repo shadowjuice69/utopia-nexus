@@ -16,6 +16,10 @@ function formatJson(value) {
   }
 }
 
+function codeBlock(value) {
+  return "```json\n" + formatJson(value) + "\n```";
+}
+
 function buildEmbed(build) {
   const embed = new EmbedBuilder()
     .setTitle(`🧱 ${clean(build.name, "Unnamed Build")}`)
@@ -27,12 +31,12 @@ function buildEmbed(build) {
       { name: "Type", value: clean(build.build_type), inline: true },
       { name: "Version", value: clean(build.version), inline: true },
       { name: "Status", value: build.active ? "Active" : "Inactive", inline: true },
-      { name: "Buildings", value: `\\`\\`\\`json\n${formatJson(build.buildings)}\n\\`\\`\\``, inline: false },
-      { name: "Military", value: `\\`\\`\\`json\n${formatJson(build.military)}\n\\`\\`\\``, inline: false },
-      { name: "Science", value: `\\`\\`\\`json\n${formatJson(build.science)}\n\\`\\`\\``, inline: false },
-      { name: "Spells", value: `\\`\\`\\`json\n${formatJson(build.spells)}\n\\`\\`\\``, inline: false },
-      { name: "Thievery", value: `\\`\\`\\`json\n${formatJson(build.thievery)}\n\\`\\`\\``, inline: false },
-      { name: "Priorities", value: `\\`\\`\\`json\n${formatJson(build.priorities)}\n\\`\\`\\``, inline: false },
+      { name: "Buildings", value: codeBlock(build.buildings), inline: false },
+      { name: "Military", value: codeBlock(build.military), inline: false },
+      { name: "Science", value: codeBlock(build.science), inline: false },
+      { name: "Spells", value: codeBlock(build.spells), inline: false },
+      { name: "Thievery", value: codeBlock(build.thievery), inline: false },
+      { name: "Priorities", value: codeBlock(build.priorities), inline: false },
       { name: "Notes", value: clean(build.notes, "No notes saved.").slice(0, 1024), inline: false }
     )
     .setFooter({ text: `Build ID: ${build.id}` });
