@@ -19,12 +19,20 @@ const HOURS_PER_MONTH = 24;
 const MONTHS_PER_YEAR = UTOPIA_MONTHS.length;
 const HOURS_PER_YEAR = HOURS_PER_MONTH * MONTHS_PER_YEAR;
 
+let networkClockOffsetMs = 0;
+let networkClockSynced = false;
+
 function positiveModulo(value, divisor) {
   return ((value % divisor) + divisor) % divisor;
 }
 
-export function getTickState(date = new Date()) {
-  const elapsedHours = (date.getTime() - ANCHOR_REAL_MS) / 3600000;
+function getNowMs() {
+  return Date.now() + networkClockOffsetMs;
+}
+
+export function getTickState(date = null) {
+  const realMs = date instanceof Date ? date.getTime() : (date == null ? getNowMs() : new Date(date).getTime());
+  const elapsedHours = (realMs - ANCHOR_REAL_MS) / 3600000;
   const wholeHours = Math.floor(elapsedHours);
   const secondsIntoTick = Math.max(0, Math.floor((elapsedHours - wholeHours) * 3600));
 
@@ -52,10 +60,34 @@ export function getTickState(date = new Date()) {
     day,
     label: `${UTOPIA_MONTHS[month]} ${day}, YR${year}`,
     timezone: "America/Chicago",
-    source: "Utopia game clock anchor",
+    source: networkClockSynced ? "internet-synchronized time" : "local clock fallback",
+    synced: networkClockSynced,
   };
 }
 
-export function getUtopiaDateLabel(date = new Date()) {
+export async function syncNetworkClock() {
+  const requestStarted = performance.now();
+  const localStartedMs = Date.now();
+  const response = await fetch(`/api/time?ts=${Date.now()}`, {
+    cache: "no-store",
+    headers: { accept: "application/json" },
+  });
+  if (!response.ok) throw new Error(`Time sync failed: ${response.status}`);
+  const data = await response.json();
+  const localFinishedMs = Date.now();
+  if (!Number.isFinite(data.unixMs)) throw new Error("Invalid synchronized time");
+
+  // Estimate the midpoint of the request to reduce network-latency bias.
+  const midpointLocalMs = localStartedMs + ((localFinishedMs - localStartedMs) / 2);
+  networkClockOffsetMs = data.unixMs - midpointLocalMs;
+  networkClockSynced = true;
+
+  return {
+    ...getTickState(),
+    syncLatencyMs: Math.round(performance.now() - requestStarted),
+  };
+}
+
+export function getUtopiaDateLabel(date = null) {
   return getTickState(date).label;
 }
