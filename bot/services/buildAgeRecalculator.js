@@ -58,7 +58,7 @@ function buildPrompt(build, ageNumber, parsed) {
       notes: build.notes
     }),
     "",
-    `OFFICIAL AGE ${ageNumber} RULES:",
+    `OFFICIAL AGE ${ageNumber} RULES:`,
     JSON.stringify(parsed)
   ].join("\n");
 }
