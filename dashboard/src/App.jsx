@@ -31,10 +31,11 @@ import AdvisorLog from "./components/AdvisorLog";
 import AIBuildManager from "./components/AIBuildManager";
 import DataSteward from "./components/DataSteward";
 import RepoTools from "./components/RepoTools";
+import GameStateIntel from "./components/GameStateIntel";
 import Login from "./components/Login";
 const GROUPS = [
   { id: "kingdom", label: "KINGDOM", color: "#fbbf24", tabs: [
-    { id: "overview", label: "Overview", component: KingdomOverview }, { id: "news", label: "News", component: NewsPanel },
+    { id: "overview", label: "Overview", component: KingdomOverview }, { id: "game-state", label: "Game State", component: GameStateIntel }, { id: "news", label: "News", component: NewsPanel },
     { id: "buildings", label: "Buildings", component: BuildingIntel }, { id: "science", label: "Science", component: ScienceIntel },
     { id: "kd-military", label: "KD Military", component: KDMilitaryIntel }, { id: "kd-science", label: "KD Science", component: KDScienceIntel },
     { id: "kd-gains", label: "KD Gains", component: KDGainsIntel }, { id: "science-calc", label: 'Sci Calc', component: ScienceCalculator },
