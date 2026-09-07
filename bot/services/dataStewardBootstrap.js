@@ -1,4 +1,5 @@
 const dataSteward = require('./dataStewardService');
+const decisionReview = require('./dataStewardDecisionReview');
 
 // The Steward should recognize the event types that Nexus already stores instead of
 // treating them as unknown data. These routes point at existing production tables;
@@ -41,4 +42,29 @@ Object.assign(dataSteward.ROUTES, {
 // Existing schema destinations are authoritative. The generic auto-mapping store
 // is only a safety net for genuinely new fields, so known fields do not generate
 // noisy alerts or duplicate vault records.
-module.exports = dataSteward;
+//
+// The normal Steward issue notifier is intentionally silenced here. Human decisions
+// are consolidated and delivered by dataStewardDecisionReview every six hours.
+const originalSetClient = dataSteward.setClient;
+const originalStart = dataSteward.start;
+let realDiscordClient = null;
+
+function setClient(client) {
+  realDiscordClient = client;
+  // dataStewardService only needs users.fetch().send() for its legacy per-issue
+  // notifier. Give it a no-op notifier so routine issues never DM the owner.
+  originalSetClient({
+    ...client,
+    users: {
+      ...client.users,
+      fetch: async () => ({ send: async () => true })
+    }
+  });
+}
+
+function start() {
+  originalStart();
+  decisionReview.start(realDiscordClient);
+}
+
+module.exports = { ...dataSteward, setClient, start, decisionReview };
