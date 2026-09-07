@@ -10,6 +10,7 @@ const musicPlayer = require('./services/musicPlayerService');
 const music7 = require('./core/intel7');
 const interactions = require('./core/interactions');
 const commands = require('./core/commands');
+const dataSteward = require('./services/dataStewardService');
 
 if (!process.env.DISCORD_TOKEN) throw new Error('DISCORD_TOKEN is required');
 
@@ -23,6 +24,7 @@ const client = new Client({
 });
 
 global.__NEXUS_DISCORD_CLIENT = client;
+dataSteward.setClient(client);
 
 const intel7 = music7.initialize(client);
 
@@ -58,6 +60,7 @@ client.on('shardReady', shardId => logger.info(`[DISCORD SHARD ${shardId} READY]
 
 client.once('clientReady', async () => {
   logger.info(`✅ Bot online as ${client.user.tag}`);
+  logger.info(`[DATA STEWARD] enabled=${process.env.DATA_STEWARD_ENABLED !== 'false'} alert_user=${process.env.DATA_STEWARD_DISCORD_USER_ID || 'configured default'}`);
 
   try {
     directMusicAdapter.initialize(client);
@@ -76,11 +79,8 @@ client.once('clientReady', async () => {
 });
 
 const port = Number(process.env.PORT || 10000);
-// Start full intel receiver with AI endpoints
 const intelReceiver = require('./services/intelReceiver');
 intelReceiver.start();
-
-// Health server removed — intelReceiver handles all HTTP routes
 
 logger.info('🚀 Nexus clean core starting');
 logger.info(`[INTEL7] channel count=${intel7.channels.size} kd=${intel7.kd}`);
@@ -88,7 +88,6 @@ client.login(process.env.DISCORD_TOKEN)
   .then(() => logger.info('[DISCORD] Login accepted'))
   .catch(error => logger.error(`[LOGIN ERROR] ${error.stack || error.message}`));
 
-// Self-ping every 10 minutes to keep Render alive
 const SELF_URL = process.env.RENDER_EXTERNAL_URL || 'https://utopia-nexus.onrender.com';
 setInterval(() => {
   require('https').get(SELF_URL, res => {
