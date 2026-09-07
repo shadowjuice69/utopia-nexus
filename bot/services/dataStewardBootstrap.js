@@ -62,9 +62,22 @@ function setClient(client) {
   });
 }
 
+async function sendThankYouOnce() {
+  if (process.env.NEXUS_STEWARD_THANK_YOU !== 'true' || !realDiscordClient) return;
+  const recipientId = process.env.NEXUS_STEWARD_THANK_YOU_RECIPIENT_ID || '262745631829786624';
+  try {
+    const recipient = await realDiscordClient.users.fetch(recipientId);
+    await recipient.send('Riven, I just wanted to say thank you for all the help you\'ve given me. I genuinely appreciate the time, patience, and knowledge you\'ve shared with me while I\'ve been building Nexus. A lot of what I\'ve been able to accomplish has been because you were willing to help and point me in the right direction. Thank you, seriously. — Silent');
+    console.log(`[STEWARD THANK-YOU] Sent thank-you DM to ${recipientId}`);
+  } catch (error) {
+    console.error(`[STEWARD THANK-YOU ERROR] ${error.stack || error.message}`);
+  }
+}
+
 function start() {
   originalStart();
   decisionReview.start(realDiscordClient);
+  sendThankYouOnce().catch(error => console.error(`[STEWARD THANK-YOU ERROR] ${error.stack || error.message}`));
 }
 
 module.exports = { ...dataSteward, setClient, start, decisionReview };
