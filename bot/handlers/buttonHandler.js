@@ -8,6 +8,7 @@ const {
 } = require("discord.js");
 
 const { approveAgeUpdate, denyAgeUpdate } = require("../services/ageUpdateService");
+const { recalculateBuildLibrary } = require("../services/buildAgeRecalculator");
 
 module.exports = async function buttonHandler(interaction) {
   console.log(`Button pressed: ${interaction.customId}`);
@@ -47,7 +48,6 @@ module.exports = async function buttonHandler(interaction) {
       });
     }
 
-    // Defer so we have time to parse + insert
     await interaction.deferUpdate();
 
     const result = await approveAgeUpdate(id, interaction.user.id);
@@ -59,19 +59,27 @@ module.exports = async function buttonHandler(interaction) {
       });
     }
 
-    // Update the review message - single edit, no spam
+    let buildRefresh = { total: 0, updated: 0, unchanged: 0, failed: [] };
+    try {
+      buildRefresh = await recalculateBuildLibrary(result.age_number, result.id, result.parsed || {});
+    } catch (err) {
+      console.error("[BUILD AGE RECALC]", err);
+      buildRefresh = { total: 0, updated: 0, unchanged: 0, failed: [{ name: "Build Library", error: err.message }] };
+    }
+
     await interaction.editReply({
       content: [
         `✅ **Age ${result.age_number} Applied** by ${interaction.user}`,
         ``,
         result.stats.summary,
         ``,
-        `📊 **Rows written:** ${result.stats.raceRows} race rules • ${result.stats.personalityRows} personality rules • ${result.stats.gameRows} game rules`
-      ].join('\n'),
+        `📊 **Rows written:** ${result.stats.raceRows} race rules • ${result.stats.personalityRows} personality rules • ${result.stats.gameRows} game rules`,
+        `🧠 **Build Library:** ${buildRefresh.updated} changed • ${buildRefresh.unchanged} validated • ${buildRefresh.failed.length} failed of ${buildRefresh.total}`,
+        buildRefresh.failed.length ? `⚠️ Failed builds: ${buildRefresh.failed.map((b) => b.name).slice(0, 10).join(", ")}` : `✅ All active saved builds were processed for the new Age.`
+      ].join("\n"),
       components: []
     });
 
-    // Send ONE announcement to the alert channel
     const supabaseService = require("../services/supabase");
     const supabase = supabaseService.getClient();
     if (supabase) {
@@ -90,8 +98,9 @@ module.exports = async function buttonHandler(interaction) {
             ``,
             result.stats.summary,
             ``,
+            `🧠 Build Library recalculated: ${buildRefresh.updated} changed • ${buildRefresh.unchanged} validated • ${buildRefresh.failed.length} failed`,
             `Applied by ${interaction.user} • All wiki data updated.`
-          ].join('\n'));
+          ].join("\n"));
         }
       }
     }
