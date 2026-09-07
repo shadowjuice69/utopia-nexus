@@ -63,6 +63,22 @@ client.once('clientReady', async () => {
   logger.info(`[DATA STEWARD] enabled=${process.env.DATA_STEWARD_ENABLED !== 'false'} alert_user=${process.env.DATA_STEWARD_DISCORD_USER_ID || 'configured default'}`);
   dataSteward.start();
 
+  // Optional live-status DM. This is deliberately opt-in so normal restarts stay quiet.
+  if (process.env.NEXUS_LIVE_TEST_MESSAGE === 'true') {
+    const recipientId = process.env.DATA_STEWARD_DISCORD_USER_ID;
+    if (recipientId) {
+      try {
+        const recipient = await client.users.fetch(recipientId);
+        await recipient.send(`🟢 **Utopia Nexus is LIVE**\n\nThe bot has connected to Discord successfully and the Data Steward is running.\n\nTime: ${new Date().toISOString()}`);
+        logger.info(`[LIVE TEST] Sent live-status DM to ${recipientId}`);
+      } catch (error) {
+        logger.error(`[LIVE TEST ERROR] ${error.stack || error.message}`);
+      }
+    } else {
+      logger.warn('[LIVE TEST] NEXUS_LIVE_TEST_MESSAGE=true but DATA_STEWARD_DISCORD_USER_ID is not configured');
+    }
+  }
+
   try {
     directMusicAdapter.initialize(client);
     musicPlayer.setAdapter(directMusicAdapter);
