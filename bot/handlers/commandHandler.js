@@ -154,7 +154,7 @@ module.exports = async function commandHandler(interaction) {
   console.log(`[${command}] ${subcommand || "(no subcommand)"}`);
 
   if (!entry) {
-    return interaction.reply({ content: `❌ Unknown command: \\`/${command} ${subcommand || ""}\\``, ephemeral: true });
+    return interaction.reply({ content: `❌ Unknown command: /${command} ${subcommand || ""}`, ephemeral: true });
   }
   if (!commandAccess.canAccess(entry, interaction.user, permissionService)) {
     return interaction.reply({ content: commandAccess.denialMessage(entry), ephemeral: true });
