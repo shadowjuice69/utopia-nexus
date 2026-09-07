@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import "./App.css";
 import { loadNexusConfig, getKingdomLabel } from "./services/nexusConfig";
 import { getDashboardRegistration } from "./services/auth";
-import { getTickState } from "./services/tick";
+import { getTickState, syncNetworkClock } from "./services/tick";
 import KingdomOverview from "./components/KingdomOverview";
 import NewsPanel from "./components/NewsPanel";
 import BuildingIntel from "./components/BuildingIntel";
@@ -63,7 +63,7 @@ export default function App(){
  const[authed,setAuthed]=useState(false),[authReady,setAuthReady]=useState(false),[activeGroup,setActiveGroup]=useState("kingdom"),[activeTab,setActiveTab]=useState("overview"),[tick,setTick]=useState(null),[configReady,setConfigReady]=useState(false);
  useEffect(()=>{let cancelled=false;async function restoreAuthorization(){const saved=sessionStorage.getItem("nexus_auth")==="true";if(!saved){if(!cancelled)setAuthReady(true);return;}const registration=await getDashboardRegistration();const allowed=registration.registered||registration.owner;if(!cancelled){if(allowed)setAuthed(true);else sessionStorage.removeItem("nexus_auth");setAuthReady(true);}}restoreAuthorization().catch(()=>{if(!cancelled){sessionStorage.removeItem("nexus_auth");sessionStorage.removeItem("nexus_province");setAuthReady(true);}});return()=>{cancelled=true;};},[]);
  useEffect(()=>{if(!authed)return undefined;let cancelled=false;loadNexusConfig().finally(()=>{if(!cancelled)setConfigReady(true);});return()=>{cancelled=true;};},[authed]);
- useEffect(()=>{function calcTick(){setTick(getTickState());}calcTick();const iv=setInterval(calcTick,1000);return()=>clearInterval(iv);},[]);
+ useEffect(()=>{let cancelled=false;function calcTick(){if(!cancelled)setTick(getTickState());}calcTick();syncNetworkClock().then(state=>{if(!cancelled)setTick(state);}).catch(()=>{});const iv=setInterval(calcTick,1000);const syncIv=setInterval(()=>{syncNetworkClock().then(state=>{if(!cancelled)setTick(state);}).catch(()=>{});},5*60*1000);return()=>{cancelled=true;clearInterval(iv);clearInterval(syncIv);};},[]);
  if(!authReady)return <div className="loading">Checking Nexus authorization...</div>;
  if(!authed)return <Login onAuth={result=>{sessionStorage.setItem("nexus_auth","true");if(result?.province?.name)sessionStorage.setItem("nexus_province",result.province.name);setAuthed(true);}}/>;
  if(!configReady)return <div className="loading">Loading current kingdom context...</div>;
