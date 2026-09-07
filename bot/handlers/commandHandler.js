@@ -10,6 +10,7 @@ const askHandler            = require("./commands/askHandler");
 const registerHandler       = require("./commands/registerHandler");
 const musicHandler          = require("./commands/musicHandler");
 const playlistHandler       = require("./commands/playlistHandler");
+const buildHandler          = require("./commands/buildHandler");
 
 const analyzeWarHandler     = require("./commands/analyzeWarHandler");
 const warSummaryHandler     = require("./commands/warSummaryHandler");
@@ -84,6 +85,10 @@ const COMMAND_GROUPS = {
     refresh: playlistHandler,
     delete: playlistHandler
   },
+  build: {
+    list: buildHandler,
+    info: buildHandler
+  },
   war: {
     analyze: analyzeWarHandler,
     summary: warSummaryHandler,
@@ -149,7 +154,7 @@ module.exports = async function commandHandler(interaction) {
   console.log(`[${command}] ${subcommand || "(no subcommand)"}`);
 
   if (!entry) {
-    return interaction.reply({ content: `❌ Unknown command: \`/${command} ${subcommand || ""}\``, ephemeral: true });
+    return interaction.reply({ content: `❌ Unknown command: \\`/${command} ${subcommand || ""}\\``, ephemeral: true });
   }
   if (!commandAccess.canAccess(entry, interaction.user, permissionService)) {
     return interaction.reply({ content: commandAccess.denialMessage(entry), ephemeral: true });
