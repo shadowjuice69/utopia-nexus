@@ -33,6 +33,36 @@ const playlistCommand = {
   ]
 };
 
+const buildCommand = {
+  name: 'build',
+  description: 'Access the Nexus Build Library',
+  options: [
+    {
+      name: 'list',
+      description: 'List active builds in the Build Library',
+      type: 1,
+      options: [
+        { name: 'search', description: 'Search by build name, race, personality, or role', type: 3, required: false },
+        { name: 'type', description: 'Filter by build type', type: 3, required: false,
+          choices: [
+            { name: 'War', value: 'war' },
+            { name: 'Pump', value: 'pump' },
+            { name: 'General', value: 'general' }
+          ]
+        }
+      ]
+    },
+    {
+      name: 'info',
+      description: 'Show a complete saved build',
+      type: 1,
+      options: [
+        { name: 'name', description: 'Build name, such as Halfling Heretic', type: 3, required: true }
+      ]
+    }
+  ]
+};
+
 async function register(client) {
   const token = process.env.DISCORD_TOKEN;
   const clientId = process.env.CLIENT_ID;
@@ -42,10 +72,10 @@ async function register(client) {
   for (const guildId of guildIds) {
     const route = Routes.applicationGuildCommands(clientId, guildId);
     const existing = await rest.get(route);
-    const preserved = existing.filter(command => command.name === 'music' || command.name === 'playlist' ? false : true);
-    await rest.put(route, { body: [...preserved, musicCommand, playlistCommand] });
-    console.log(`[COMMANDS] Registered clean command set for guild ${guildId}: music, playlist`);
+    const preserved = existing.filter(command => !['music', 'playlist', 'build'].includes(command.name));
+    await rest.put(route, { body: [...preserved, musicCommand, playlistCommand, buildCommand] });
+    console.log(`[COMMANDS] Registered music, playlist, and build for guild ${guildId}`);
   }
 }
 
-module.exports = { register, musicCommand, playlistCommand };
+module.exports = { register, musicCommand, playlistCommand, buildCommand };
