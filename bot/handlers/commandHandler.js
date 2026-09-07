@@ -11,6 +11,7 @@ const registerHandler       = require("./commands/registerHandler");
 const musicHandler          = require("./commands/musicHandler");
 const playlistHandler       = require("./commands/playlistHandler");
 const buildHandler          = require("./commands/buildHandler");
+const stewardHandler        = require("./commands/stewardHandler");
 
 const analyzeWarHandler     = require("./commands/analyzeWarHandler");
 const warSummaryHandler     = require("./commands/warSummaryHandler");
@@ -21,9 +22,9 @@ const ambushHandler         = require("./commands/ambushHandler");
 const intelHandler          = require("./commands/intelHandler");
 
 const thieveryHandler       = require("./commands/thieveryHandler");
-const attackHandler          = require("./commands/attackHandler");
-const investHandler          = require("./commands/investHandler");
-const declareLegalityHandler  = require("./commands/declareLegalityHandler");
+const attackHandler         = require("./commands/attackHandler");
+const investHandler         = require("./commands/investHandler");
+const declareLegalityHandler = require("./commands/declareLegalityHandler");
 const spellcheckHandler     = require("./commands/spellcheckHandler");
 const scienceHandler        = require("./commands/scienceHandler");
 const scienceSummaryHandler = require("./commands/scienceSummaryHandler");
@@ -50,82 +51,14 @@ const commandAccess = require("../services/commandAccessService");
 const commandRegistry = require("../services/commandRegistry");
 
 const COMMAND_GROUPS = {
-  utopia: {
-    register: registerHandler,
-    profile: profileHandler,
-    province: provinceHandler,
-    leadership: leadershipHandler,
-    roster: rosterHandler,
-    status: statusHandler,
-    waves: wavesHandler,
-    help: helpHandler,
-    member: memberHandler,
-    ask: askHandler
-  },
-  music: {
-    join: musicHandler,
-    play: musicHandler,
-    pause: musicHandler,
-    resume: musicHandler,
-    skip: musicHandler,
-    stop: musicHandler,
-    queue: musicHandler,
-    nowplaying: musicHandler,
-    volume: musicHandler,
-    shuffle: musicHandler,
-    clear: musicHandler,
-    loop: musicHandler,
-    seek: musicHandler
-  },
-  playlist: {
-    save: playlistHandler,
-    list: playlistHandler,
-    info: playlistHandler,
-    play: playlistHandler,
-    refresh: playlistHandler,
-    delete: playlistHandler
-  },
-  build: {
-    list: buildHandler,
-    info: buildHandler
-  },
-  war: {
-    analyze: analyzeWarHandler,
-    summary: warSummaryHandler,
-    board: warBoardHandler,
-    status: warHandler,
-    target: targetHandler,
-    ambush: ambushHandler,
-    intel: intelHandler
-  },
-  calc: {
-    thievery: thieveryHandler,
-    attack: attackHandler,
-    invest: investHandler,
-    declare: declareLegalityHandler,
-    spellcheck: spellcheckHandler,
-    science: scienceHandler,
-    "science-summary": scienceSummaryHandler
-  },
-  admin: {
-    panel: adminHandler,
-    logs: logsHandler,
-    resetage: resetageHandler,
-    threat: threatHandler,
-    admins: adminsHandler,
-    alerts: alertsHandler,
-    addadmin: addadminHandler,
-    removeadmin: removeadminHandler,
-    role: roleHandler,
-    remove: removeHandler,
-    removecheck: removecheckHandler,
-    restore: restoreHandler,
-    broadcast: broadcastHandler,
-    setalert: setalertHandler,
-    deletealert: deletealertHandler,
-    setkingdom: setkingdomHandler,
-    war: warHandler
-  }
+  utopia: { register: registerHandler, profile: profileHandler, province: provinceHandler, leadership: leadershipHandler, roster: rosterHandler, status: statusHandler, waves: wavesHandler, help: helpHandler, member: memberHandler, ask: askHandler },
+  music: { join: musicHandler, play: musicHandler, pause: musicHandler, resume: musicHandler, skip: musicHandler, stop: musicHandler, queue: musicHandler, nowplaying: musicHandler, volume: musicHandler, shuffle: musicHandler, clear: musicHandler, loop: musicHandler, seek: musicHandler },
+  playlist: { save: playlistHandler, list: playlistHandler, info: playlistHandler, play: playlistHandler, refresh: playlistHandler, delete: playlistHandler },
+  build: { list: buildHandler, info: buildHandler },
+  steward: { dm: stewardHandler },
+  war: { analyze: analyzeWarHandler, summary: warSummaryHandler, board: warBoardHandler, status: warHandler, target: targetHandler, ambush: ambushHandler, intel: intelHandler },
+  calc: { thievery: thieveryHandler, attack: attackHandler, invest: investHandler, declare: declareLegalityHandler, spellcheck: spellcheckHandler, science: scienceHandler, "science-summary": scienceSummaryHandler },
+  admin: { panel: adminHandler, logs: logsHandler, resetage: resetageHandler, threat: threatHandler, admins: adminsHandler, alerts: alertsHandler, addadmin: addadminHandler, removeadmin: removeadminHandler, role: roleHandler, remove: removeHandler, removecheck: removecheckHandler, restore: restoreHandler, broadcast: broadcastHandler, setalert: setalertHandler, deletealert: deletealertHandler, setkingdom: setkingdomHandler, war: warHandler }
 };
 
 const OPEN_COMMANDS = new Set(["register", "help", "roster"]);
@@ -153,17 +86,11 @@ module.exports = async function commandHandler(interaction) {
 
   console.log(`[${command}] ${subcommand || "(no subcommand)"}`);
 
-  if (!entry) {
-    return interaction.reply({ content: `❌ Unknown command: /${command} ${subcommand || ""}`, ephemeral: true });
-  }
-  if (!commandAccess.canAccess(entry, interaction.user, permissionService)) {
-    return interaction.reply({ content: commandAccess.denialMessage(entry), ephemeral: true });
-  }
+  if (!entry) return interaction.reply({ content: `❌ Unknown command: /${command} ${subcommand || ""}`, ephemeral: true });
+  if (!commandAccess.canAccess(entry, interaction.user, permissionService)) return interaction.reply({ content: commandAccess.denialMessage(entry), ephemeral: true });
   if (entry.requiresRegistration) {
     const registered = await isRegistered(interaction.user.id);
-    if (!registered) {
-      return interaction.reply({ content: "❌ You need to register first. Use `/utopia register` to get started.", ephemeral: true });
-    }
+    if (!registered) return interaction.reply({ content: "❌ You need to register first. Use `/utopia register` to get started.", ephemeral: true });
   }
   return entry.handler(interaction);
 };
