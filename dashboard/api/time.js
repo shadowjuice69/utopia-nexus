@@ -4,30 +4,43 @@ export default async function handler(req, res) {
     return;
   }
 
-  try {
-    const response = await fetch("https://gateway.timeapi.world/timezone/America/Chicago", {
-      headers: { accept: "application/json" },
-      cache: "no-store",
-    });
+  const sources = [
+    {
+      name: "gettimeapi.dev",
+      url: "https://gettimeapi.dev/v1/time?timezone=America%2FChicago",
+      parse: data => data.timestamp * 1000,
+    },
+    {
+      name: "timeapi.world",
+      url: "https://gateway.timeapi.world/timezone/America/Chicago",
+      parse: data => data.unixtime * 1000,
+    },
+  ];
 
-    if (!response.ok) {
-      throw new Error(`Time source returned ${response.status}`);
+  for (const source of sources) {
+    try {
+      const response = await fetch(source.url, {
+        headers: { accept: "application/json" },
+        cache: "no-store",
+      });
+      if (!response.ok) continue;
+
+      const data = await response.json();
+      const unixMs = source.parse(data);
+      if (!Number.isFinite(unixMs)) continue;
+
+      res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+      res.status(200).json({
+        unixMs,
+        timezone: "America/Chicago",
+        source: "internet-synchronized time",
+        upstream: source.name,
+      });
+      return;
+    } catch (error) {
+      console.error(`[TIME SYNC ERROR] ${source.name}`, error?.message || error);
     }
-
-    const data = await response.json();
-    if (!Number.isFinite(data.unixtime)) {
-      throw new Error("Time source did not return a valid Unix timestamp");
-    }
-
-    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
-    res.status(200).json({
-      unixMs: data.unixtime * 1000,
-      timezone: "America/Chicago",
-      source: "internet-synchronized time",
-      upstream: "timeapi.world",
-    });
-  } catch (error) {
-    console.error("[TIME SYNC ERROR]", error);
-    res.status(503).json({ error: "Internet time unavailable" });
   }
+
+  res.status(503).json({ error: "Internet time unavailable" });
 }
