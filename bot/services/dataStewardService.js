@@ -9,16 +9,17 @@ let discordClient = null;
 let polling = false;
 let lastPageId = 0;
 let lastIngestId = 0;
+
 const ROUTES = {
   throne: { table: "intel_throne", dashboard: "Province Intel", fields: ["race","ruler","land","networth","honor","offense","defense","be","peasants","troops","thieves","wizards","tpa","wpa","spells"] },
   survey: { table: "intel_buildings", dashboard: "Buildings", fields: ["buildings"] },
   science: { table: "intel_science", dashboard: "Science", fields: ["science","science_effects","raw"] },
   som: { table: "intel_military", dashboard: "KD Military / Military Intel", fields: ["offense","defense","generals","troops","armies"] },
-  state: { table: "intel_state", dashboard: "Province State", fields: ["peasants","army","thieves","wizards","total_pop","max_pop","unemployed","unfilled_jobs","employment_pct","daily_income","daily_wages","networth","land","honor","map","income_yesterday","wages_yesterday","draft_yesterday","net_yesterday","peasants_yesterday","food_grown_yesterday","food_needed_yesterday","food_decay_yesterday","food_net_yesterday","runes_produced_yesterday","runes_decay_yesterday","runes_net_yesterday","income_month","wages_month","draft_month","net_month","peasants_month","food_grown_month","food_needed_month","food_decay_month","food_net_month","runes_produced_month","runes_decay_month","runes_net_month"] },
+  state: { table: "intel_state", dashboard: "Province State", fields: ["peasants","army","thieves","wizards","total_pop","max_pop","unemployed","unfilled_jobs","employment_pct","daily_income","daily_wages","networth","land","honor","land_rank","nw_rank","map","income_yesterday","wages_yesterday","draft_yesterday","net_yesterday","peasants_yesterday","food_grown_yesterday","food_needed_yesterday","food_decay_yesterday","food_net_yesterday","runes_produced_yesterday","runes_decay_yesterday","runes_net_yesterday","income_month","wages_month","draft_month","net_month","peasants_month","food_grown_month","food_needed_month","food_decay_month","food_net_month","runes_produced_month","runes_decay_month","runes_net_month"] },
   news: { table: "news_events", dashboard: "News / War", fields: ["events"] },
   "intel-site": { table: "intel_complete_vault", dashboard: "Complete Vault / Intel 7", fields: ["rows","raw"] },
-  kingdom: { table: "kingdoms", dashboard: "Kingdom Overview", fields: ["name","total_provinces","total_nw","total_land","stance","ranks","data"] },
-  "kingdom-page": { table: "kingdoms", dashboard: "Kingdom Overview", fields: ["kd_code","name","total_provinces","total_nw","total_land","stance","data"] },
+  kingdom: { table: "kingdoms", dashboard: "Kingdom Overview", fields: ["kd_code","kingdom_name","kd_name","total_provinces","total_nw","total_land","nw_rank","land_rank","provinces"] },
+  "kingdom-page": { table: "kingdoms", dashboard: "Kingdom Overview", fields: ["kd_code","kingdom_name","kd_name","total_provinces","total_nw","total_land","nw_rank","land_rank","provinces","data"] },
   "kd-stats-generic": { table: "intel_kd_stats", dashboard: "KD Stats", fields: ["category","rows","data"] },
   "kd-stats-buildings": { table: "intel_buildings", dashboard: "Buildings / KD Stats", fields: ["provinces","buildings"] }
 };
@@ -119,8 +120,7 @@ async function inspect(parsed, prov) {
       recommendation: "Add a parser classification and map the new data type to a database table and dashboard destination.", confidence: 99 });
     return;
   }
-  const unknownFields = Object.keys(data).filter(k => !route.fields.includes(k));
-  for (const field of unknownFields) {
+  for (const field of Object.keys(data).filter(k => !route.fields.includes(k))) {
     await raise({ ...context, issue_type: "unmapped_field", severity: "medium", field_name: field,
       destination_table: route.table, destination_dashboard: route.dashboard, observed_value: data[field], raw_excerpt: data.raw || data.text || data[field],
       reason: "This field arrived in a recognized data domain but is not mapped by the Steward's destination contract.",
@@ -160,12 +160,17 @@ async function inspectIncomingRows() {
       lastPageId = Math.max(lastPageId, Number(row.id));
       await inspect({ type: row.data_type || "unknown", source: row.source, kd: row.kd_code, prov: row.province, url: row.url, data: row.parsed || { raw: row.raw_text || "" } }, row.province);
     }
+
     const { data: messages, error: ingestError } = await sb.from("intel7_ingest").select("id,discord_message_id,kd_code,channel_type,event_type,parsed,content").gt("id", lastIngestId).order("id", { ascending: true }).limit(25);
     if (ingestError) throw ingestError;
     for (const row of messages || []) {
       lastIngestId = Math.max(lastIngestId, Number(row.id));
+      if (!row.event_type) {
+        await audit(null, { action: "intel7_unclassified_message", source_type: "intel7", source_id: row.discord_message_id, decision: "retain_for_parser", details: { channel_type: row.channel_type, content_excerpt: excerpt(row.content, 500) } });
+        continue;
+      }
       const parsed = row.parsed && typeof row.parsed === "object" ? row.parsed : { raw: row.content || "" };
-      await inspect({ type: row.event_type || "unknown", source: "intel7", kd: row.kd_code, data: parsed }, null);
+      await inspect({ type: row.event_type, source: "intel7", kd: row.kd_code, data: parsed }, null);
     }
   } catch (error) {
     logger.warn(`[DATA STEWARD POLLER] ${error.message}`);
