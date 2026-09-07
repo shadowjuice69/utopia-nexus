@@ -1,5 +1,6 @@
 const supabaseService = require("./supabase");
 const { askOpenRouter } = require("./openrouterService");
+const { parseAgeFileChunked: parseAgeFile } = require("../parsers/ageParser");
 const logger = require("./logger");
 
 const SECTION_KEYS = ["buildings", "military", "science", "spells", "thievery", "priorities"];
@@ -108,6 +109,13 @@ async function recalculateBuildLibrary(ageNumber, ageUpdateId, parsed) {
   const sb = supabaseService.getClient();
   if (!sb) throw new Error("Supabase is not configured");
 
+  let rules = parsed;
+  if (!rules || !Object.keys(rules).length) {
+    const { data: update, error: updateError } = await sb.from("age_updates").select("raw_text").eq("id", ageUpdateId).single();
+    if (updateError) throw updateError;
+    rules = parseAgeFile(update.raw_text);
+  }
+
   const { data: builds, error } = await sb.from("ai_builds").select("*").eq("active", true).order("updated_at", { ascending: false });
   if (error) throw error;
   if (!builds?.length) return { total: 0, updated: 0, unchanged: 0, failed: [] };
@@ -122,7 +130,7 @@ async function recalculateBuildLibrary(ageNumber, ageUpdateId, parsed) {
       if (index >= builds.length) return;
       const build = builds[index];
       try {
-        const result = await recalculateOne(sb, build, ageNumber, ageUpdateId, parsed);
+        const result = await recalculateOne(sb, build, ageNumber, ageUpdateId, rules);
         if (result.changed) updated += 1; else unchanged += 1;
       } catch (err) {
         failed.push({ id: build.id, name: build.name || "Unnamed Build", error: err.message });
