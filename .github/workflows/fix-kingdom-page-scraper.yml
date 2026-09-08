@@ -22,9 +22,6 @@ jobs:
           from pathlib import Path
 
           changed = False
-
-          # Kingdom scraper: scan all tables when the old stable selector is absent,
-          # and accept the current Emerging kingdom wording.
           for path in [Path('tampermonkey/nexus-scraper.user.js'), Path('tampermonkey/nexus-scraper-v7.0.5.user.txt')]:
               if not path.exists():
                   continue
@@ -39,20 +36,16 @@ jobs:
                   text = text.replace(old_tables, new_tables)
               if text != path.read_text():
                   path.write_text(text)
-                  print(f'patched {path}')
                   changed = True
 
-          # Military page: retain the raw page, accept both SoM and generic Military
-          # layouts, and fall back to the existing armies parser when that format is
-          # present. This prevents a successful capture from becoming an empty record.
           path = Path('bot/services/intelReceiver.js')
           text = path.read_text()
           old = '    result.data = { offense, defense, generals, troops, armies };'
-          new = '''    // Generic Military fallback for layouts that do not use the exact SoM labels.
+          if old in text:
+              new = '''    // Generic Military fallback for layouts that do not use the exact SoM labels.
     if (offense == null || defense == null || generals == null || Object.keys(troops).length === 0) {
       const rawLines = text.split(/\\r?\\n/).map(s => s.trim()).filter(Boolean);
-      for (let idx = 0; idx < rawLines.length; idx++) {
-        const line = rawLines[idx];
+      for (const line of rawLines) {
         let m = line.match(/^(?:Net\\s+)?Offensive(?:\\s+Points)?(?:\\s+at\\s+Home)?\\s*[:\\t]+([\\d,]+)/i);
         if (m && offense == null) offense = parseInt(m[1].replace(/,/g, ""), 10);
         m = line.match(/^(?:Net\\s+)?Defensive(?:\\s+Points)?(?:\\s+at\\s+Home)?\\s*[:\\t]+([\\d,]+)/i);
@@ -64,14 +57,14 @@ jobs:
       if (parsedArmies.length > 0) armies.push(...parsedArmies);
     }
     result.data = { offense, defense, generals, troops, armies, raw: text };'''
-          if old in text:
               text = text.replace(old, new)
               path.write_text(text)
-              print('patched bot/services/intelReceiver.js')
               changed = True
 
-          if not changed:
-              print('No parser changes needed.')
+          if changed:
+              print('Parser files patched')
+          else:
+              print('No parser changes needed')
           PY
 
       - name: Commit patch
@@ -85,5 +78,5 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add tampermonkey/nexus-scraper.user.js tampermonkey/nexus-scraper-v7.0.5.user.txt bot/services/intelReceiver.js
-          git commit -m 'Harden kingdom and military intel parsing'
+          git commit -m 'Apply kingdom and military parser fixes'
           git push origin HEAD:main
