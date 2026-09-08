@@ -1,4 +1,4 @@
-name: Fix kingdom page scraper
+name: Fix kingdom and military intel parsers
 
 on:
   push:
@@ -14,36 +14,64 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Patch kingdom name extraction
+      - name: Patch parsers
         shell: bash
         run: |
           set -e
           python3 - <<'PY'
           from pathlib import Path
 
-          paths = [
-              Path('tampermonkey/nexus-scraper.user.js'),
-              Path('tampermonkey/nexus-scraper-v7.0.5.user.txt'),
-          ]
-
-          old = 'text.match(/The kingdom of (.+?)[\\n\\r(]/i)'
-          new = 'text.match(/The(?:\\s+Emerging)?\\s+kingdom of\\s+(.+?)[\\n\\r(]/i)'
-
           changed = False
-          for path in paths:
+
+          # Kingdom scraper: scan all tables when the old stable selector is absent,
+          # and accept the current Emerging kingdom wording.
+          for path in [Path('tampermonkey/nexus-scraper.user.js'), Path('tampermonkey/nexus-scraper-v7.0.5.user.txt')]:
               if not path.exists():
                   continue
               text = path.read_text()
+              old = 'text.match(/The kingdom of (.+?)[\\n\\r(]/i)'
+              new = 'text.match(/The(?:\\s+Emerging)?\\s+kingdom of\\s+(.+?)[\\n\\r(]/i)'
               if old in text:
                   text = text.replace(old, new)
+              old_tables = 'let tables = rosterTable ? [rosterTable] : [];'
+              new_tables = 'let tables = rosterTable ? [rosterTable, ...Array.from(document.querySelectorAll("table")).filter(t => t !== rosterTable)] : Array.from(document.querySelectorAll("table"));'
+              if old_tables in text:
+                  text = text.replace(old_tables, new_tables)
+              if text != path.read_text():
                   path.write_text(text)
                   print(f'patched {path}')
                   changed = True
-              elif new in text:
-                  print(f'already patched {path}')
+
+          # Military page: retain the raw page, accept both SoM and generic Military
+          # layouts, and fall back to the existing armies parser when that format is
+          # present. This prevents a successful capture from becoming an empty record.
+          path = Path('bot/services/intelReceiver.js')
+          text = path.read_text()
+          old = '    result.data = { offense, defense, generals, troops, armies };'
+          new = '''    // Generic Military fallback for layouts that do not use the exact SoM labels.
+    if (offense == null || defense == null || generals == null || Object.keys(troops).length === 0) {
+      const rawLines = text.split(/\\r?\\n/).map(s => s.trim()).filter(Boolean);
+      for (let idx = 0; idx < rawLines.length; idx++) {
+        const line = rawLines[idx];
+        let m = line.match(/^(?:Net\\s+)?Offensive(?:\\s+Points)?(?:\\s+at\\s+Home)?\\s*[:\\t]+([\\d,]+)/i);
+        if (m && offense == null) offense = parseInt(m[1].replace(/,/g, ""), 10);
+        m = line.match(/^(?:Net\\s+)?Defensive(?:\\s+Points)?(?:\\s+at\\s+Home)?\\s*[:\\t]+([\\d,]+)/i);
+        if (m && defense == null) defense = parseInt(m[1].replace(/,/g, ""), 10);
+        m = line.match(/^Generals(?:\\s+available)?\\s*[:\\t]+(\\d+)/i);
+        if (m && generals == null) generals = parseInt(m[1], 10);
+      }
+      const parsedArmies = parseArmies(text);
+      if (parsedArmies.length > 0) armies.push(...parsedArmies);
+    }
+    result.data = { offense, defense, generals, troops, armies, raw: text };'''
+          if old in text:
+              text = text.replace(old, new)
+              path.write_text(text)
+              print('patched bot/services/intelReceiver.js')
+              changed = True
 
           if not changed:
-              print('No scraper patch needed.')
+              print('No parser changes needed.')
           PY
 
       - name: Commit patch
@@ -56,6 +84,6 @@ jobs:
           fi
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add tampermonkey/nexus-scraper.user.js tampermonkey/nexus-scraper-v7.0.5.user.txt
-          git commit -m 'Fix kingdom name extraction for Emerging kingdoms'
+          git add tampermonkey/nexus-scraper.user.js tampermonkey/nexus-scraper-v7.0.5.user.txt bot/services/intelReceiver.js
+          git commit -m 'Harden kingdom and military intel parsing'
           git push origin HEAD:main
