@@ -12,12 +12,16 @@ const {
   StreamType,
 } = require("@discordjs/voice");
 
-const { isSpotifyUrl, resolveSpotify } = require("./spotifyResolver");
 const YTDLP_PATH = path.join("/tmp", "nexus-yt-dlp");
 const YTDLP_URL = "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp";
 const FFMPEG = process.env.FFMPEG_PATH || "ffmpeg";
 const COOKIE_PATH = "/tmp/nexus-youtube-cookies.txt";
 const MAX_PLAYLIST_TRACKS = 500;
+const YOUTUBE_CLIENTS = [
+  "web_safari,tv,android_vr",
+  "tv,android_vr,web_embedded",
+  "web_embedded,android_vr",
+];
 
 const players = new Map();
 let downloadPromise = null;
@@ -128,28 +132,18 @@ function parsePlaylistJson(output) {
 }
 
 async function resolveQuery(query) {
-  if (isSpotifyUrl(query)) {
-    console.log("[MUSIC] Spotify URL detected, resolving via Spotify API...");
-    const result = await resolveSpotify(query);
-    const tracks = result.tracks.map(t => ({
-      url: "ytsearch1:" + t.searchQuery,
-      title: t.title,
-      artist: t.artist,
-      thumbnail: t.thumbnail,
-      duration: t.duration,
-      isSpotify: true
-    }));
-    console.log("[MUSIC] Spotify resolved " + tracks.length + " track(s) from: " + result.playlistName);
-    return { playlistName: result.playlistName, tracks };
+  // Music is intentionally YouTube-only. Spotify resolution was removed from the active path.
+  if (/spotify\.com\/(track|playlist|album)\//i.test(query)) {
+    throw new Error("Spotify is not supported. Use a YouTube URL, YouTube playlist, or search text.");
   }
+
   const binary = await ensureYtdlp();
   const cookiePath = await ensureCookieFile();
   const target = /^https?:\/\//i.test(query) ? query : `ytsearch1:${query}`;
   const looksLikePlaylist = /[?&]list=/i.test(query);
-  const clients = ["web_safari,tv,android_vr", "tv,android_vr,web_embedded", "web_embedded,android_vr"];
   let lastError = null;
 
-  for (const clientsArg of clients) {
+  for (const clientsArg of YOUTUBE_CLIENTS) {
     try {
       const args = [
         ...commonYtdlpArgs(cookiePath),
@@ -165,33 +159,47 @@ async function resolveQuery(query) {
 
       const output = await execYtdlp(binary, args);
       const result = parsePlaylistJson(output);
-      console.log(`[MUSIC] yt-dlp resolved ${result.tracks.length} track(s)${result.playlistName ? ` from playlist: ${result.playlistName}` : ""}`);
+      console.log(`[MUSIC] YouTube resolved ${result.tracks.length} track(s)${result.playlistName ? ` from playlist: ${result.playlistName}` : ""}`);
       if (!result.tracks.length) throw new Error("yt-dlp returned no playable tracks");
       return result;
     } catch (error) {
       lastError = error;
-      console.warn(`[MUSIC] yt-dlp resolve client ${clientsArg} failed: ${error.message}`);
+      console.warn(`[MUSIC] YouTube resolve client ${clientsArg} failed: ${error.message}`);
     }
   }
+
   throw new Error(`YouTube extraction failed: ${lastError?.message || "unknown yt-dlp error"}`);
 }
 
 async function spawnAudioStream(track) {
   const binary = await ensureYtdlp();
   const cookiePath = await ensureCookieFile();
-  const clients = "web_safari,tv,android_vr";
+
+  // Let yt-dlp choose the best available audio format instead of forcing a format
+  // that a particular YouTube player client may not expose.
   const args = [
-    ...commonYtdlpArgs(cookiePath), "--no-warnings", "--no-playlist", "--quiet",
-    "-f", "bestaudio/best", "--extractor-args", `youtube:player_client=${clients}`, "-o", "-", track.url,
+    ...commonYtdlpArgs(cookiePath),
+    "--no-warnings",
+    "--no-playlist",
+    "--quiet",
+    "-f", "bestaudio*/best",
+    "-o", "-",
+    track.url,
   ];
+
   const ytdlp = spawn(binary, args, { stdio: ["ignore", "pipe", "pipe"] });
   const ffmpeg = spawn(FFMPEG, ["-hide_banner", "-loglevel", "error", "-i", "pipe:0", "-f", "s16le", "-ar", "48000", "-ac", "2", "pipe:1"], { stdio: ["pipe", "pipe", "pipe"] });
+
   ytdlp.stdout.pipe(ffmpeg.stdin);
   ytdlp.stderr.setEncoding("utf8");
   ffmpeg.stderr.setEncoding("utf8");
   ytdlp.stderr.on("data", data => console.warn(`[MUSIC] yt-dlp: ${data.trim()}`));
   ffmpeg.stderr.on("data", data => console.warn(`[MUSIC] ffmpeg: ${data.trim()}`));
-  const cleanup = () => { try { ytdlp.kill("SIGKILL"); } catch {} try { ffmpeg.kill("SIGKILL"); } catch {} };
+
+  const cleanup = () => {
+    try { ytdlp.kill("SIGKILL"); } catch {}
+    try { ffmpeg.kill("SIGKILL"); } catch {}
+  };
   ffmpeg.on("close", () => { try { ytdlp.kill("SIGKILL"); } catch {} });
   ytdlp.on("close", code => { if (code !== 0) console.warn(`[MUSIC] yt-dlp playback exited with code ${code}`); });
   return { stream: ffmpeg.stdout, cleanup };
@@ -214,7 +222,7 @@ async function playTrack(state, track) {
   resource.volume.setVolume(state.volume);
   state.currentResource = resource;
   state.audioPlayer.play(resource);
-  console.log(`[MUSIC] ▶ Direct playback: ${track.title}`);
+  console.log(`[MUSIC] ▶ Direct YouTube playback: ${track.title}`);
 }
 
 async function playNext(state) {
@@ -280,7 +288,7 @@ async function destroyPlayer(guildId) {
   try { state.connection.destroy(); } catch {}
 }
 
-function initialize(client) { global.__NEXUS_DISCORD_CLIENT = client; console.log("[MUSIC] Direct yt-dlp/FFmpeg music backend initialized"); }
+function initialize(client) { global.__NEXUS_DISCORD_CLIENT = client; console.log("[MUSIC] Direct YouTube/yt-dlp/FFmpeg music backend initialized"); }
 function initClient() {}
 function forwardVoiceState() {}
 function destroy() { for (const guildId of players.keys()) destroyPlayer(guildId); }
