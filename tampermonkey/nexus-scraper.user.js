@@ -328,7 +328,7 @@ function scrapeProvinceTable() {
   // guessing by header text (the kingdom summary box's "Total Provinces" cell used to
   // false-match a loose "province" substring check and get scraped instead).
   let rosterTable = document.getElementById("clone_kingdom") || document.querySelector("table.tablesorter");
-  let tables = rosterTable ? [rosterTable] : [];
+  let tables = rosterTable ? [rosterTable, ...Array.from(document.querySelectorAll("table")).filter(t => t !== rosterTable)] : Array.from(document.querySelectorAll("table"));
 
   for (let table of tables) {
     let rows = table.querySelectorAll("tr");

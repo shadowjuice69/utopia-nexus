@@ -180,7 +180,20 @@ function parseIntel(url, prov, text, source="", tab="") {
         }
       }
     });
-    result.data = { offense, defense, generals, troops, armies };
+    if (offense == null || defense == null || generals == null || Object.keys(troops).length === 0) {
+      const rawLines = text.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+      for (const line of rawLines) {
+        let m = line.match(/^(?:Net\s+)?Offensive(?:\s+Points)?(?:\s+at\s+Home)?\s*[:\t]+([\d,]+)/i);
+        if (m && offense == null) offense = parseInt(m[1].replace(/,/g, ""), 10);
+        m = line.match(/^(?:Net\s+)?Defensive(?:\s+Points)?(?:\s+at\s+Home)?\s*[:\t]+([\d,]+)/i);
+        if (m && defense == null) defense = parseInt(m[1].replace(/,/g, ""), 10);
+        m = line.match(/^Generals(?:\s+available)?\s*[:\t]+(\d+)/i);
+        if (m && generals == null) generals = parseInt(m[1], 10);
+      }
+      const parsedArmies = parseArmies(text);
+      if (parsedArmies.length > 0) armies.push(...parsedArmies);
+    }
+    result.data = { offense, defense, generals, troops, armies, raw: text };
   } else if (url.includes("council_state") || url.includes("province_state") || routeTab === "state") {
     result.type = "state";
     result.data = parseState(text);
