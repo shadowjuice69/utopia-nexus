@@ -429,7 +429,7 @@ async function saveIntel(parsed, prov) {
           }
           result.push(current.trim()); return result;
         }
-        const csvLines = csvText.split("\\n").map(l => l.trim()).filter(Boolean);
+        const csvLines = csvText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
         if (csvLines.length > 1) {
           const headers = parseCSVLine(csvLines[0]).map(h => h.toLowerCase().replace(/[^a-z0-9%]/g, "_").replace(/_+/g, "_"));
           for (let ci = 1; ci < csvLines.length; ci++) {
