@@ -39,7 +39,7 @@ const GROUPS = [
     { id: "overview", label: "Overview", component: KingdomOverview }, { id: "game-state", label: "Game State", component: GameStateIntel }, { id: "news", label: "News", component: NewsPanel },
     { id: "buildings", label: "Buildings", component: BuildingIntel }, { id: "science", label: "Science", component: ScienceIntel },
     { id: "kd-military", label: "KD Military", component: KDMilitaryIntel }, { id: "kd-science", label: "KD Science", component: KDScienceIntel },
-    { id: "kd-gains", label: "KD Gains", component: KDGainsIntel }, { id: "science-calc", label: 'Sci Calc', component: ScienceCalculator },
+    { id: "kd-gains", label: "KD Gains", component: KDGainsIntel },
     { id: "members", label: "Members", component: MembersPanel },
   ] },
   { id: "war", label: "WAR", color: "#f87171", tabs: [
@@ -57,6 +57,7 @@ const GROUPS = [
     { id: "warreport", label: "War Report", component: AIWarReport }, { id: "targets", label: "Targets", component: AITargets },
     { id: "ask", label: "Ask", component: AIAssistant }, { id: "advisorlog", label: "Advisor Log", component: AdvisorLog },
     { id: "builds", label: "Reference Builds", component: AIBuildManager }, { id: "steward", label: "Data Steward", component: DataSteward },
+    { id: "science-calc", label: 'Sci Calc', component: ScienceCalculator },
   ] },
   { id: "tools", label: "TOOLS", color: "#60a5fa", tabs: [{ id: "repo-tools", label: "Repo Toolkit", component: RepoTools }] },
 ];
