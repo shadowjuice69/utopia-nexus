@@ -17,6 +17,7 @@ import AttackSummary from "./components/AttackSummary";
 import EnemyKingdoms from "./components/EnemyKingdoms";
 import IntelQueue from "./components/IntelQueue";
 import OpsIntel from "./components/OpsIntel";
+import AllIntel from "./components/AllIntel";
 import SpellTracker from "./components/SpellTracker";
 import Intel7 from "./components/Intel7";
 import IntelDataVault from "./components/IntelDataVault";
@@ -39,8 +40,7 @@ const GROUPS = [
     { id: "overview", label: "Overview", component: KingdomOverview }, { id: "game-state", label: "Game State", component: GameStateIntel }, { id: "news", label: "News", component: NewsPanel },
     { id: "buildings", label: "Buildings", component: BuildingIntel }, { id: "science", label: "Science", component: ScienceIntel },
     { id: "kd-military", label: "KD Military", component: KDMilitaryIntel }, { id: "kd-science", label: "KD Science", component: KDScienceIntel },
-    { id: "kd-gains", label: "KD Gains", component: KDGainsIntel },
-    { id: "members", label: "Members", component: MembersPanel },
+    { id: "kd-gains", label: "KD Gains", component: KDGainsIntel }, { id: "members", label: "Members", component: MembersPanel },
   ] },
   { id: "war", label: "WAR", color: "#f87171", tabs: [
     { id: "warroom", label: "War Room", component: WarRoom }, { id: "waves", label: "Waves", component: WaveTracker },
@@ -48,16 +48,14 @@ const GROUPS = [
     { id: "enemies", label: "Enemy Kingdoms", component: EnemyKingdoms }, { id: "queue", label: "Intel Queue", component: IntelQueue },
   ] },
   { id: "ops", label: "OPS", color: "#a78bfa", tabs: [
-    { id: "intel7", label: "Intel 7", component: Intel7 }, { id: "vault", label: "Complete Vault", component: IntelDataVault },
-    { id: "hostileops", label: "Hostile Ops", component: OpsIntel }, { id: "spells", label: "Spells", component: SpellTracker },
-    { id: "alerts", label: "Alerts", component: AlertPanel }, { id: "calc", label: "Calculator", component: AttackCalc },
-    { id: "thievery", label: "Thievery", component: ThieveryCalculator }, { id: "ambush", label: "Ambush", component: AmbushCalculator },
+    { id: "all", label: "ALL", component: AllIntel }, { id: "intel7", label: "Intel 7", component: Intel7 }, { id: "vault", label: "Complete Vault", component: IntelDataVault },
+    { id: "hostileops", label: "Hostile Ops", component: OpsIntel }, { id: "spells", label: "Spells", component: SpellTracker }, { id: "alerts", label: "Alerts", component: AlertPanel },
+    { id: "calc", label: "Calculator", component: AttackCalc }, { id: "thievery", label: "Thievery", component: ThieveryCalculator }, { id: "ambush", label: "Ambush", component: AmbushCalculator },
   ] },
   { id: "ai", label: "AI", color: "#34d399", tabs: [
     { id: "warreport", label: "War Report", component: AIWarReport }, { id: "targets", label: "Targets", component: AITargets },
     { id: "ask", label: "Ask", component: AIAssistant }, { id: "advisorlog", label: "Advisor Log", component: AdvisorLog },
-    { id: "builds", label: "Reference Builds", component: AIBuildManager }, { id: "steward", label: "Data Steward", component: DataSteward },
-    { id: "science-calc", label: 'Sci Calc', component: ScienceCalculator },
+    { id: "builds", label: "Reference Builds", component: AIBuildManager }, { id: "steward", label: "Data Steward", component: DataSteward }, { id: "science-calc", label: 'Sci Calc', component: ScienceCalculator },
   ] },
   { id: "tools", label: "TOOLS", color: "#60a5fa", tabs: [{ id: "repo-tools", label: "Repo Toolkit", component: RepoTools }] },
 ];
