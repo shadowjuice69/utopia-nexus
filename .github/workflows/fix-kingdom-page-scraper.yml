@@ -13,68 +13,25 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Patch parsers
+      - name: Patch kingdom scraper
         shell: bash
         run: |
           set -e
-          python3 - <<'PY'
-          from pathlib import Path
-
-          changed = False
-          for path in [Path('tampermonkey/nexus-scraper.user.js'), Path('tampermonkey/nexus-scraper-v7.0.5.user.txt')]:
-              if not path.exists():
-                  continue
-              text = path.read_text()
-              old = 'text.match(/The kingdom of (.+?)[\\n\\r(]/i)'
-              new = 'text.match(/The(?:\\s+Emerging)?\\s+kingdom of\\s+(.+?)[\\n\\r(]/i)'
-              if old in text:
-                  text = text.replace(old, new)
-              old_tables = 'let tables = rosterTable ? [rosterTable] : [];'
-              new_tables = 'let tables = rosterTable ? [rosterTable, ...Array.from(document.querySelectorAll("table")).filter(t => t !== rosterTable)] : Array.from(document.querySelectorAll("table"));'
-              if old_tables in text:
-                  text = text.replace(old_tables, new_tables)
-              if text != path.read_text():
-                  path.write_text(text)
-                  changed = True
-
-          path = Path('bot/services/intelReceiver.js')
-          text = path.read_text()
-          old = '    result.data = { offense, defense, generals, troops, armies };'
-          if old in text:
-              new = '''    // Generic Military fallback for layouts that do not use the exact SoM labels.
-    if (offense == null || defense == null || generals == null || Object.keys(troops).length === 0) {
-      const rawLines = text.split(/\\r?\\n/).map(s => s.trim()).filter(Boolean);
-      for (const line of rawLines) {
-        let m = line.match(/^(?:Net\\s+)?Offensive(?:\\s+Points)?(?:\\s+at\\s+Home)?\\s*[:\\t]+([\\d,]+)/i);
-        if (m && offense == null) offense = parseInt(m[1].replace(/,/g, ""), 10);
-        m = line.match(/^(?:Net\\s+)?Defensive(?:\\s+Points)?(?:\\s+at\\s+Home)?\\s*[:\\t]+([\\d,]+)/i);
-        if (m && defense == null) defense = parseInt(m[1].replace(/,/g, ""), 10);
-        m = line.match(/^Generals(?:\\s+available)?\\s*[:\\t]+(\\d+)/i);
-        if (m && generals == null) generals = parseInt(m[1], 10);
-      }
-      const parsedArmies = parseArmies(text);
-      if (parsedArmies.length > 0) armies.push(...parsedArmies);
-    }
-    result.data = { offense, defense, generals, troops, armies, raw: text };'''
-              text = text.replace(old, new)
-              path.write_text(text)
-              changed = True
-
-          if changed:
-              print('Parser files patched')
-          else:
-              print('No parser changes needed')
-          PY
-
+          for f in tampermonkey/nexus-scraper.user.js tampermonkey/nexus-scraper-v7.0.5.user.txt; do
+            [ -f "$f" ] || continue
+            sed -i 's#text.match(/The kingdom of (.+?)\[\\n\\r(\]/i)#text.match(/The(?:\\s+Emerging)?\\s+kingdom of\\s+(.+?)\\[\\n\\r(\]/i)#' "$f"
+            sed -i 's#let tables = rosterTable ? \[rosterTable\] : \[\];#let tables = rosterTable ? [rosterTable, ...Array.from(document.querySelectorAll("table")).filter(t => t !== rosterTable)] : Array.from(document.querySelectorAll("table"));#' "$f"
+          done
+      - name: Patch military receiver
+        shell: bash
+        run: |
+          set -e
+          python3 -c 'from pathlib import Path; p=Path("bot/services/intelReceiver.js"); t=p.read_text(); old="    result.data = { offense, defense, generals, troops, armies };"; new="    if (offense == null || defense == null || generals == null || Object.keys(troops).length === 0) {\n      const rawLines = text.split(/\\r?\\n/).map(s => s.trim()).filter(Boolean);\n      for (const line of rawLines) {\n        let m = line.match(/^(?:Net\\s+)?Offensive(?:\\s+Points)?(?:\\s+at\\s+Home)?\\s*[:\\t]+([\\d,]+)/i);\n        if (m && offense == null) offense = parseInt(m[1].replace(/,/g, \"\"), 10);\n        m = line.match(/^(?:Net\\s+)?Defensive(?:\\s+Points)?(?:\\s+at\\s+Home)?\\s*[:\\t]+([\\d,]+)/i);\n        if (m && defense == null) defense = parseInt(m[1].replace(/,/g, \"\"), 10);\n        m = line.match(/^Generals(?:\\s+available)?\\s*[:\\t]+(\\d+)/i);\n        if (m && generals == null) generals = parseInt(m[1], 10);\n      }\n      const parsedArmies = parseArmies(text);\n      if (parsedArmies.length > 0) armies.push(...parsedArmies);\n    }\n    result.data = { offense, defense, generals, troops, armies, raw: text };"; assert old in t; p.write_text(t.replace(old,new))'
       - name: Commit patch
         shell: bash
         run: |
           set -e
-          if git diff --quiet; then
-            echo 'No changes to commit.'
-            exit 0
-          fi
+          if git diff --quiet; then exit 0; fi
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add tampermonkey/nexus-scraper.user.js tampermonkey/nexus-scraper-v7.0.5.user.txt bot/services/intelReceiver.js
