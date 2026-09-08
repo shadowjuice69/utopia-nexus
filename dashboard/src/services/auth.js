@@ -60,7 +60,10 @@ export async function getDashboardAuthorization(provinceName, password) {
 }
 
 export async function getDashboardRegistration() {
-  const savedProvince = sessionStorage.getItem("nexus_province") || "";
+  const savedProvince =
+    sessionStorage.getItem("nexus_province") ||
+    localStorage.getItem("nexus_province") ||
+    "";
   const { data: { user }, error: userError } = await supabase.auth.getUser();
 
   if (user && !userError) {
@@ -93,4 +96,7 @@ export async function signOutDashboard() {
   await supabase.auth.signOut();
   sessionStorage.removeItem("nexus_auth");
   sessionStorage.removeItem("nexus_province");
+  localStorage.removeItem("nexus_auth");
+  localStorage.removeItem("nexus_province");
+  localStorage.removeItem("nexus_login_at");
 }
