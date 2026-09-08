@@ -1,5 +1,6 @@
 const dataSteward = require('./dataStewardService');
 const decisionReview = require('./dataStewardDecisionReview');
+const reconciler = require('./dataStewardReconciler');
 
 // The Steward should recognize the event types that Nexus already stores instead of
 // treating them as unknown data. These routes point at existing production tables;
@@ -42,10 +43,6 @@ Object.assign(dataSteward.ROUTES, {
 // Existing schema destinations are authoritative. The generic auto-mapping store
 // is only a safety net for genuinely new fields, so known fields do not generate
 // noisy alerts or duplicate vault records.
-//
-// Routine issue notifications remain silent; human decisions are consolidated by
-// the six-hour decision review. The thank-you DM is a separate, explicitly enabled
-// startup message and does not alter Steward issue handling.
 const originalSetClient = dataSteward.setClient;
 const originalStart = dataSteward.start;
 let realDiscordClient = null;
@@ -75,8 +72,9 @@ function setClient(client) {
 
 function start() {
   originalStart();
+  reconciler.start();
   decisionReview.start(realDiscordClient);
   sendThankYouOnce();
 }
 
-module.exports = { ...dataSteward, setClient, start, decisionReview };
+module.exports = { ...dataSteward, setClient, start, decisionReview, reconciler };
