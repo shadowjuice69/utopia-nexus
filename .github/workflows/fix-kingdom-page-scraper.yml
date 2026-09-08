@@ -19,7 +19,7 @@ jobs:
           set -e
           for f in tampermonkey/nexus-scraper.user.js tampermonkey/nexus-scraper-v7.0.5.user.txt; do
             [ -f "$f" ] || continue
-            sed -i 's#text.match(/The kingdom of (.+?)\[\\n\\r(\]/i)#text.match(/The(?:\\s+Emerging)?\\s+kingdom of\\s+(.+?)\\[\\n\\r(\]/i)#' "$f"
+            python3 -c 'from pathlib import Path; import re; p=Path("'$f'"); t=p.read_text(); t2=re.sub(r"text\.match\(/The\(\?:\\\\s\+Emerging\)\?\\\\s\+kingdom of\\\\s\+\(\.\+\?\)\\\[\\\\n\\\\r\(\]/i\)", r"text.match(/The\\s+(?:[A-Za-z]+\\s+)*kingdom of\\s+(.+?)[\\n\\r(]/i)", t); assert t2 != t, "Expected kingdom regex not found in " + str(p); p.write_text(t2)'
             sed -i 's#let tables = rosterTable ? \[rosterTable\] : \[\];#let tables = rosterTable ? [rosterTable, ...Array.from(document.querySelectorAll("table")).filter(t => t !== rosterTable)] : Array.from(document.querySelectorAll("table"));#' "$f"
           done
       - name: Patch military receiver
