@@ -1,29 +1,20 @@
 const { REST, Routes } = require('discord.js');
 
 const musicCommand = {
-  name: 'music',
-  description: 'Nexus music player',
-  options: [
+  name: 'music', description: 'Nexus music player', options: [
     { name: 'join', description: 'Join your voice channel', type: 1 },
     { name: 'play', description: 'Play or queue a track or playlist', type: 1, options: [{ name: 'query', description: 'Song, URL, or playlist', type: 3, required: true }] },
-    { name: 'pause', description: 'Pause playback', type: 1 },
-    { name: 'resume', description: 'Resume playback', type: 1 },
-    { name: 'skip', description: 'Skip the current track', type: 1 },
-    { name: 'stop', description: 'Stop playback and clear the player', type: 1 },
-    { name: 'queue', description: 'Show the current queue', type: 1 },
-    { name: 'nowplaying', description: 'Show the current track', type: 1 },
+    { name: 'pause', description: 'Pause playback', type: 1 }, { name: 'resume', description: 'Resume playback', type: 1 },
+    { name: 'skip', description: 'Skip the current track', type: 1 }, { name: 'stop', description: 'Stop playback and clear the player', type: 1 },
+    { name: 'queue', description: 'Show the current queue', type: 1 }, { name: 'nowplaying', description: 'Show the current track', type: 1 },
     { name: 'volume', description: 'Set playback volume', type: 1, options: [{ name: 'level', description: 'Volume from 0 to 100', type: 4, required: true, min_value: 0, max_value: 100 }] },
-    { name: 'shuffle', description: 'Shuffle the queue', type: 1 },
-    { name: 'clear', description: 'Clear queued tracks', type: 1 },
+    { name: 'shuffle', description: 'Shuffle the queue', type: 1 }, { name: 'clear', description: 'Clear queued tracks', type: 1 },
     { name: 'loop', description: 'Enable or disable current-track looping', type: 1, options: [{ name: 'enabled', description: 'Enable track loop', type: 5, required: true }] },
     { name: 'seek', description: 'Seek within the current track', type: 1, options: [{ name: 'seconds', description: 'Position in seconds', type: 4, required: true, min_value: 0 }] }
   ]
 };
-
 const playlistCommand = {
-  name: 'playlist',
-  description: 'Manage saved YouTube playlists',
-  options: [
+  name: 'playlist', description: 'Manage saved YouTube playlists', options: [
     { name: 'save', description: 'Save or replace a YouTube playlist', type: 1, options: [{ name: 'name', description: 'Saved playlist name', type: 3, required: true }, { name: 'url', description: 'YouTube playlist URL', type: 3, required: true }] },
     { name: 'list', description: 'List your saved playlists', type: 1 },
     { name: 'info', description: 'Show saved playlist information', type: 1, options: [{ name: 'name', description: 'Saved playlist name', type: 3, required: true }] },
@@ -32,31 +23,27 @@ const playlistCommand = {
     { name: 'delete', description: 'Delete a saved playlist', type: 1, options: [{ name: 'name', description: 'Saved playlist name', type: 3, required: true }] }
   ]
 };
-
 const buildCommand = {
-  name: 'build',
-  description: 'Access the Nexus Build Library',
-  options: [
+  name: 'build', description: 'Access the Nexus Build Library', options: [
     { name: 'list', description: 'List active builds in the Build Library', type: 1, options: [{ name: 'search', description: 'Search by build name, race, personality, or role', type: 3, required: false }, { name: 'type', description: 'Filter by build type', type: 3, required: false, choices: [{ name: 'War', value: 'war' }, { name: 'Pump', value: 'pump' }, { name: 'General', value: 'general' }] }] },
     { name: 'info', description: 'Show a complete saved build', type: 1, options: [{ name: 'name', description: 'Build name, such as Halfling Heretic', type: 3, required: true }] }
   ]
 };
-
 const stewardCommand = {
-  name: 'steward',
-  description: 'Control the Nexus Data Steward',
-  options: [
-    {
-      name: 'dm',
-      description: 'Send a DM through the Nexus Steward',
-      type: 1,
-      options: [
-        { name: 'user', description: 'Discord user to receive the DM', type: 6, required: true },
-        { name: 'message', description: 'Message the Steward should send', type: 3, required: true, max_length: 2000 }
-      ]
-    }
-  ]
+  name: 'steward', description: 'Control the Nexus Data Steward', options: [{ name: 'dm', description: 'Send a DM through the Nexus Steward', type: 1, options: [{ name: 'user', description: 'Discord user to receive the DM', type: 6, required: true }, { name: 'message', description: 'Message the Steward should send', type: 3, required: true, max_length: 2000 }] }]
 };
+
+function patchInvestCommand(command) {
+  if (!command || command.name !== 'calc') return command;
+  const patched = JSON.parse(JSON.stringify(command));
+  const invest = patched.options?.find(option => option.name === 'invest');
+  const build = invest?.options?.find(option => option.name === 'build');
+  if (build) {
+    build.required = false;
+    build.description = 'Optional build search; leave blank to choose from the Build Library';
+  }
+  return patched;
+}
 
 async function register(client) {
   const token = process.env.DISCORD_TOKEN;
@@ -67,9 +54,9 @@ async function register(client) {
   for (const guildId of guildIds) {
     const route = Routes.applicationGuildCommands(clientId, guildId);
     const existing = await rest.get(route);
-    const preserved = existing.filter(command => !['music', 'playlist', 'build', 'steward'].includes(command.name));
+    const preserved = existing.filter(command => !['music', 'playlist', 'build', 'steward'].includes(command.name)).map(patchInvestCommand);
     await rest.put(route, { body: [...preserved, musicCommand, playlistCommand, buildCommand, stewardCommand] });
-    console.log(`[COMMANDS] Registered music, playlist, build, and steward for guild ${guildId}`);
+    console.log(`[COMMANDS] Registered music, playlist, build, steward, and patched /calc invest for guild ${guildId}`);
   }
 }
 
