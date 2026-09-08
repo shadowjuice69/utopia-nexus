@@ -6,57 +6,158 @@ function clean(value, fallback = "—") {
   return String(value);
 }
 
-function formatJson(value) {
-  if (value === null || value === undefined) return "—";
-  if (typeof value === "string") return value;
-  try {
-    return JSON.stringify(value, null, 2).slice(0, 1000);
-  } catch {
-    return String(value);
-  }
+function titleCase(value) {
+  return String(value || "")
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
-function codeBlock(value) {
-  return "```json\n" + formatJson(value) + "\n```";
-}
-
-function ruleList(items, fallback = "None listed") {
+function compact(items, separator = " • ", fallback = "None listed") {
   if (!Array.isArray(items) || !items.length) return fallback;
-  return items.map((item) => `• ${String(item)}`).join("\n").slice(0, 1024);
+  return items.map((item) => String(item)).join(separator);
 }
 
-function ruleValue(profile, key, fallback = "None listed") {
-  return ruleList(profile?.[key], fallback);
+function formatBuildings(buildings) {
+  if (!buildings || typeof buildings !== "object") return "None saved.";
+  const labels = {
+    farms: "Farms", forts: "Forts", homes: "Homes", guilds: "Guilds",
+    towers: "Towers", stables: "Stables", thieves_dens: "Thieves' Dens",
+    universities: "Universities", barren: "Barren"
+  };
+  const entries = Object.entries(buildings).map(([key, value]) => {
+    const label = labels[key] || titleCase(key);
+    if (value && typeof value === "object") {
+      const amount = value.value ?? value.target;
+      const metric = value.metric || "%";
+      if (amount !== undefined && amount !== null) return `${label} ${amount}${metric === "%" ? "%" : ` ${metric}`}`;
+    }
+    return `${label} ${String(value)}`;
+  });
+  return entries.join(" • ");
+}
+
+function formatPopulationTargets(military) {
+  if (!military || typeof military !== "object") return "None saved.";
+  const labels = {
+    thieves_acre: "Thieves", wizards_acre: "Wizards", peasants_acre: "Peasants",
+    off_specs_acre: "Off Specs"
+  };
+  const parts = [];
+  for (const [key, value] of Object.entries(military)) {
+    if (!value || typeof value !== "object") continue;
+    const amount = value.value;
+    if (amount === null || amount === undefined) continue;
+    const label = labels[key] || titleCase(key);
+    const metric = String(value.metric || "").toUpperCase();
+    parts.push(`${label} ${amount}${metric ? ` ${metric}` : ""}`);
+  }
+  const fill = military.elites_acre_first_def_specs_acre_fill_at_least;
+  if (fill && fill.minimum) parts.push("10+ EPA/DSPA — elites first, defense fills");
+  return parts.join(" • ") || "None saved.";
+}
+
+function formatScience(science) {
+  if (!science || typeof science !== "object") return "None saved.";
+  const groups = { economy: [], military: [], arcane: [] };
+  for (const [key, value] of Object.entries(science)) {
+    if (!value || typeof value !== "object") continue;
+    const category = String(value.category || "other").toLowerCase();
+    const books = value.books ?? value.value;
+    const item = `${titleCase(key)} ${books ?? 0}`;
+    if (!groups[category]) groups[category] = [];
+    groups[category].push(item);
+  }
+  return Object.entries(groups)
+    .filter(([, items]) => items.length)
+    .map(([category, items]) => `**${titleCase(category)}:** ${items.join(" • ")}`)
+    .join("\n") || "None saved.";
+}
+
+function formatSpells(spells) {
+  if (!spells || typeof spells !== "object") return "None saved.";
+  const groups = {};
+  for (const value of Object.values(spells)) {
+    if (!value) continue;
+    const name = typeof value === "string" ? value : value.name;
+    if (!name) continue;
+    const sources = Array.isArray(value.source) ? value.source : [];
+    const source = sources.length ? sources.join(" / ") : "Build";
+    if (!groups[source]) groups[source] = [];
+    groups[source].push(name);
+  }
+  return Object.entries(groups)
+    .map(([source, names]) => `**${source}:** ${names.join(" • ")}`)
+    .join("\n") || "None saved.";
+}
+
+function formatThievery(thievery) {
+  if (!thievery || typeof thievery !== "object") return "None saved.";
+  const access = clean(thievery.access, "Standard");
+  const operations = Array.isArray(thievery.operations) && thievery.operations.length
+    ? thievery.operations.map((op) => typeof op === "object" ? (op.name || op.operation || JSON.stringify(op)) : String(op)).join(" • ")
+    : "None";
+  return `**Access:** ${access}\n**Operations:** ${operations}`;
+}
+
+function formatRules(profile, race, personality) {
+  const raceRules = profile?.race || {};
+  const personalityRules = profile?.personality || {};
+  const sections = [];
+  if (race || raceRules.name) {
+    sections.push(`**${clean(raceRules.name || race, "Race")}**\n` +
+      `**Bonuses:** ${compact(raceRules.bonuses)}\n` +
+      `**Penalties:** ${compact(raceRules.penalties)}\n` +
+      `**Unique:** ${clean(raceRules.unique, "None listed")}`);
+  }
+  if (personality || personalityRules.name) {
+    sections.push(`**${clean(personalityRules.name || personality, "Personality")}**\n` +
+      `**Bonuses:** ${compact(personalityRules.bonuses)}\n` +
+      `**Penalties:** ${compact(personalityRules.penalties)}\n` +
+      `**Unique:** ${clean(personalityRules.unique, "None listed")}`);
+  }
+  return sections.join("\n\n") || "No race/personality rules saved.";
+}
+
+function formatDoctrine(profile) {
+  const doctrine = profile?.warDoctrine || profile?.war_doctrine || profile?.doctrine;
+  return Array.isArray(doctrine) ? compact(doctrine, "\n") : clean(doctrine, "None listed");
+}
+
+function formatPriorities(priorities) {
+  if (!priorities || typeof priorities !== "object") return "None saved.";
+  return Object.entries(priorities).map(([key, value]) => {
+    if (value && typeof value === "object") {
+      const amount = value.value ?? value.target;
+      const metric = value.metric || "";
+      return `${titleCase(key)} ${amount ?? "—"}${metric === "%" ? "%" : metric ? ` ${metric}` : ""}`;
+    }
+    return `${titleCase(key)} ${String(value)}`;
+  }).join(" • ");
 }
 
 function buildEmbed(build) {
   const profile = build.rules_profile || {};
-  const raceRules = profile.race || {};
-  const personalityRules = profile.personality || {};
+  const rulesText = formatRules(profile, build.race, build.personality);
+  const doctrineText = formatDoctrine(profile);
 
   const embed = new EmbedBuilder()
     .setTitle(`🧱 ${clean(build.name, "Unnamed Build")}`)
-    .setDescription(clean(build.description, "No description saved."))
+    .setDescription([
+      clean(build.description, "No description saved."),
+      `**Age:** ${clean(build.age, "116")} • **Version:** ${clean(build.version)} • **Status:** ${build.active ? "Active" : "Inactive"}`,
+      `**Type:** ${clean(build.build_type)} • **Role:** ${clean(build.role)}`,
+      `**Race:** ${clean(build.race)} • **Personality:** ${clean(build.personality)}`
+    ].join("\n"))
     .addFields(
-      { name: "Race", value: clean(build.race), inline: true },
-      { name: "Personality", value: clean(build.personality), inline: true },
-      { name: "Role", value: clean(build.role), inline: true },
-      { name: "Type", value: clean(build.build_type), inline: true },
-      { name: "Age", value: clean(build.age, "116"), inline: true },
-      { name: "Version", value: clean(build.version), inline: true },
-      { name: "Status", value: build.active ? "Active" : "Inactive", inline: true },
-      { name: "Race Bonuses", value: ruleValue(raceRules, "bonuses", ruleValue(profile, "bonuses")), inline: false },
-      { name: "Race Penalties", value: ruleValue(raceRules, "penalties", ruleValue(profile, "penalties")), inline: false },
-      { name: "Personality Bonuses", value: ruleValue(personalityRules, "bonuses"), inline: false },
-      { name: "Personality Penalties", value: ruleValue(personalityRules, "penalties"), inline: false },
-      { name: "Unique Abilities", value: [raceRules.unique, personalityRules.unique].filter(Boolean).map(String).join("\n\n").slice(0, 1024) || "None listed", inline: false },
-      { name: "Buildings", value: codeBlock(build.buildings), inline: false },
-      { name: "Military", value: codeBlock(build.military), inline: false },
-      { name: "Science", value: codeBlock(build.science), inline: false },
-      { name: "Spells", value: codeBlock(build.spells), inline: false },
-      { name: "Thievery", value: codeBlock(build.thievery), inline: false },
-      { name: "Priorities", value: codeBlock(build.priorities), inline: false },
-      { name: "Notes", value: clean(build.notes, "No notes saved.").slice(0, 1024), inline: false }
+      { name: "🏗️ Buildings", value: formatBuildings(build.buildings).slice(0, 1024), inline: false },
+      { name: "👥 Population / Training Targets", value: formatPopulationTargets(build.military).slice(0, 1024), inline: false },
+      { name: "🔬 Science", value: formatScience(build.science).slice(0, 1024), inline: false },
+      { name: "✨ Spells", value: formatSpells(build.spells).slice(0, 1024), inline: false },
+      { name: "🗡️ Thievery", value: formatThievery(build.thievery).slice(0, 1024), inline: false },
+      { name: "🧬 Race / Personality Effects", value: rulesText.slice(0, 1024), inline: false },
+      { name: "⚔️ War Doctrine", value: doctrineText.slice(0, 1024), inline: false },
+      { name: "🎯 Priorities", value: formatPriorities(build.priorities).slice(0, 1024), inline: false },
+      { name: "📝 Notes", value: clean(build.notes, "No notes saved.").slice(0, 1024), inline: false }
     )
     .setFooter({ text: `Build ID: ${build.id}` });
 
