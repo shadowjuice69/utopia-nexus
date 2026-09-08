@@ -17,10 +17,14 @@ const YTDLP_URL = "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-
 const FFMPEG = process.env.FFMPEG_PATH || "ffmpeg";
 const COOKIE_PATH = "/tmp/nexus-youtube-cookies.txt";
 const MAX_PLAYLIST_TRACKS = 500;
+// Do not force web_safari: current yt-dlp/YouTube behavior can expose only
+// image/HLS formats for that client and produce "Requested format is not available".
+// Start with yt-dlp's maintained default client selection, then use known
+// audio-capable fallbacks.
 const YOUTUBE_CLIENTS = [
-  "web_safari,tv,android_vr",
+  "default",
+  "android_vr,web_embedded",
   "tv,android_vr,web_embedded",
-  "web_embedded,android_vr",
 ];
 
 const players = new Map();
