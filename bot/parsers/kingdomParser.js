@@ -21,18 +21,20 @@ function parseKingdom(text) {
   const kd = source.match(/\((\d+:\d+)\)/);
   if (kd) result.kd_code = kd[1];
 
-  const name = source.match(/The(?:\s+Emerging)?\s+kingdom of\s+(.+?)\s*\((\d+:\d+)\)/i);
+  // Supports: The kingdom of X, The Emerging kingdom of X,
+  // and titled forms such as The Venerated kingdom of X.
+  const name = source.match(/The\s+(?:[A-Za-z]+\s+)*kingdom of\s+(.+?)\s*\((\d+:\d+)\)/i);
   if (name) {
     result.kingdom_name = clean(name[1]);
     result.kd_name = result.kingdom_name;
     if (!result.kd_code) result.kd_code = name[2];
   }
 
-  const totalProvinces = source.match(/Total Provinces:\s*([\d,]+)/i);
-  const totalNw = source.match(/Total Networth:\s*([\d,]+)gc/i);
-  const totalLand = source.match(/Total Land:\s*([\d,]+)\s*acres?/i);
-  const nwRank = source.match(/Networth Rank:\s*([\d,]+)\s+of\s+([\d,]+)/i);
-  const landRank = source.match(/Land Rank:\s*([\d,]+)\s+of\s+([\d,]+)/i);
+  const totalProvinces = source.match(/Total Provinces\s*[:\t]\s*([\d,]+)/i);
+  const totalNw = source.match(/Total Networth\s*[:\t]\s*([\d,]+)\s*gc/i);
+  const totalLand = source.match(/Total Land\s*[:\t]\s*([\d,]+)\s*acres?/i);
+  const nwRank = source.match(/Networth Rank\s*[:\t]\s*([\d,]+)\s+of\s+([\d,]+)/i);
+  const landRank = source.match(/Land Rank\s*[:\t]\s*([\d,]+)\s+of\s+([\d,]+)/i);
 
   result.total_provinces = totalProvinces ? number(totalProvinces[1]) : null;
   result.total_nw = totalNw ? number(totalNw[1]) : null;
