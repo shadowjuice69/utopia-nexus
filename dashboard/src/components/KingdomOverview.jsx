@@ -3,130 +3,94 @@ import { supabase } from "../services/supabase";
 import { loadNexusConfig, getNexusConfig } from "../services/nexusConfig";
 
 const REFRESH_MS = 30000;
+const EMPTY = "Not captured";
 
+function clean(v) { return String(v ?? "").trim(); }
 function num(v) {
   const n = Number(String(v ?? "").replace(/[^0-9.-]/g, ""));
-  return Number.isFinite(n) ? n : 0;
+  return Number.isFinite(n) ? n : null;
 }
+function fmt(v) { const n = num(v); return n == null ? EMPTY : n.toLocaleString(); }
+function val(v) { return clean(v) || EMPTY; }
+function kdNorm(v) { return clean(v).replace(/^kingdom\s*/i, "").replace(/\s+/g, "").toLowerCase(); }
 
-function fmt(v) {
-  return num(v) ? num(v).toLocaleString() : "—";
-}
-
-function normalizeKingdom(value) {
-  return String(value ?? "").trim().replace(/^kingdom\s*/i, "").replace(/\s+/g, "").toLowerCase();
-}
-
-function normalizeProvince(row) {
-  if (!row || typeof row !== "object") return null;
-  const name = String(row.Name ?? row.name ?? row.province ?? row.province_name ?? "").trim();
-  if (!name) return null;
-  return {
-    Name: name,
-    Combo: row.Combo ?? row.combo ?? row.race_personality ?? "",
-    Acres: row.Acres ?? row.acres ?? row.land ?? row.Land ?? "",
-    NW: row.NW ?? row.nw ?? row.networth ?? row.NetWorth ?? row.net_worth ?? "",
-    Off: row.Off ?? row.off ?? row.offense ?? row.Offense ?? "",
-    Def: row.Def ?? row.def ?? row.defense ?? row.Defense ?? "",
-    BE: row.BE ?? row.be ?? row.building_efficiency ?? "",
-    IntelAge: row.IntelAge ?? row.intel_age ?? row.intelage ?? "",
-  };
-}
-
-function extractRows(parsed) {
-  const candidates = [];
-  if (Array.isArray(parsed?.provinces)) candidates.push(...parsed.provinces);
-  if (Array.isArray(parsed?.rows)) {
-    for (const item of parsed.rows) {
-      if (item && typeof item === "object" && !item.raw) candidates.push(item);
-    }
-    const raw = parsed.rows.find((r) => r?.raw)?.raw;
-    if (raw) {
-      const lines = String(raw).split(/\r?\n/).filter(Boolean);
-      if (lines.length > 1) {
-        const headers = lines[0].split(",").map((x) => x.trim().replace(/^"|"$/g, ""));
-        for (const line of lines.slice(1)) {
-          const values = line.split(",").map((x) => x.trim().replace(/^"|"$/g, ""));
-          candidates.push(Object.fromEntries(headers.map((h, i) => [h, values[i] ?? ""])));
-        }
-      }
-    }
-  }
-  if (Array.isArray(parsed?.data)) candidates.push(...parsed.data);
-  return candidates.map(normalizeProvince).filter(Boolean);
-}
-
-function dedupeRoster(rows) {
+async function latestRows(table, kd) {
+  const { data, error } = await supabase
+    .from(table)
+    .select("*")
+    .eq("kd_code", kd)
+    .order("updated_at", { ascending: false })
+    .limit(1000);
+  if (error) throw error;
   const seen = new Set();
-  return rows.filter((row) => {
-    const key = row.Name.toLowerCase();
-    if (seen.has(key)) return false;
-    seen.add(key);
+  return (data || []).filter(row => {
+    const p = clean(row.province).toLowerCase();
+    if (!p || p === "unknown") return false;
+    if (seen.has(p)) return false;
+    seen.add(p);
     return true;
-  }).sort((a, b) => a.Name.localeCompare(b.Name));
+  });
 }
 
-function snapshotFromCapture(capture) {
-  const rows = dedupeRoster(extractRows(capture?.parsed));
-  if (!rows.length) return null;
-  return { rows, receivedAt: capture.received_at, source: capture.source || "unknown" };
+function mergeData(throne, state, military, buildings) {
+  const byProvince = new Map();
+  for (const row of throne) byProvince.set(clean(row.province).toLowerCase(), { ...row, state: null, military: null, buildings: null });
+  for (const row of state) {
+    const key = clean(row.province).toLowerCase();
+    if (byProvince.has(key)) byProvince.get(key).state = row;
+  }
+  for (const row of military) {
+    const key = clean(row.province).toLowerCase();
+    if (byProvince.has(key)) byProvince.get(key).military = row;
+  }
+  for (const row of buildings) {
+    const key = clean(row.province).toLowerCase();
+    if (byProvince.has(key)) byProvince.get(key).buildings = row;
+  }
+  return [...byProvince.values()].sort((a, b) => clean(a.province).localeCompare(clean(b.province)));
+}
+
+function age(updatedAt) {
+  if (!updatedAt) return EMPTY;
+  const mins = Math.max(0, Math.floor((Date.now() - new Date(updatedAt).getTime()) / 60000));
+  return mins < 1 ? "<1m" : `${mins}m`;
 }
 
 export default function KingdomOverview() {
   const [config, setConfig] = useState(getNexusConfig());
-  const [snapshot, setSnapshot] = useState(null);
+  const [rows, setRows] = useState([]);
+  const [kingdom, setKingdom] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   async function load() {
-    setError("");
     try {
+      setError("");
       const c = await loadNexusConfig(true);
-      const kd = String(c?.kd || "").trim();
-      if (!kd) throw new Error("Your kingdom context is unavailable.");
-      if (!c?.province) throw new Error("Your province is not linked to a kingdom yet.");
+      const kd = clean(c?.kd);
+      const province = clean(c?.province);
+      if (!kd || !province) throw new Error("Your kingdom/province identity is not linked.");
       setConfig(c);
 
-      // Throne/Intel page captures are authoritative for Overview. CSV is only a
-      // compatibility fallback until a real page capture exists for this kingdom.
-      const { data: pageData, error: pageError } = await supabase
-        .from("intel_page_ingest")
-        .select("kd_code,province,parsed,received_at,source")
-        .eq("kd_code", kd)
-        .eq("tab", "overview")
-        .eq("source", "intel-site")
-        .order("received_at", { ascending: false })
-        .limit(100);
-      if (pageError) throw pageError;
-
-      let next = (pageData || [])
-        .filter((capture) => normalizeKingdom(capture.kd_code) === normalizeKingdom(kd))
-        .map(snapshotFromCapture)
-        .find(Boolean);
-
-      let sourceWarning = "";
-      if (!next) {
-        const { data: csvData, error: csvError } = await supabase
-          .from("intel_page_ingest")
-          .select("kd_code,province,parsed,received_at,source")
-          .eq("kd_code", kd)
-          .eq("tab", "overview")
-          .eq("source", "intel-site-csv")
-          .order("received_at", { ascending: false })
-          .limit(100);
-        if (csvError) throw csvError;
-        next = (csvData || []).map(snapshotFromCapture).find(Boolean);
-        if (next) sourceWarning = "No current Throne page capture yet — showing the latest CSV capture temporarily.";
-      }
-
-      if (!next) throw new Error(`No valid Throne Overview capture exists for kingdom ${kd} yet.`);
-      setSnapshot({ ...next, warning: sourceWarning });
+      // Overview uses the normalized authoritative Throne table as its primary source.
+      // Specialized tables enrich the same province; they never replace Throne identity fields.
+      const [throne, state, military, buildings, kingdomResult] = await Promise.all([
+        latestRows("intel_throne", kd),
+        latestRows("intel_state", kd),
+        latestRows("intel_military", kd),
+        latestRows("intel_buildings", kd),
+        supabase.from("kingdoms").select("kd_code,kd_id,kd_name,total_nw,total_land,total_provinces,nw_rank,land_rank,stance,updated_at").eq("kd_code", kd).maybeSingle(),
+      ]);
+      if (kingdomResult.error) throw kingdomResult.error;
+      const merged = mergeData(throne, state, military, buildings);
+      if (!merged.length) throw new Error(`No current Throne data exists for kingdom ${kd}.`);
+      setRows(merged);
+      setKingdom(kingdomResult.data || null);
     } catch (e) {
-      setSnapshot(null);
-      setError(e?.message || "Unable to load current Throne Overview data.");
-    } finally {
-      setLoading(false);
-    }
+      setRows([]);
+      setKingdom(null);
+      setError(e?.message || "Unable to load authoritative Throne data.");
+    } finally { setLoading(false); }
   }
 
   useEffect(() => {
@@ -136,44 +100,56 @@ export default function KingdomOverview() {
     return () => { active = false; clearInterval(timer); };
   }, []);
 
-  const provinces = snapshot?.rows || [];
+  const mine = rows.find(r => clean(r.province).toLowerCase() === clean(config.province).toLowerCase()) || rows[0];
   const totals = useMemo(() => ({
-    nw: provinces.reduce((s, p) => s + num(p.NW), 0),
-    acres: provinces.reduce((s, p) => s + num(p.Acres), 0),
-    off: provinces.reduce((s, p) => s + num(p.Off), 0),
-    def: provinces.reduce((s, p) => s + num(p.Def), 0),
-    be: (() => {
-      const values = provinces.map((p) => num(p.BE)).filter(Boolean);
-      return values.length ? Math.round(values.reduce((a, b) => a + b, 0) / values.length) : 0;
-    })(),
-  }), [provinces]);
+    nw: rows.reduce((s, r) => s + (num(r.networth) || 0), 0),
+    land: rows.reduce((s, r) => s + (num(r.land) || 0), 0),
+    off: rows.reduce((s, r) => s + (num(r.offense) || 0), 0),
+    def: rows.reduce((s, r) => s + (num(r.defense) || 0), 0),
+  }), [rows]);
 
-  if (loading) return <div className="empty"><div className="empty-icon">⏳</div><div className="empty-text">Loading your kingdom from Throne...</div></div>;
+  if (loading) return <div className="empty"><div className="empty-icon">⏳</div><div className="empty-text">Loading authoritative Throne data…</div></div>;
   if (error) return <div className="empty"><div className="empty-icon">⚠️</div><div className="empty-text">{error}</div></div>;
-
-  const kingdomLabel = config.kingdom ? `Kingdom ${config.kingdom} · ${config.kd}` : `Kingdom ${config.kd}`;
-  const sourceLabel = snapshot.source === "intel-site" ? "THRONE PAGE" : "CSV FALLBACK";
 
   return <div style={{ display: "grid", gap: 16 }}>
     <div className="card" style={{ display: "grid", gap: 8 }}>
       <div style={{ fontSize: 11, opacity: .65, textTransform: "uppercase", letterSpacing: 1 }}>Your Kingdom</div>
-      <div style={{ fontSize: 26, fontWeight: 700 }}>{kingdomLabel}</div>
+      <div style={{ fontSize: 26, fontWeight: 700 }}>{val(kingdom?.kd_name || config.kingdom)} · {config.kd}</div>
       <div style={{ opacity: .75 }}>Province: <b>{config.province}</b></div>
-      <div style={{ fontSize: 12, opacity: .55 }}>{sourceLabel} · Captured {new Date(snapshot.receivedAt).toLocaleString()}</div>
-      {snapshot.warning && <div style={{ fontSize: 12, padding: 8, borderRadius: 8, background: "rgba(251,191,36,.08)" }}>⚠️ {snapshot.warning}</div>}
+      <div style={{ fontSize: 12, opacity: .55 }}>Authoritative source: Supabase · intel_throne · refreshed every 30s</div>
     </div>
 
     <div className="stat-grid">
-      {[["Total NW", fmt(totals.nw), ""],["Total Acres", fmt(totals.acres), "green"],["Total Offense", fmt(totals.off), "red"],["Total Defense", fmt(totals.def), "purple"],["Members", provinces.length, "blue"],["Avg NW", fmt(provinces.length ? Math.round(totals.nw / provinces.length) : 0), ""],["Avg BE", totals.be ? `${totals.be}%` : "—", "green"],["Kingdom", config.kd, "blue"]].map(([label,value,cls]) => <div className="stat-card" key={label}><div className="stat-label">{label}</div><div className={`stat-value ${cls}`}>{value}</div></div>)}
+      {[["Kingdom NW", fmt(kingdom?.total_nw || totals.nw), ""],["Kingdom Acres", fmt(kingdom?.total_land || totals.land), "green"],["Total Offense", fmt(totals.off), "red"],["Total Defense", fmt(totals.def), "purple"],["Members", rows.length, "blue"],["NW Rank", val(kingdom?.nw_rank), ""],["Land Rank", val(kingdom?.land_rank), "green"],["Stance", val(kingdom?.stance), "blue"]].map(([label,value,cls]) => <div className="stat-card" key={label}><div className="stat-label">{label}</div><div className={`stat-value ${cls}`}>{value}</div></div>)}
     </div>
 
+    {mine && <div className="card" style={{ display: "grid", gap: 12 }}>
+      <div className="card-title">Your Current Throne Snapshot</div>
+      <div style={{ fontSize: 20, fontWeight: 700 }}>{mine.province}</div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(125px,1fr))", gap: 10 }}>
+        {[
+          ["Land", fmt(mine.land)], ["Net Worth", fmt(mine.networth)], ["Honor", val(mine.honor)], ["Race", val(mine.race)], ["Personality", val(mine.personality)],
+          ["Offense", fmt(mine.offense)], ["Defense", fmt(mine.defense)], ["Building Efficiency", val(mine.be)], ["Peasants", fmt(mine.peasants)], ["Thieves", fmt(mine.thieves)], ["Wizards", fmt(mine.wizards)], ["TPA", val(mine.tpa)], ["WPA", val(mine.wpa)], ["Stealth", val(mine.stealth)], ["Mana", val(mine.mana)], ["Intel Age", val(mine.intel_age)],
+        ].map(([k,v]) => <div key={k} style={{ padding: 10, border: "1px solid rgba(255,255,255,.08)", borderRadius: 8 }}><div style={{ fontSize: 10, opacity: .6 }}>{k}</div><b>{v}</b></div>)}
+      </div>
+      <div style={{ fontSize: 11, opacity: .55 }}>Throne snapshot age: {age(mine.updated_at)} · Last captured {new Date(mine.updated_at).toLocaleString()}</div>
+    </div>}
+
     <div className="card">
-      <div className="card-title">Current Province Roster</div>
+      <div className="card-title">Current Kingdom Throne Roster</div>
       <div style={{ overflowX: "auto" }}>
-        <table className="nexus-table"><thead><tr><th>Province</th><th>Combo</th><th>Acres</th><th>Net Worth</th><th>Offense</th><th>Defense</th><th>BE</th><th>Intel Age</th></tr></thead>
-          <tbody>{provinces.map((p, i) => <tr key={`${p.Name}-${i}`}><td className="gold">{p.Name}</td><td>{p.Combo || "—"}</td><td>{fmt(p.Acres)}</td><td className="gold">{fmt(p.NW)}</td><td className="red">{fmt(p.Off)}</td><td className="purple">{fmt(p.Def)}</td><td className="green">{p.BE || "—"}</td><td>{p.IntelAge || "—"}</td></tr>)}</tbody>
+        <table className="nexus-table"><thead><tr><th>Province</th><th>Race</th><th>Personality</th><th>Land</th><th>Net Worth</th><th>Offense</th><th>Defense</th><th>Peasants</th><th>Thieves</th><th>Wizards</th><th>BE</th><th>Intel Age</th></tr></thead>
+          <tbody>{rows.map((p) => <tr key={p.id || p.province}><td className="gold">{val(p.province)}</td><td>{val(p.race)}</td><td>{val(p.personality)}</td><td>{fmt(p.land)}</td><td className="gold">{fmt(p.networth)}</td><td className="red">{fmt(p.offense)}</td><td className="purple">{fmt(p.defense)}</td><td>{fmt(p.peasants)}</td><td>{fmt(p.thieves)}</td><td>{fmt(p.wizards)}</td><td className="green">{val(p.be)}</td><td>{val(p.intel_age)}</td></tr>)}</tbody>
         </table>
       </div>
     </div>
+
+    {mine?.state && <div className="card"><div className="card-title">Your Province State</div><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))", gap: 10 }}>
+      {[["Total Population",fmt(mine.state.total_pop)],["Max Population",fmt(mine.state.max_pop)],["Army",fmt(mine.state.army)],["Unemployed",fmt(mine.state.unemployed)],["Daily Income",fmt(mine.state.daily_income)],["Daily Wages",fmt(mine.state.daily_wages)],["Food",fmt(mine.state.food_net_yesterday)],["Runes",fmt(mine.state.runes_net_yesterday)]].map(([k,v]) => <div key={k}><div style={{fontSize:10,opacity:.6}}>{k}</div><b>{v}</b></div>)}
+    </div></div>}
+
+    {mine?.military && <div className="card"><div className="card-title">Your Military Intel</div><div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))",gap:10}}>
+      {[["Offense",fmt(mine.military.offense)],["Defense",fmt(mine.military.defense)],["Generals",fmt(mine.military.generals)],["Offensive Specs",fmt(mine.military.o_specs)],["Soldiers",fmt(mine.military.solds)],["Elites",fmt(mine.military.elites)],["War Horses",fmt(mine.military.horses)],["SoM Age",val(mine.military.som_age)]].map(([k,v])=><div key={k}><div style={{fontSize:10,opacity:.6}}>{k}</div><b>{v}</b></div>)}
+    </div></div>}
   </div>;
 }
