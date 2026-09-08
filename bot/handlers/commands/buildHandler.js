@@ -20,7 +20,20 @@ function codeBlock(value) {
   return "```json\n" + formatJson(value) + "\n```";
 }
 
+function ruleList(items, fallback = "None listed") {
+  if (!Array.isArray(items) || !items.length) return fallback;
+  return items.map((item) => `• ${String(item)}`).join("\n").slice(0, 1024);
+}
+
+function ruleValue(profile, key, fallback = "None listed") {
+  return ruleList(profile?.[key], fallback);
+}
+
 function buildEmbed(build) {
+  const profile = build.rules_profile || {};
+  const raceRules = profile.race || {};
+  const personalityRules = profile.personality || {};
+
   const embed = new EmbedBuilder()
     .setTitle(`🧱 ${clean(build.name, "Unnamed Build")}`)
     .setDescription(clean(build.description, "No description saved."))
@@ -29,8 +42,14 @@ function buildEmbed(build) {
       { name: "Personality", value: clean(build.personality), inline: true },
       { name: "Role", value: clean(build.role), inline: true },
       { name: "Type", value: clean(build.build_type), inline: true },
+      { name: "Age", value: clean(build.age, "116"), inline: true },
       { name: "Version", value: clean(build.version), inline: true },
       { name: "Status", value: build.active ? "Active" : "Inactive", inline: true },
+      { name: "Race Bonuses", value: ruleValue(raceRules, "bonuses", ruleValue(profile, "bonuses")), inline: false },
+      { name: "Race Penalties", value: ruleValue(raceRules, "penalties", ruleValue(profile, "penalties")), inline: false },
+      { name: "Personality Bonuses", value: ruleValue(personalityRules, "bonuses"), inline: false },
+      { name: "Personality Penalties", value: ruleValue(personalityRules, "penalties"), inline: false },
+      { name: "Unique Abilities", value: [raceRules.unique, personalityRules.unique].filter(Boolean).map(String).join("\n\n").slice(0, 1024) || "None listed", inline: false },
       { name: "Buildings", value: codeBlock(build.buildings), inline: false },
       { name: "Military", value: codeBlock(build.military), inline: false },
       { name: "Science", value: codeBlock(build.science), inline: false },
@@ -50,7 +69,7 @@ async function getBuilds({ search, buildType }) {
 
   let query = supabase
     .from("ai_builds")
-    .select("id,name,description,race,personality,role,buildings,military,science,spells,thievery,priorities,notes,active,version,build_type,province_id,raw_text,created_at,updated_at")
+    .select("id,name,description,race,personality,role,buildings,military,science,spells,thievery,priorities,notes,active,version,build_type,province_id,raw_text,age,rules_profile,created_at,updated_at")
     .eq("active", true)
     .order("updated_at", { ascending: false })
     .limit(25);
