@@ -3,10 +3,15 @@ const path = require("path");
 const https = require("https");
 const { spawn } = require("child_process");
 
-const { isSpotifyUrl, resolveSpotify } = require("./spotifyResolver");
 const YTDLP_PATH = path.join("/tmp", "nexus-yt-dlp");
 const YTDLP_URL = "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp";
 const COOKIE_PATH = "/tmp/nexus-youtube-cookies.txt";
+const MAX_PLAYLIST_TRACKS = 500;
+const YOUTUBE_CLIENTS = [
+  "web_safari,tv,android_vr",
+  "tv,android_vr,web_embedded",
+  "web_embedded,android_vr",
+];
 let downloadPromise = null;
 let cookiePathPromise = null;
 
@@ -97,26 +102,15 @@ function normalizeEntry(entry, fallbackTitle) {
 }
 
 async function resolvePlaylist(sourceUrl) {
-  if (isSpotifyUrl(sourceUrl)) {
-    console.log("[MUSIC] Spotify URL detected, resolving via Spotify API...");
-    const result = await resolveSpotify(sourceUrl);
-    const tracks = result.tracks.map(t => ({
-      url: "ytsearch1:" + t.searchQuery,
-      title: t.title,
-      artist: t.artist,
-      thumbnail: t.thumbnail,
-      duration: t.duration,
-      isSpotify: true
-    }));
-    console.log("[MUSIC] Spotify resolved " + tracks.length + " track(s) from: " + result.playlistName);
-    return { playlistName: result.playlistName, tracks };
+  if (/spotify\.com\/(track|playlist|album)\//i.test(sourceUrl)) {
+    throw new Error("Spotify is not supported. Use a YouTube playlist URL.");
   }
+
   const binary = await ensureYtdlp();
   const cookiePath = await ensureCookieFile();
-  const clients = ["web_safari,tv,android_vr", "tv,android_vr,web_embedded", "web_embedded,android_vr"];
   let lastError = null;
 
-  for (const clientsArg of clients) {
+  for (const clientsArg of YOUTUBE_CLIENTS) {
     try {
       const args = [
         "--js-runtimes", "node",
@@ -136,13 +130,13 @@ async function resolvePlaylist(sourceUrl) {
       const output = await execYtdlp(binary, args);
       const data = JSON.parse(output);
       const entries = Array.isArray(data.entries) ? data.entries : [];
-      const tracks = entries.map(entry => normalizeEntry(entry, data.title || "YouTube playlist")).filter(Boolean);
-      console.log(`[PLAYLIST] yt-dlp resolved ${tracks.length} track(s) from playlist: ${data.title || "YouTube playlist"}`);
+      const tracks = entries.map(entry => normalizeEntry(entry, data.title || "YouTube playlist")).filter(Boolean).slice(0, MAX_PLAYLIST_TRACKS);
+      console.log(`[PLAYLIST] YouTube resolved ${tracks.length} track(s) from playlist: ${data.title || "YouTube playlist"}`);
       if (!tracks.length) throw new Error("yt-dlp returned no playlist tracks");
       return { playlistName: data.title || "YouTube playlist", tracks };
     } catch (error) {
       lastError = error;
-      console.warn(`[PLAYLIST] yt-dlp resolve client ${clientsArg} failed: ${error.message}`);
+      console.warn(`[PLAYLIST] YouTube resolve client ${clientsArg} failed: ${error.message}`);
     }
   }
 
