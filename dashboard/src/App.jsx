@@ -33,6 +33,7 @@ import DataSteward from "./components/DataSteward";
 import RepoTools from "./components/RepoTools";
 import GameStateIntel from "./components/GameStateIntel";
 import Login from "./components/Login";
+const LOGIN_TTL_MS=24*60*60*1000;
 const GROUPS = [
   { id: "kingdom", label: "KINGDOM", color: "#fbbf24", tabs: [
     { id: "overview", label: "Overview", component: KingdomOverview }, { id: "game-state", label: "Game State", component: GameStateIntel }, { id: "news", label: "News", component: NewsPanel },
@@ -59,13 +60,14 @@ const GROUPS = [
   ] },
   { id: "tools", label: "TOOLS", color: "#60a5fa", tabs: [{ id: "repo-tools", label: "Repo Toolkit", component: RepoTools }] },
 ];
+function hasValidLogin(){const loggedAt=Number(localStorage.getItem("nexus_login_at")||0);return sessionStorage.getItem("nexus_auth")==="true"&&loggedAt>0&&Date.now()-loggedAt<LOGIN_TTL_MS;}
 export default function App(){
- const[authed,setAuthed]=useState(false),[authReady,setAuthReady]=useState(false),[activeGroup,setActiveGroup]=useState("kingdom"),[activeTab,setActiveTab]=useState("overview"),[tick,setTick]=useState(null),[configReady,setConfigReady]=useState(false);
- useEffect(()=>{let cancelled=false;async function restoreAuthorization(){const saved=sessionStorage.getItem("nexus_auth")==="true";if(!saved){if(!cancelled)setAuthReady(true);return;}const registration=await getDashboardRegistration();const allowed=registration.registered||registration.owner;if(!cancelled){if(allowed)setAuthed(true);else sessionStorage.removeItem("nexus_auth");setAuthReady(true);}}restoreAuthorization().catch(()=>{if(!cancelled){sessionStorage.removeItem("nexus_auth");sessionStorage.removeItem("nexus_province");setAuthReady(true);}});return()=>{cancelled=true;};},[]);
- useEffect(()=>{if(!authed)return undefined;let cancelled=false;loadNexusConfig().finally(()=>{if(!cancelled)setConfigReady(true);});return()=>{cancelled=true;};},[authed]);
+ const[authed,setAuthed]=useState(hasValidLogin()),[authReady,setAuthReady]=useState(false),[activeGroup,setActiveGroup]=useState("kingdom"),[activeTab,setActiveTab]=useState("overview"),[tick,setTick]=useState(null),[configReady,setConfigReady]=useState(false);
+ useEffect(()=>{let cancelled=false;async function restoreAuthorization(){if(!hasValidLogin()){sessionStorage.removeItem("nexus_auth");localStorage.removeItem("nexus_login_at");if(!cancelled)setAuthReady(true);return;}const registration=await getDashboardRegistration();const allowed=registration.registered||registration.owner;if(!cancelled){if(allowed)setAuthed(true);else{sessionStorage.removeItem("nexus_auth");localStorage.removeItem("nexus_login_at");sessionStorage.removeItem("nexus_province");setAuthed(false);}setAuthReady(true);}}restoreAuthorization().catch(()=>{if(!cancelled){sessionStorage.removeItem("nexus_auth");localStorage.removeItem("nexus_login_at");sessionStorage.removeItem("nexus_province");setAuthReady(true);}});return()=>{cancelled=true;};},[]);
+ useEffect(()=>{if(!authed)return undefined;let cancelled=false;loadNexusConfig(true).finally(()=>{if(!cancelled)setConfigReady(true);});return()=>{cancelled=true;};},[authed]);
  useEffect(()=>{let cancelled=false;function calcTick(){if(!cancelled)setTick(getTickState());}calcTick();syncNetworkClock().then(state=>{if(!cancelled)setTick(state);}).catch(()=>{});const iv=setInterval(calcTick,1000);const syncIv=setInterval(()=>{syncNetworkClock().then(state=>{if(!cancelled)setTick(state);}).catch(()=>{});},5*60*1000);return()=>{cancelled=true;clearInterval(iv);clearInterval(syncIv);};},[]);
  if(!authReady)return <div className="loading">Checking Nexus authorization...</div>;
- if(!authed)return <Login onAuth={result=>{sessionStorage.setItem("nexus_auth","true");if(result?.province?.name)sessionStorage.setItem("nexus_province",result.province.name);setAuthed(true);}}/>;
+ if(!authed)return <Login onAuth={result=>{sessionStorage.setItem("nexus_auth","true");localStorage.setItem("nexus_login_at",String(Date.now()));if(result?.province?.name)sessionStorage.setItem("nexus_province",result.province.name);setAuthed(true);}}/>;
  if(!configReady)return <div className="loading">Loading current kingdom context...</div>;
  const currentGroup=GROUPS.find(g=>g.id===activeGroup),currentTab=currentGroup?.tabs.find(t=>t.id===activeTab),TabComponent=currentTab?.component;
  function switchGroup(gid){setActiveGroup(gid);const grp=GROUPS.find(g=>g.id===gid);if(grp)setActiveTab(grp.tabs[0].id);}
