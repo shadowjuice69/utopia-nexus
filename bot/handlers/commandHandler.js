@@ -56,5 +56,17 @@ for(const [group,commands] of Object.entries(COMMAND_GROUPS))for(const [subcomma
 const top={me:savageHandler,prov:savageHandler,lookup:savageHandler,links:savageHandler,invest:savageInvest,compare:savageHandler,wars:savageWars,militaryplans:savageHandler,mp:savageHandler,orders:savageHandler,ledger:savageHandler,pin:savageHandler,unpin:savageHandler,settz:savageHandler,quiet:savageHandler,op:savageHandler,find:savageHandler,help:savageHandler};
 for(const [name,handler] of Object.entries(top))commandRegistry.register(name,"",handler,{requiresRegistration:!OPEN_COMMANDS.has(name)});
 async function isRegistered(userId){if(permissionService.isOwner(userId))return true;return nexusIdentity.isRegistered(userId);}
-module.exports=async function commandHandler(interaction){const command=interaction.commandName;const subcommand=interaction.options.getSubcommand(false)||"";const entry=commandRegistry.get(command,subcommand);console.log(`[${command}] ${subcommand||"(top-level)"}`);if(!entry)return interaction.reply({content:`❌ Unknown command: /${command}${subcommand?` ${subcommand}`:""}`,ephemeral:true});if(!commandAccess.canAccess(entry,interaction.user,permissionService))return interaction.reply({content:commandAccess.denialMessage(entry),ephemeral:true});if(entry.requiresRegistration&&!permissionService.isOwner(interaction.user.id)&&!(await isRegistered(interaction.user.id)))return interaction.reply({content:"❌ You need to register first. Use `/utopia register` to get started.",ephemeral:true});try{interaction.nexusIdentity=await nexusIdentity.resolve(interaction.user.id);}catch(e){console.error("[NEXUS IDENTITY RESOLVE]",e.message);interaction.nexusIdentity=null;}return entry.handler(interaction);};
+module.exports=async function commandHandler(interaction){
+  const command=interaction.commandName;
+  let subcommand="";
+  try{subcommand=interaction.options.getSubcommand(false)||"";}catch(_){subcommand="";}
+  let entry=commandRegistry.get(command,subcommand);
+  if(!entry && !subcommand) entry=commandRegistry.get(command,"");
+  console.log(`[${command}] ${subcommand||"(top-level)"} entry=${entry?"found":"missing"}`);
+  if(!entry)return interaction.reply({content:`❌ Unknown command: /${command}${subcommand?` ${subcommand}`:""}`,ephemeral:true});
+  if(!commandAccess.canAccess(entry,interaction.user,permissionService))return interaction.reply({content:commandAccess.denialMessage(entry),ephemeral:true});
+  if(entry.requiresRegistration&&!permissionService.isOwner(interaction.user.id)&&!(await isRegistered(interaction.user.id)))return interaction.reply({content:"❌ You need to register first. Use `/utopia register` to get started.",ephemeral:true});
+  try{interaction.nexusIdentity=await nexusIdentity.resolve(interaction.user.id);}catch(e){console.error("[NEXUS IDENTITY RESOLVE]",e.message);interaction.nexusIdentity=null;}
+  try{return await entry.handler(interaction);}catch(e){console.error(`[COMMAND HANDLER] /${command}${subcommand?` ${subcommand}`:""}`,e);if(!interaction.replied&&!interaction.deferred)return interaction.reply({content:`❌ ${e.message||"Command failed."}`,ephemeral:true});throw e;}
+};
 module.exports.commandRegistry=commandRegistry;
