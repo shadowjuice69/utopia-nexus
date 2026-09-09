@@ -32,6 +32,20 @@ const buildCommand = {
 const stewardCommand = {
   name: 'steward', description: 'Control the Nexus Data Steward', options: [{ name: 'dm', description: 'Send a DM through the Nexus Steward', type: 1, options: [{ name: 'user', description: 'Discord user to receive the DM', type: 6, required: true }, { name: 'message', description: 'Message the Steward should send', type: 3, required: true, max_length: 2000 }] }]
 };
+const intelCommand = {
+  name: 'intel', description: 'Kingdom intelligence and operations', options: [
+    { name: 'check', description: 'Intel coverage matrix and missing pages', type: 1 },
+    { name: 'capturehealth', description: 'Capture freshness and arrival health', type: 1 },
+    { name: 'incoming', description: 'Incoming land and armies', type: 1 },
+    { name: 'eta', description: 'Your armies returning home', type: 1 },
+    { name: 'status', description: 'Your complete current province status', type: 1 },
+    { name: 'left', description: 'Kingdom leftover offense at home', type: 1 },
+    { name: 'plunders', description: 'Rank current plunder candidates', type: 1 },
+    { name: 'survey', description: 'Show captured building survey', type: 1, options: [{ name: 'province', description: 'Province name or partial name', type: 3, required: true }] },
+    { name: 'oprate', description: 'Kingdom operation success rates', type: 1 },
+    { name: 'kdecon', description: 'Kingdom economy and income overview', type: 1 }
+  ]
+};
 
 function patchInvestCommand(command) {
   if (!command || command.name !== 'calc') return command;
@@ -54,10 +68,10 @@ async function register(client) {
   for (const guildId of guildIds) {
     const route = Routes.applicationGuildCommands(clientId, guildId);
     const existing = await rest.get(route);
-    const preserved = existing.filter(command => !['music', 'playlist', 'build', 'steward'].includes(command.name)).map(patchInvestCommand);
-    await rest.put(route, { body: [...preserved, musicCommand, playlistCommand, buildCommand, stewardCommand] });
-    console.log(`[COMMANDS] Registered music, playlist, build, steward, and patched /calc invest for guild ${guildId}`);
+    const preserved = existing.filter(command => !['music', 'playlist', 'build', 'steward', 'intel'].includes(command.name)).map(patchInvestCommand);
+    await rest.put(route, { body: [...preserved, musicCommand, playlistCommand, buildCommand, stewardCommand, intelCommand] });
+    console.log(`[COMMANDS] Registered grouped intel category plus music, playlist, build, steward for guild ${guildId}`);
   }
 }
 
-module.exports = { register, musicCommand, playlistCommand, buildCommand, stewardCommand };
+module.exports = { register, musicCommand, playlistCommand, buildCommand, stewardCommand, intelCommand };
