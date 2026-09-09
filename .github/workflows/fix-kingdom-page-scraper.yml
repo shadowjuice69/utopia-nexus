@@ -27,6 +27,68 @@ jobs:
         run: |
           set -e
           python3 -c 'from pathlib import Path; p=Path("bot/services/intelReceiver.js"); t=p.read_text(); old="    result.data = { offense, defense, generals, troops, armies };"; new="    if (offense == null || defense == null || generals == null || Object.keys(troops).length === 0) {\n      const rawLines = text.split(/\\r?\\n/).map(s => s.trim()).filter(Boolean);\n      for (const line of rawLines) {\n        let m = line.match(/^(?:Net\\s+)?Offensive(?:\\s+Points)?(?:\\s+at\\s+Home)?\\s*[:\\t]+([\\d,]+)/i);\n        if (m && offense == null) offense = parseInt(m[1].replace(/,/g, \"\"), 10);\n        m = line.match(/^(?:Net\\s+)?Defensive(?:\\s+Points)?(?:\\s+at\\s+Home)?\\s*[:\\t]+([\\d,]+)/i);\n        if (m && defense == null) defense = parseInt(m[1].replace(/,/g, \"\"), 10);\n        m = line.match(/^Generals(?:\\s+available)?\\s*[:\\t]+(\\d+)/i);\n        if (m && generals == null) generals = parseInt(m[1], 10);\n      }\n      const parsedArmies = parseArmies(text);\n      if (parsedArmies.length > 0) armies.push(...parsedArmies);\n    }\n    result.data = { offense, defense, generals, troops, armies, raw: text };"; assert old in t; p.write_text(t.replace(old,new))'
+      - name: Patch province attribution
+        shell: bash
+        run: |
+          set -e
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("bot/services/intelReceiver.js")
+          t = p.read_text()
+          marker = "async function saveRawPageIntel(sb, parsed, prov) {"
+          helper = r'''function isClearlyInvalidProvince(value) {
+            const s = String(value || "").trim();
+            if (!s) return true;
+            if (s.length > 80) return true;
+            if (/^(unknown|intel-site|null|undefined)$/i.test(s)) return true;
+            if (/^(January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2}\s+of\s+YR\d+/i.test(s)) return true;
+            if (/^\d{1,2}\s+of\s+YR\d+/i.test(s)) return true;
+            if (/\b(?:Early indications|Our thieves listen|Query completed|confidence in the information retrieved)\b/i.test(s)) return true;
+            return false;
+          }
+
+          async function resolveProvinceForIntel(sb, candidate, kd) {
+            const value = String(candidate || "").trim();
+            if (isClearlyInvalidProvince(value)) return null;
+            if (!kd) return null;
+            try {
+              const { data, error } = await sb.from("provinces")
+                .select("name")
+                .eq("kd_code", kd)
+                .eq("name", value)
+                .limit(1);
+              if (error) {
+                logger.error(`[PROVINCE VALIDATION ERROR] ${error.message}`);
+                return null;
+              }
+              return data && data.length ? data[0].name : null;
+            } catch (e) {
+              logger.error(`[PROVINCE VALIDATION CATCH] ${e.message}`);
+              return null;
+            }
+          }
+          '''
+          if "function isClearlyInvalidProvince(value)" not in t:
+              assert marker in t, "saveRawPageIntel marker not found"
+              t = t.replace(marker, helper + "\n" + marker, 1)
+
+          old = '      province: prov || parsed.prov || null,'
+          new = '      province: prov || null,'
+          assert old in t, "raw page province assignment not found"
+          t = t.replace(old, new, 1)
+
+          old2 = 'async function saveIntel(parsed, prov) {\n  const sb = supabaseService.getClient();\n  if (!sb) return;\n  await saveRawPageIntel(sb, parsed, prov);'
+          new2 = '''async function saveIntel(parsed, prov) {
+  const sb = supabaseService.getClient();
+  if (!sb) return;
+  const kdForProvince = parsed.kd || MY_KD;
+  const rawProv = prov || parsed.prov || null;
+  prov = await resolveProvinceForIntel(sb, rawProv, kdForProvince);
+  await saveRawPageIntel(sb, parsed, prov);'''
+          assert old2 in t, "saveIntel start not found"
+          t = t.replace(old2, new2, 1)
+          p.write_text(t)
+          PY
       - name: Commit patch
         shell: bash
         run: |
@@ -34,6 +96,6 @@ jobs:
           if git diff --quiet; then exit 0; fi
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add tampermonkey/nexus-scraper.user.js tampermonkey/nexus-scraper-v7.0.5.user.txt bot/services/intelReceiver.js
-          git commit -m 'Apply kingdom and military parser fixes'
+          git add tampermonkey/nexus-scraper.user.js tampermonkey/nexus-scraper-v7.0.5.user.txt bot/services/intelReceiver.js .github/workflows/fix-kingdom-page-scraper.yml
+          git commit -m 'Harden Intel province attribution'
           git push origin HEAD:main
