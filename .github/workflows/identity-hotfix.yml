@@ -5,16 +5,17 @@ on:
     branches: [main]
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  hotfix:
+  verify:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Verify identity safeguards
+      - name: Verify cross-user identity protections
+        shell: bash
         run: |
           set -e
-          grep -q 'eq("kd_code", parsed.kd)' bot/services/intelReceiver.js || true
-          grep -q 'getOwnPageIdentity' tampermonkey/nexus-scraper.user.js || true
-          echo 'Identity safeguard workflow completed.'
+          grep -q 'getOwnPageIdentity' tampermonkey/nexus-scraper.user.js
+          grep -q 'eq("kd_code", parsed.kd)' bot/services/intelReceiver.js
+          echo 'Cross-user identity protections present.'
