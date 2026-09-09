@@ -272,7 +272,7 @@ function scrapeKingdomPage(callback) {
   let payload = {
     key: KEY,
     source: "kingdom-page",
-    kd: kdCode || MY_KD,
+    kd: kdCode,
     kd_name: kdName,
     tab: "kingdom",
     prov: "Unknown",
@@ -389,56 +389,40 @@ function getOwnPageIdentity() {
 }
 
 function getProvinceName() {
-  let text = document.body.innerText;
-  let patterns = [
-    /The Province of\s+(.+?)\s*\(/i,
-    /The Province of\s+(.+)/i,
-    /Province Name\s*[:\t]\s*(.+)/i
-  ];
-  for (let p of patterns) {
-    let m = text.match(p);
+  const ownPages = ["throne", "council_military", "council_internal", "council_science", "council_state", "province_news", "province_logs", "kingdom_news"];
+  if (ownPages.some(p => location.href.includes(p))) {
+    const own = getOwnPageIdentity();
+    return own.province || "Unknown";
+  }
+  const text = document.body ? document.body.innerText : "";
+  const patterns = [/The Province of\s+(.+?)\s*\(/i, /The Province of\s+(.+)/i, /Province Name\s*[:\t]\s*(.+)/i];
+  for (const pattern of patterns) {
+    const m = text.match(pattern);
     if (m) return m[1].trim().replace(/\s+/g, " ");
   }
-  // SoM format: "Province Name, we have N generals available..."
-  let som = text.match(/^([^,\n]+),\s*we have \d+ generals? available/im);
+  const som = text.match(/^([^,\n]+),\s*we have \d+ generals? available/im);
   if (som) return som[1].trim().replace(/\s+/g, " ");
-  const own = getOwnPageIdentity();
-  if (own.province) return own.province;
   return "Unknown";
 }
 
 function getKD() {
-  // 1. Check URL for kd param (intel.utopia.site?kd=X:Y)
-  let urlParams = new URLSearchParams(location.search);
-  let kdParam = urlParams.get("kd");
-  if (kdParam && kdParam !== MY_KD) return kdParam;
-
-  // 2. Check dropdown on intel.utopia.site
-  let dropdown = document.querySelector('select[name="kd"], select[name="kingdom"], #kd_select');
-  if (dropdown && dropdown.value && dropdown.value !== MY_KD) return dropdown.value;
-
-  // 3. Check page URL path for X/Y pattern (intel site uses /kd/X/Y/)
-  let pathMatch = location.href.match(/\/(\d+)\/(\d+)\//);
-  if (pathMatch) {
-    let kdFromPath = pathMatch[1] + ":" + pathMatch[2];
-    if (kdFromPath !== MY_KD) return kdFromPath;
-  }
-
-  // 4. On own game pages derive the actual logged-in province/kingdom identity.
-  let ownPages = ["throne", "council_military", "council_internal", "council_science", "council_state", "province_news", "province_logs", "kingdom_news"];
+  // Own game pages are authoritative. Never fall back to MY_KD for another logged-in province.
+  const ownPages = ["throne", "council_military", "council_internal", "council_science", "council_state", "province_news", "province_logs", "kingdom_news"];
   if (ownPages.some(p => location.href.includes(p))) {
     const own = getOwnPageIdentity();
-    if (own.kd) return own.kd;
-    return "";
+    return own.kd || "";
   }
-
-  // 5. Fall back to text scan for enemy pages
-  let text = document.body ? document.body.innerText : "";
-  let matches = [...text.matchAll(/\b(\d+:\d+)\b/g)].map(m => m[1]);
-  let foreign = matches.find(k => k !== MY_KD);
-  if (foreign) return foreign;
-
-  return MY_KD;
+  const urlParams = new URLSearchParams(location.search);
+  const kdParam = urlParams.get("kd");
+  if (kdParam) return kdParam;
+  const dropdown = document.querySelector('select[name="kd"], select[name="kingdom"], #kd_select');
+  if (dropdown && dropdown.value) return dropdown.value;
+  const pathMatch = location.href.match(/\/(\d+)\/(\d+)\//);
+  if (pathMatch) return pathMatch[1] + ":" + pathMatch[2];
+  const text = document.body ? document.body.innerText : "";
+  const matches = [...text.matchAll(/\b(\d+:\d+)\b/g)].map(m => m[1]);
+  if (matches.length === 1) return matches[0];
+  return "";
 }
 
 function getTab() {
