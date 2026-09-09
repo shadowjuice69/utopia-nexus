@@ -13,28 +13,114 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Bump scraper version
+      - name: Apply identity safety patch
         run: |
           set -e
           python3 - <<'PY'
           from pathlib import Path
+          import re
+
+          scraper = Path('tampermonkey/nexus-scraper.user.js')
+          s = scraper.read_text()
           changed = False
-          for p in [Path('tampermonkey/nexus-scraper.user.js'), Path('tampermonkey/nexus-scraper-v7.0.5.user.txt')]:
-              if not p.exists():
-                  continue
-              s = p.read_text()
-              if '// @version      7.0.5' in s:
-                  p.write_text(s.replace('// @version      7.0.5', '// @version      7.0.8', 1))
-                  changed = True
-          if not changed:
-              print('No version bump needed.')
+
+          if 'function getOwnPageIdentity()' not in s:
+              anchor = 'function getProvinceName() {'
+              helper = '''function getOwnPageIdentity() {
+            const text = document.body ? document.body.innerText : "";
+            const exact = text.match(/The Province of\s+(.+?)\s*\((\d+:\d+)\)/i);
+            if (exact) return { province: exact[1].trim(), kd: exact[2] };
+            const coord = text.match(/(?:Coordinates?|Kingdom|Location)\s*[:\t]+(\d+:\d+)/i);
+            const name = text.match(/(?:Province Name|Your Province|Province)\s*[:\t]+([^\n\r]+)/i);
+            return { province: name ? name[1].trim() : "", kd: coord ? coord[1] : "" };
+          }
+
+          '''
+              if anchor not in s:
+                  raise SystemExit('scraper anchor not found')
+              s = s.replace(anchor, helper + anchor, 1)
+              changed = True
+
+          old = '  if (getKD() === MY_KD) return MY_PROVINCE;\n  return "Unknown";'
+          new = '  const own = getOwnPageIdentity();\n  if (own.province) return own.province;\n  return "Unknown";'
+          if old in s:
+              s = s.replace(old, new, 1)
+              changed = True
+
+          old = '''  // 4. On own game pages always return MY_KD
+  let ownPages = ["throne", "council_military", "council_internal", "council_science", "council_state", "province_news", "province_logs", "kingdom_news"];
+  if (ownPages.some(p => location.href.includes(p))) return MY_KD;'''
+          new = '''  // 4. On own game pages derive the actual logged-in province/kingdom identity.
+  let ownPages = ["throne", "council_military", "council_internal", "council_science", "council_state", "province_news", "province_logs", "kingdom_news"];
+  if (ownPages.some(p => location.href.includes(p))) {
+    const own = getOwnPageIdentity();
+    if (own.kd) return own.kd;
+    return "";
+  }'''
+          if old in s:
+              s = s.replace(old, new, 1)
+              changed = True
+
+          if changed:
+              scraper.write_text(s)
+
+          receiver = Path('bot/services/intelReceiver.js')
+          r = receiver.read_text()
+          rchanged = False
+          if 'Thr​​one pages contain the authoritative province name' not in r and 'The scraper used to send the bot owner global identity' not in r:
+              old = 'async function saveIntel(parsed, prov) {\n  const sb = supabaseService.getClient();'
+              new = '''async function saveIntel(parsed, prov) {
+  const sb = supabaseService.getClient();
+  // Throne pages contain the authoritative province name + coordinates.
+  if (parsed.type === "throne" && parsed.data) {
+    if (parsed.data.name) prov = parsed.data.name;
+    if (parsed.data.coordinates) parsed.kd = parsed.data.coordinates;
+  }'''
+              if old not in r:
+                  raise SystemExit('receiver saveIntel anchor not found')
+              r = r.replace(old, new, 1)
+              rchanged = True
+
+              pattern = re.compile(r'''      const myKd = process\.env\.MY_KD;\n      if \(parsed\.kd === myKd\) \{.*?\n      \}\n''', re.S)
+              replacement = '''      const myKd = process.env.MY_KD;
+      if (parsed.kd === myKd && prov) {
+        const d = parsed.data;
+        const provUpdate = {};
+        if (d.land) provUpdate.acres = d.land;
+        if (d.networth) provUpdate.nw = d.networth;
+        if (d.offense) provUpdate.off = d.offense;
+        if (d.defense) provUpdate.def = d.defense;
+        if (d.be) provUpdate.be = d.be;
+        if (d.race) provUpdate.race = d.race;
+        if (d.peasants) provUpdate.peons = d.peasants;
+        if (d.thieves) provUpdate.thieves = Number(d.thieves) || 0;
+        if (d.wizards) provUpdate.wizards = Number(d.wizards) || 0;
+        if (d.spells) provUpdate.good_spells = d.spells;
+        if (parsed.kd) provUpdate.kd_code = parsed.kd;
+        provUpdate.updated_at = new Date().toISOString();
+        const { error: provErr } = await sb.from("provinces")
+          .update(provUpdate)
+          .eq("name", prov)
+          .eq("kd_code", parsed.kd);
+        if (provErr) logger.error(`[PROVINCE UPDATE ERROR] ${provErr.message}`);
+      }
+'''
+              r, n = pattern.subn(replacement, r, count=1)
+              if n != 1:
+                  raise SystemExit(f'receiver owner-sync block not found: {n}')
+              receiver.write_text(r)
+
+          if changed or rchanged:
+              print('Identity safety patch applied.')
+          else:
+              print('Identity safety patch already present.')
           PY
-      - name: Commit version bump
+      - name: Commit identity patch
         run: |
           set -e
           if git diff --quiet; then exit 0; fi
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add tampermonkey/nexus-scraper.user.js tampermonkey/nexus-scraper-v7.0.5.user.txt
-          git commit -m 'Bump scraper to v7.0.8'
+          git add tampermonkey/nexus-scraper.user.js bot/services/intelReceiver.js
+          git commit -m 'fix: identity hotfix applied'
           git push origin HEAD:main
