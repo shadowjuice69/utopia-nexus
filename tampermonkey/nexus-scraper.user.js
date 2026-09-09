@@ -379,6 +379,15 @@ function scrapeProvinceTable() {
 
 // ─── ORIGINAL v5.0 FUNCTIONS (unchanged) ─────────────────────────────────────
 
+function getOwnPageIdentity() {
+  const text = document.body ? document.body.innerText : "";
+  const exact = text.match(/The Province of\s+(.+?)\s*\((\d+:\d+)\)/i);
+  if (exact) return { province: exact[1].trim(), kd: exact[2] };
+  const coord = text.match(/(?:Coordinates?|Kingdom|Location)\s*[:\t]+(\d+:\d+)/i);
+  const name = text.match(/(?:Province Name|Your Province|Province)\s*[:\t]+([^\n\r]+)/i);
+  return { province: name ? name[1].trim() : "", kd: coord ? coord[1] : "" };
+}
+
 function getProvinceName() {
   let text = document.body.innerText;
   let patterns = [
@@ -393,7 +402,8 @@ function getProvinceName() {
   // SoM format: "Province Name, we have N generals available..."
   let som = text.match(/^([^,\n]+),\s*we have \d+ generals? available/im);
   if (som) return som[1].trim().replace(/\s+/g, " ");
-  if (getKD() === MY_KD) return MY_PROVINCE;
+  const own = getOwnPageIdentity();
+  if (own.province) return own.province;
   return "Unknown";
 }
 
@@ -414,9 +424,13 @@ function getKD() {
     if (kdFromPath !== MY_KD) return kdFromPath;
   }
 
-  // 4. On own game pages always return MY_KD
+  // 4. On own game pages derive the actual logged-in province/kingdom identity.
   let ownPages = ["throne", "council_military", "council_internal", "council_science", "council_state", "province_news", "province_logs", "kingdom_news"];
-  if (ownPages.some(p => location.href.includes(p))) return MY_KD;
+  if (ownPages.some(p => location.href.includes(p))) {
+    const own = getOwnPageIdentity();
+    if (own.kd) return own.kd;
+    return "";
+  }
 
   // 5. Fall back to text scan for enemy pages
   let text = document.body ? document.body.innerText : "";

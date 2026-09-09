@@ -265,6 +265,11 @@ async function saveRawPageIntel(sb, parsed, prov) {
 
 async function saveIntel(parsed, prov) {
   const sb = supabaseService.getClient();
+  // Throne pages contain the authoritative province name + coordinates.
+  if (parsed.type === "throne" && parsed.data) {
+    if (parsed.data.name) prov = parsed.data.name;
+    if (parsed.data.coordinates) parsed.kd = parsed.data.coordinates;
+  }
   if (!sb) return;
   await saveRawPageIntel(sb, parsed, prov);
   try {
@@ -283,7 +288,7 @@ async function saveIntel(parsed, prov) {
       logger.info(`[THRONE RESULT] data=${JSON.stringify(data)} error=${JSON.stringify(error)}`);
       logger.info(`[THRONE SAVED] ${prov}`);
       const myKd = process.env.MY_KD;
-      if (parsed.kd === myKd) {
+      if (parsed.kd === myKd && prov) {
         const d = parsed.data;
         const provUpdate = {};
         if (d.land) provUpdate.acres = d.land;
@@ -298,9 +303,11 @@ async function saveIntel(parsed, prov) {
         if (d.spells) provUpdate.good_spells = d.spells;
         if (parsed.kd) provUpdate.kd_code = parsed.kd;
         provUpdate.updated_at = new Date().toISOString();
-        const { error: provErr } = await sb.from("provinces").update(provUpdate).eq("name", prov);
+        const { error: provErr } = await sb.from("provinces")
+          .update(provUpdate)
+          .eq("name", prov)
+          .eq("kd_code", parsed.kd);
         if (provErr) logger.error(`[PROVINCE UPDATE ERROR] ${provErr.message}`);
-        else logger.info(`[PROVINCE UPDATED] ${prov}`);
       }
     } else if (parsed.type === "science") {
       const sci = parsed.data.science || {};
