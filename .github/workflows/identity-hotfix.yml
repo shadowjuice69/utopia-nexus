@@ -9,7 +9,6 @@ permissions:
 
 jobs:
   hotfix:
-    if: ${{ !contains(github.event.head_commit.message, 'identity hotfix applied') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -25,15 +24,16 @@ jobs:
           scraper = Path('tampermonkey/nexus-scraper.user.js')
           s = scraper.read_text()
 
-          # Stop treating the bot owner's 6:9 identity as every logged-in player's identity.
-          if 'function getOwnPageIdentity()' not in s:
+          if 'function getOwnPageIdentity()' in s and 'actual logged-in province/kingdom identity' in s:
+              print('Identity scraper patch already present')
+          else:
               anchor = 'function getProvinceName() {'
               helper = '''function getOwnPageIdentity() {
             const text = document.body ? document.body.innerText : "";
-            const exact = text.match(/The Province of\\s+(.+?)\\s*\\((\\d+:\\d+)\\)/i);
+            const exact = text.match(/The Province of\s+(.+?)\s*\((\d+:\d+)\)/i);
             if (exact) return { province: exact[1].trim(), kd: exact[2] };
-            const coord = text.match(/(?:Coordinates?|Kingdom|Location)\\s*[:\\t]+(\\d+:\\d+)/i);
-            const name = text.match(/(?:Province Name|Your Province|Province)\\s*[:\\t]+([^\\n\\r]+)/i);
+            const coord = text.match(/(?:Coordinates?|Kingdom|Location)\s*[:\t]+(\d+:\d+)/i);
+            const name = text.match(/(?:Province Name|Your Province|Province)\s*[:\t]+([^\n\r]+)/i);
             return {
               province: name ? name[1].trim() : "",
               kd: coord ? coord[1] : ""
@@ -45,83 +45,84 @@ jobs:
                   raise SystemExit('scraper anchor not found')
               s = s.replace(anchor, helper + anchor, 1)
 
-          # getProvinceName: exact page identity first; never fall back to Daddy Long Legs for another login.
-          old = '  if (getKD() === MY_KD) return MY_PROVINCE;\n  return "Unknown";'
-          new = '  const own = getOwnPageIdentity();\n  if (own.province) return own.province;\n  return "Unknown";'
-          if old in s:
+              old = '  if (getKD() === MY_KD) return MY_PROVINCE;\n  return "Unknown";'
+              new = '  const own = getOwnPageIdentity();\n  if (own.province) return own.province;\n  return "Unknown";'
+              if old not in s:
+                  raise SystemExit('scraper province fallback not found')
               s = s.replace(old, new, 1)
 
-          # getKD: on own pages derive the actual logged-in kingdom from the page, not MY_KD.
-          old = '''  // 4. On own game pages always return MY_KD
-          let ownPages = ["throne", "council_military", "council_internal", "council_science", "council_state", "province_news", "province_logs", "kingdom_news"];
-          if (ownPages.some(p => location.href.includes(p))) return MY_KD;'''
-          new = '''  // 4. On own game pages derive the actual logged-in province/kingdom identity.
-          let ownPages = ["throne", "council_military", "council_internal", "council_science", "council_state", "province_news", "province_logs", "kingdom_news"];
-          if (ownPages.some(p => location.href.includes(p))) {
-            const own = getOwnPageIdentity();
-            if (own.kd) return own.kd;
-            // Do not invent the owner's kingdom when the page identity cannot be read.
-            return "";
-          }'''
-          if old not in s:
-              raise SystemExit('scraper getKD block not found')
-          s = s.replace(old, new, 1)
-          scraper.write_text(s)
+              old = '''  // 4. On own game pages always return MY_KD
+  let ownPages = ["throne", "council_military", "council_internal", "council_science", "council_state", "province_news", "province_logs", "kingdom_news"];
+  if (ownPages.some(p => location.href.includes(p))) return MY_KD;'''
+              new = '''  // 4. On own game pages derive the actual logged-in province/kingdom identity.
+  let ownPages = ["throne", "council_military", "council_internal", "council_science", "council_state", "province_news", "province_logs", "kingdom_news"];
+  if (ownPages.some(p => location.href.includes(p))) {
+    const own = getOwnPageIdentity();
+    if (own.kd) return own.kd;
+    return "";
+  }'''
+              if old not in s:
+                  raise SystemExit('scraper getKD block not found')
+              s = s.replace(old, new, 1)
+              scraper.write_text(s)
 
           receiver = Path('bot/services/intelReceiver.js')
           r = receiver.read_text()
 
-          # Trust the actual throne identity parsed from the page over stale client globals.
-          old = 'async function saveIntel(parsed, prov) {\n  const sb = supabaseService.getClient();'
-          new = '''async function saveIntel(parsed, prov) {
-          const sb = supabaseService.getClient();
-          // The scraper used to send the bot owner's global MY_KD/MY_PROVINCE for
-          // every logged-in player. Throne pages contain the authoritative province
-          // name + coordinates, so use those parsed values before any persistence.
-          if (parsed.type === "throne" && parsed.data) {
-            if (parsed.data.name) prov = parsed.data.name;
-            if (parsed.data.coordinates) parsed.kd = parsed.data.coordinates;
-          }'''
-          if old not in r:
-              raise SystemExit('receiver saveIntel anchor not found')
-          r = r.replace(old, new, 1)
+          if 'The scraper used to send the bot owner' in r:
+              print('Receiver identity patch already present')
+          else:
+              old = 'async function saveIntel(parsed, prov) {\n  const sb = supabaseService.getClient();'
+              new = '''async function saveIntel(parsed, prov) {
+  const sb = supabaseService.getClient();
+  // The scraper used to send the bot owner global identity for every logged-in player.
+  // Throne pages contain the authoritative province name + coordinates.
+  if (parsed.type === "throne" && parsed.data) {
+    if (parsed.data.name) prov = parsed.data.name;
+    if (parsed.data.coordinates) parsed.kd = parsed.data.coordinates;
+  }'''
+              if old not in r:
+                  raise SystemExit('receiver saveIntel anchor not found')
+              r = r.replace(old, new, 1)
 
-          # Never update a province row by name alone. Scope the owner's sync to the
-          # same kingdom that was actually parsed from the page.
-          pattern = re.compile(r'''      const myKd = process\.env\.MY_KD;\n      if \(parsed\.kd === myKd\) \{.*?\n      \}\n''', re.S)
-          replacement = '''      const myKd = process.env.MY_KD;
-          if (parsed.kd === myKd && prov) {
-            const d = parsed.data;
-            const provUpdate = {};
-            if (d.land) provUpdate.acres = d.land;
-            if (d.networth) provUpdate.nw = d.networth;
-            if (d.offense) provUpdate.off = d.offense;
-            if (d.defense) provUpdate.def = d.defense;
-            if (d.be) provUpdate.be = d.be;
-            if (d.race) provUpdate.race = d.race;
-            if (d.peasants) provUpdate.peons = d.peasants;
-            if (d.thieves) provUpdate.thieves = Number(d.thieves) || 0;
-            if (d.wizards) provUpdate.wizards = Number(d.wizards) || 0;
-            if (d.spells) provUpdate.good_spells = d.spells;
-            if (parsed.kd) provUpdate.kd_code = parsed.kd;
-            provUpdate.updated_at = new Date().toISOString();
-            const { error: provErr } = await sb.from("provinces")
-              .update(provUpdate)
-              .eq("name", prov)
-              .eq("kd_code", parsed.kd);
-            if (provErr) logger.error(`[PROVINCE UPDATE ERROR] ${provErr.message}`);
-          }
+              pattern = re.compile(r'''      const myKd = process\.env\.MY_KD;\n      if \(parsed\.kd === myKd\) \{.*?\n      \}\n''', re.S)
+              replacement = '''      const myKd = process.env.MY_KD;
+      if (parsed.kd === myKd && prov) {
+        const d = parsed.data;
+        const provUpdate = {};
+        if (d.land) provUpdate.acres = d.land;
+        if (d.networth) provUpdate.nw = d.networth;
+        if (d.offense) provUpdate.off = d.offense;
+        if (d.defense) provUpdate.def = d.defense;
+        if (d.be) provUpdate.be = d.be;
+        if (d.race) provUpdate.race = d.race;
+        if (d.peasants) provUpdate.peons = d.peasants;
+        if (d.thieves) provUpdate.thieves = Number(d.thieves) || 0;
+        if (d.wizards) provUpdate.wizards = Number(d.wizards) || 0;
+        if (d.spells) provUpdate.good_spells = d.spells;
+        if (parsed.kd) provUpdate.kd_code = parsed.kd;
+        provUpdate.updated_at = new Date().toISOString();
+        const { error: provErr } = await sb.from("provinces")
+          .update(provUpdate)
+          .eq("name", prov)
+          .eq("kd_code", parsed.kd);
+        if (provErr) logger.error(`[PROVINCE UPDATE ERROR] ${provErr.message}`);
+      }
 '''
-          r2, n = pattern.subn(replacement, r, count=1)
-          if n != 1:
-              raise SystemExit(f'receiver owner-sync block not found: {n}')
-          receiver.write_text(r2)
+              r, n = pattern.subn(replacement, r, count=1)
+              if n != 1:
+                  raise SystemExit(f'receiver owner-sync block not found: {n}')
+              receiver.write_text(r)
           PY
 
-      - name: Commit hotfix
+      - name: Commit patched files
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add tampermonkey/nexus-scraper.user.js bot/services/intelReceiver.js
-          git diff --cached --quiet || git commit -m "fix: identity hotfix applied"
-          git push
+          if git diff --cached --quiet; then
+            echo "No changes needed"
+          else
+            git commit -m "fix: identity hotfix applied"
+            git push
+          fi
