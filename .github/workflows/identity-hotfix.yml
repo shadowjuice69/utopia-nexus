@@ -8,95 +8,113 @@ permissions:
   contents: write
 
 jobs:
-  verify:
+  repair:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Patch scraper directly
+        uses: actions/github-script@v9
         with:
-          fetch-depth: 0
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const path = 'tampermonkey/nexus-scraper.user.js';
+            const file = await github.rest.repos.getContent({owner, repo, path, ref: 'main'});
+            const sha = file.data.sha;
+            let s = Buffer.from(file.data.content, 'base64').toString('utf8');
 
-      - name: Apply identity safeguards
-        run: |
-          set -e
-          python3 - <<'PY'
-          from pathlib import Path
+            const province = `function getProvinceName() {
+              const ownPages = ["throne", "council_military", "council_internal", "council_science", "council_state", "province_news", "province_logs", "kingdom_news"];
+              if (ownPages.some(p => location.href.includes(p))) {
+                const own = getOwnPageIdentity();
+                return own.province || "Unknown";
+              }
+              const text = document.body ? document.body.innerText : "";
+              const patterns = [/The Province of\\s+(.+?)\\s*\\(/i, /The Province of\\s+(.+)/i, /Province Name\\s*[:\\t]\\s*(.+)/i];
+              for (const pattern of patterns) {
+                const m = text.match(pattern);
+                if (m) return m[1].trim().replace(/\\s+/g, " ");
+              }
+              const som = text.match(/^([^,\\n]+),\\s*we have \\d+ generals? available/im);
+              if (som) return som[1].trim().replace(/\\s+/g, " ");
+              return "Unknown";
+            }`;
 
-          p = Path('tampermonkey/nexus-scraper.user.js')
-          s = p.read_text()
+            const kd = `function getKD() {
+              // Own game pages are authoritative. Never fall back to MY_KD for another logged-in province.
+              const ownPages = ["throne", "council_military", "council_internal", "council_science", "council_state", "province_news", "province_logs", "kingdom_news"];
+              if (ownPages.some(p => location.href.includes(p))) {
+                const own = getOwnPageIdentity();
+                return own.kd || "";
+              }
+              const urlParams = new URLSearchParams(location.search);
+              const kdParam = urlParams.get("kd");
+              if (kdParam) return kdParam;
+              const dropdown = document.querySelector('select[name="kd"], select[name="kingdom"], #kd_select');
+              if (dropdown && dropdown.value) return dropdown.value;
+              const pathMatch = location.href.match(/\\/(\\d+)\\/(\\d+)\\//);
+              if (pathMatch) return pathMatch[1] + ":" + pathMatch[2];
+              const text = document.body ? document.body.innerText : "";
+              const matches = [...text.matchAll(/\\b(\\d+:\\d+)\\b/g)].map(m => m[1]);
+              if (matches.length === 1) return matches[0];
+              return "";
+            }`;
 
-          province = '\n'.join([
-              'function getProvinceName() {',
-              '  const ownPages = ["throne", "council_military", "council_internal", "council_science", "council_state", "province_news", "province_logs", "kingdom_news"];',
-              '  if (ownPages.some(p => location.href.includes(p))) {',
-              '    const own = getOwnPageIdentity();',
-              '    return own.province || "Unknown";',
-              '  }',
-              '  const text = document.body ? document.body.innerText : "";',
-              '  const patterns = [/The Province of\\s+(.+?)\\s*\\(/i, /The Province of\\s+(.+)/i, /Province Name\\s*[:\\t]\\s*(.+)/i];',
-              '  for (const pattern of patterns) {',
-              '    const m = text.match(pattern);',
-              '    if (m) return m[1].trim().replace(/\\s+/g, " ");',
-              '  }',
-              '  const som = text.match(/^([^,\\n]+),\\s*we have \\d+ generals? available/im);',
-              '  if (som) return som[1].trim().replace(/\\s+/g, " ");',
-              '  return "Unknown";',
-              '}'
-          ])
-          a = s.index('function getProvinceName() {')
-          b = s.index('\n}\n\nfunction getKD()', a) + 2
-          s = s[:a] + province + s[b:]
+            const a1 = s.indexOf('function getProvinceName() {');
+            const b1 = s.indexOf('\n}\n\nfunction getKD()', a1) + 2;
+            if (a1 < 0 || b1 < 2) throw new Error('getProvinceName boundaries not found');
+            s = s.slice(0, a1) + province + s.slice(b1);
 
-          kd = '\n'.join([
-              'function getKD() {',
-              '  // Own game pages are authoritative. Never fall back to MY_KD for another logged-in province.',
-              '  const ownPages = ["throne", "council_military", "council_internal", "council_science", "council_state", "province_news", "province_logs", "kingdom_news"];',
-              '  if (ownPages.some(p => location.href.includes(p))) {',
-              '    const own = getOwnPageIdentity();',
-              '    return own.kd || "";',
-              '  }',
-              '  const urlParams = new URLSearchParams(location.search);',
-              '  const kdParam = urlParams.get("kd");',
-              '  if (kdParam) return kdParam;',
-              '  const dropdown = document.querySelector(\'select[name="kd"], select[name="kingdom"], #kd_select\');',
-              '  if (dropdown && dropdown.value) return dropdown.value;',
-              '  const pathMatch = location.href.match(/\\/(\\d+)\\/(\\d+)\\//);',
-              '  if (pathMatch) return pathMatch[1] + ":" + pathMatch[2];',
-              '  const text = document.body ? document.body.innerText : "";',
-              '  const matches = [...text.matchAll(/\\b(\\d+:\\d+)\\b/g)].map(m => m[1]);',
-              '  if (matches.length === 1) return matches[0];',
-              '  return "";',
-              '}'
-          ])
-          a = s.index('function getKD() {')
-          b = s.index('\n}\n\nfunction getTab()', a) + 2
-          s = s[:a] + kd + s[b:]
+            const a2 = s.indexOf('function getKD() {');
+            const b2 = s.indexOf('\n}\n\nfunction getTab()', a2) + 2;
+            if (a2 < 0 || b2 < 2) throw new Error('getKD boundaries not found');
+            s = s.slice(0, a2) + kd + s.slice(b2);
 
-          s = s.replace('kd: kdCode || MY_KD,', 'kd: kdCode,')
+            s = s.replace('kd: kdCode || MY_KD,', 'kd: kdCode,');
 
-          if 'Kingdom code unavailable — not sending' not in s:
-              marker = 'let kdCode = getKD();'
-              pos = s.find(marker, s.find('function scrapeKingdomPage'))
-              if pos != -1:
-                  insert = '\n  if (!kdCode) {\n    setStatus("Kingdom code unavailable — not sending", false);\n    return;\n  }'
-                  pos2 = pos + len(marker)
-                  s = s[:pos2] + insert + s[pos2:]
+            if (!s.includes('Kingdom code unavailable — not sending')) {
+              const fn = s.indexOf('function scrapeKingdomPage');
+              const marker = 'let kdCode = getKD();';
+              const pos = s.indexOf(marker, fn);
+              if (fn >= 0 && pos >= 0) {
+                const end = pos + marker.length;
+                s = s.slice(0, end) + '\n  if (!kdCode) {\n    setStatus("Kingdom code unavailable — not sending", false);\n    return;\n  }' + s.slice(end);
+              }
+            }
 
-          p.write_text(s)
-          PY
+            await github.rest.repos.createOrUpdateFileContents({
+              owner,
+              repo,
+              path,
+              message: 'fix: harden scraper identity against cross-kingdom contamination',
+              content: Buffer.from(s, 'utf8').toString('base64'),
+              sha,
+              branch: 'main'
+            });
 
-      - name: Verify
-        run: |
-          set -e
-          grep -q 'Own game pages are authoritative' tampermonkey/nexus-scraper.user.js
-          grep -q 'return "";' tampermonkey/nexus-scraper.user.js
-          grep -q 'kd: kdCode,' tampermonkey/nexus-scraper.user.js
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add tampermonkey/nexus-scraper.user.js
-          if git diff --cached --quiet; then
-            echo 'Identity safeguards already applied.'
-            exit 0
-          fi
-          git commit -m "fix: harden scraper identity against cross-kingdom contamination"
-          git push
+      - name: Patch backend state scoping
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const path = 'bot/services/intelReceiver.js';
+            const file = await github.rest.repos.getContent({owner, repo, path, ref: 'main'});
+            const sha = file.data.sha;
+            let s = Buffer.from(file.data.content, 'base64').toString('utf8');
+            const old = '.eq("name", prov);';
+            const target = 'state_data: parsed.data';
+            const i = s.indexOf(target);
+            const j = s.indexOf(old, i);
+            if (i >= 0 && j >= 0 && !s.slice(j, j + old.length + 40).includes('.eq("kd_code", parsed.kd)')) {
+              s = s.slice(0, j) + '.eq("name", prov).eq("kd_code", parsed.kd);' + s.slice(j + old.length);
+              await github.rest.repos.createOrUpdateFileContents({
+                owner,
+                repo,
+                path,
+                message: 'fix: scope province state updates by kingdom',
+                content: Buffer.from(s, 'utf8').toString('base64'),
+                sha,
+                branch: 'main'
+              });
+            }
