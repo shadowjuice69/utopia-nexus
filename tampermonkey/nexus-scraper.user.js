@@ -245,14 +245,26 @@ function scrapeKingdomPage(callback) {
   let text = document.body.innerText;
 
   // Kingdom name
-  let kdNameMatch = text.match(/The(?:\s+Emerging)?\s+kingdom of\s+(.+?)[\n\r(]/i);
+  let kdNameMatch = text.match(/kingdom of\s+(.+?)\s*\(\d+:\d+\)/i);
   let kdName = kdNameMatch ? kdNameMatch[1].trim() : "Unknown";
 
-  // KD code from URL path /wol/game/kingdom_details/ISLAND/KD
+  // KD code -- prefer the URL path, but cross-check against the kingdom-name
+  // heading text (e.g. "...Recruiting (6:9)") so a URL format change never
+  // silently falls back to MY_KD and mislabels an enemy kingdom's data as
+  // our own. Anchored on "kingdom of" so it works regardless of whatever
+  // honor-tier title word(s) ("Emerging", "Venerated", etc.) precede it.
   let kdCode = "";
   let urlMatch = location.pathname.match(/kingdom_details\/(\d+)\/(\d+)/);
   if (urlMatch) {
     kdCode = urlMatch[1] + ":" + urlMatch[2];
+  }
+  let headingKdMatch = text.match(/kingdom of\s+.+?\((\d+:\d+)\)/i);
+  let headingKd = headingKdMatch ? headingKdMatch[1] : "";
+  if (!kdCode && headingKd) {
+    kdCode = headingKd;
+  } else if (kdCode && headingKd && kdCode !== headingKd) {
+    console.warn("[Nexus] kd mismatch: URL says " + kdCode + ", page heading says " + headingKd + " -- trusting page heading");
+    kdCode = headingKd;
   }
 
   // Kingdom stats
