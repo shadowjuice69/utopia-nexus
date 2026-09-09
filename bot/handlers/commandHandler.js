@@ -54,7 +54,7 @@ const COMMAND_GROUPS = {
   playlist: { save: playlistHandler, list: playlistHandler, info: playlistHandler, play: playlistHandler, refresh: playlistHandler, delete: playlistHandler },
   build: { list: buildHandler, info: buildHandler },
   steward: { dm: stewardHandler },
-  intel: { check: intelOpsHandler, capturehealth: intelOpsHandler, incoming: intelOpsHandler, eta: intelOpsHandler, status: intelOpsHandler, left: intelOpsHandler, plunders: intelOpsHandler, survey: intelOpsHandler, oprate: intelOpsHandler, kdecon: intelOpsHandler },
+  intel: { check: intelOpsHandler, capturehealth: intelOpsHandler, incoming: intelOpsHandler, eta: intelOpsHandler, status: intelOpsHandler, left: intelOpsHandler, plunders: intelOpsHandler, survey: intelOpsHandler, oprate: intelOpsHandler, kdecon: intelOpsHandler, econ: intelOpsHandler, tppa: intelOpsHandler },
   war: { analyze: analyzeWarHandler, summary: warSummaryHandler, board: warBoardHandler, status: warHandler, target: targetHandler, ambush: ambushHandler, intel: intelHandler },
   calc: { thievery: thieveryHandler, attack: attackHandler, invest: investHandler, declare: declareLegalityHandler, spellcheck: spellcheckHandler, science: scienceHandler, "science-summary": scienceSummaryHandler },
   admin: { panel: adminHandler, logs: logsHandler, resetage: resetageHandler, threat: threatHandler, admins: adminsHandler, alerts: alertsHandler, addadmin: addadminHandler, removeadmin: removeadminHandler, role: roleHandler, remove: removeHandler, removecheck: removecheckHandler, restore: restoreHandler, broadcast: broadcastHandler, setalert: setalertHandler, deletealert: deletealertHandler, setkingdom: setkingdomHandler, war: warHandler }
@@ -68,8 +68,6 @@ for (const [group, commands] of Object.entries(COMMAND_GROUPS)) {
 }
 
 async function isRegistered(userId) {
-  // Owner is always considered registered. This is an access guarantee, not
-  // a substitute for resolving the owner's province when a command needs data.
   if (permissionService.isOwner(userId)) return true;
   return nexusIdentity.isRegistered(userId);
 }
@@ -85,16 +83,12 @@ module.exports = async function commandHandler(interaction) {
     const registered = await isRegistered(interaction.user.id);
     if (!registered) return interaction.reply({ content: "❌ You need to register first. Use `/utopia register` to get started.", ephemeral: true });
   }
-
-  // Resolve once at dispatch time so handlers can consume one authoritative
-  // identity instead of independently guessing province/kingdom.
   try {
     interaction.nexusIdentity = await nexusIdentity.resolve(interaction.user.id);
   } catch (e) {
     console.error("[NEXUS IDENTITY RESOLVE]", e.message);
     interaction.nexusIdentity = null;
   }
-
   return entry.handler(interaction);
 };
 module.exports.commandRegistry = commandRegistry;
