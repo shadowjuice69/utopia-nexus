@@ -46,6 +46,7 @@ const threatHandler = require("./commands/threatHandler");
 const permissionService = require("../services/permissionService");
 const commandAccess = require("../services/commandAccessService");
 const commandRegistry = require("../services/commandRegistry");
+const nexusIdentity = require("../services/nexusIdentityService");
 
 const COMMAND_GROUPS = {
   utopia: { register: registerHandler, profile: profileHandler, province: provinceHandler, leadership: leadershipHandler, roster: rosterHandler, status: statusHandler, waves: wavesHandler, help: helpHandler, member: memberHandler, ask: askHandler },
@@ -67,10 +68,10 @@ for (const [group, commands] of Object.entries(COMMAND_GROUPS)) {
 }
 
 async function isRegistered(userId) {
-  const supabase = require("../services/supabase").getClient();
-  if (!supabase) return true;
-  const { data } = await supabase.from("provinces").select("id").or(`user_id.eq.${userId},discord_id.eq.${userId}`).limit(1);
-  return data && data.length > 0;
+  // Owner is always considered registered. This is an access guarantee, not
+  // a substitute for resolving the owner's province when a command needs data.
+  if (permissionService.isOwner(userId)) return true;
+  return nexusIdentity.isRegistered(userId);
 }
 
 module.exports = async function commandHandler(interaction) {
@@ -80,10 +81,20 @@ module.exports = async function commandHandler(interaction) {
   console.log(`[${command}] ${subcommand || "(no subcommand)"}`);
   if (!entry) return interaction.reply({ content: `❌ Unknown command: /${command} ${subcommand || ""}`, ephemeral: true });
   if (!commandAccess.canAccess(entry, interaction.user, permissionService)) return interaction.reply({ content: commandAccess.denialMessage(entry), ephemeral: true });
-  if (entry.requiresRegistration) {
+  if (entry.requiresRegistration && !(permissionService.isOwner(interaction.user.id))) {
     const registered = await isRegistered(interaction.user.id);
     if (!registered) return interaction.reply({ content: "❌ You need to register first. Use `/utopia register` to get started.", ephemeral: true });
   }
+
+  // Resolve once at dispatch time so handlers can consume one authoritative
+  // identity instead of independently guessing province/kingdom.
+  try {
+    interaction.nexusIdentity = await nexusIdentity.resolve(interaction.user.id);
+  } catch (e) {
+    console.error("[NEXUS IDENTITY RESOLVE]", e.message);
+    interaction.nexusIdentity = null;
+  }
+
   return entry.handler(interaction);
 };
 module.exports.commandRegistry = commandRegistry;
