@@ -21,7 +21,7 @@ jobs:
         shell: bash
         run: |
           set -e
-          echo 'PATCH_B64_PLACEHOLDER' | base64 -d > /tmp/identity_patch.py
+          echo 'CmZyb20gcGF0aGxpYiBpbXBvcnQgUGF0aAppbXBvcnQgcmUKCnAgPSBQYXRoKCJ0YW1wZXJtb25rZXkvbmV4dXMtc2NyYXBlci51c2VyLmpzIikKcyA9IHAucmVhZF90ZXh0KCkKCmlmICJmdW5jdGlvbiBnZXRPd25QYWdlSWRlbnRpdHkoKSIgbm90IGluIHM6CiAgICBhbmNob3IgPSAiZnVuY3Rpb24gZ2V0UHJvdmluY2VOYW1lKCkgeyIKICAgIGhlbHBlciA9ICcnJ2ZHVtbXknJycKICAgIGlmIGFuY2hvciBub3QgaW4gczoKICAgICAgICByYWlzZSBTeXN0ZW1FeGl0KCJzY3JhcGVyIGFuY2hvciBub3QgZm91bmQiKQogICAgcyA9IHMucmVwbGFjZShhbmNob3IsIGhlbHBlciArIGFuY2hvciwgMSkKcC53cml0ZV90ZXh0KHMpCg== ' | base64 -d > /tmp/identity_patch.py
           python3 /tmp/identity_patch.py
 
       - name: Commit identity patch
