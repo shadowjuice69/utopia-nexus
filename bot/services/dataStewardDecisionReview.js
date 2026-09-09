@@ -37,9 +37,18 @@ async function review(client) {
       return new Date(b.last_seen || 0) - new Date(a.last_seen || 0);
     });
 
-    // Deliberately silent when there is nothing requiring a human decision.
+    // Always send a heartbeat every cycle, even with nothing to report --
+    // silence should never be the only signal that Steward is still alive.
     if (!issues.length) {
-      logger.info('[DATA STEWARD REVIEW] no open decisions; no message sent');
+      try {
+        const channel = await client.channels.fetch(DECISION_CHANNEL_ID);
+        if (channel && typeof channel.send === 'function') {
+          await channel.send('\u2705 **Nexus Data Steward -- system check**\nActive and monitoring. No open decisions right now.');
+        }
+      } catch (error) {
+        logger.warn(`[DATA STEWARD REVIEW HEARTBEAT] ${error.message}`);
+      }
+      logger.info('[DATA STEWARD REVIEW] no open decisions; heartbeat sent');
       return;
     }
 
