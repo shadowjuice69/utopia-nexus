@@ -1,4 +1,5 @@
 const supabaseService = require("../../services/supabase");
+const nexusIdentityService = require("../../services/nexusIdentityService");
 
 const PAGE_TYPES = ["throne", "som", "science", "survey", "state", "kingdom-page", "news"];
 const label = { throne: "Thr", som: "Mil", science: "Sci", survey: "Def", state: "Gld", "kingdom-page": "KD", news: "Srv" };
@@ -19,13 +20,6 @@ function getArmyRows(armies) {
     troops: a.troops || {}, target: a.target || a.target_province || a.targetProvince || null,
     acres: n(a.acres ?? a.land ?? a.land_gained)
   })) : [];
-}
-
-async function identity(sb, userId) {
-  const { data: direct } = await sb.from("provinces").select("name,kd_code,land,acres,nw,discord_id,user_id,r_tpa,r_wpa,ome,dme").eq("discord_id", userId).limit(1);
-  if (direct?.[0]) return direct[0];
-  const { data: p } = await sb.from("provinces").select("name,kd_code,land,acres,nw,discord_id,user_id,r_tpa,r_wpa,ome,dme").eq("user_id", userId).limit(1);
-  return p?.[0] || null;
 }
 
 async function check(sb, kd) {
@@ -135,24 +129,30 @@ async function eta(sb,kd,p){
 
 module.exports = async function intelOpsHandler(interaction){
   const sb=supabaseService.getClient(); if(!sb) return interaction.reply({content:"❌ Supabase is unavailable.",ephemeral:true});
-  const me=await identity(sb,interaction.user.id); if(!me) return interaction.reply({content:"❌ No Nexus province identity found. Register/link your province first.",ephemeral:true});
-  const kd=me.kd_code;
+  const me=await nexusIdentityService.resolve(interaction.user.id);
+  if(!me) return interaction.reply({content:"❌ No Nexus province identity found. Register/link your province first.",ephemeral:true});
   const sub=interaction.options.getSubcommand();
-  let content;
-  switch(sub){
-    case "check": content=await check(sb,kd); break;
-    case "capturehealth": content=await captureHealth(sb,kd,me.name); break;
-    case "incoming": content=await incoming(sb,kd); break;
-    case "eta": content=await eta(sb,kd,me); break;
-    case "status": content=await status(sb,me); break;
-    case "left": content=await left(sb,kd); break;
-    case "plunders": content=await plunders(sb,kd,me); break;
-    case "survey": content=await survey(sb,interaction.options.getString("province",true),kd); break;
-    case "oprate": content=await oprate(sb,kd); break;
-    case "kdecon": content=await kdecon(sb,kd); break;
-    case "econ": content=await econ(sb,kd,me.name); break;
-    case "tppa": content=await tppa(sb,kd); break;
-    default: content="❌ Unknown Nexus intel command.";
+  const kd=me.kd_code;
+  let out;
+  try {
+    switch(sub){
+      case "check": out=await check(sb,kd); break;
+      case "capturehealth": out=await captureHealth(sb,kd,me.name); break;
+      case "incoming": out=await incoming(sb,kd); break;
+      case "eta": out=await eta(sb,kd,me); break;
+      case "status": out=await status(sb,me); break;
+      case "left": out=await left(sb,kd); break;
+      case "plunders": out=await plunders(sb,kd,me); break;
+      case "survey": out=await survey(sb,interaction.options.getString("province"),kd); break;
+      case "oprate": out=await oprate(sb,kd); break;
+      case "kdecon": out=await kdecon(sb,kd); break;
+      case "econ": out=await econ(sb,kd,me.name); break;
+      case "tppa": out=await tppa(sb,kd); break;
+      default: out="❌ Unknown Intel command.";
+    }
+    return interaction.reply({content:out.slice(0,1900),ephemeral:false});
+  } catch (e) {
+    console.error(`[INTEL] ${sub} failed`,e);
+    return interaction.reply({content:`❌ Intel command failed: ${e.message}` ,ephemeral:true});
   }
-  return interaction.reply({content:content.slice(0,1950)});
 };
