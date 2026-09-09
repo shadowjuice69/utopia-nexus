@@ -43,7 +43,9 @@ const intelCommand = {
     { name: 'plunders', description: 'Rank current plunder candidates', type: 1 },
     { name: 'survey', description: 'Show captured building survey', type: 1, options: [{ name: 'province', description: 'Province name or partial name', type: 3, required: true }] },
     { name: 'oprate', description: 'Kingdom operation success rates', type: 1 },
-    { name: 'kdecon', description: 'Kingdom economy and income overview', type: 1 }
+    { name: 'kdecon', description: 'Kingdom economy and income overview', type: 1 },
+    { name: 'econ', description: 'Your detailed province economy', type: 1 },
+    { name: 'tppa', description: 'Kingdom population density / TPPA report', type: 1 }
   ]
 };
 
