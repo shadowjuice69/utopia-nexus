@@ -353,7 +353,7 @@ async function saveIntel(parsed, prov) {
       const { error } = await sb.from("intel_military").upsert({ province: prov, kd_code: parsed.kd, offense: parsed.data.offense, defense: parsed.data.defense, generals: parsed.data.generals, troops: parsed.data.troops, armies: parsed.data.armies, updated_at: new Date().toISOString() }, { onConflict: "province,kd_code" });
       if (error) logger.error(`[SOM SAVE ERROR] ${error.message}`);
     } else if (parsed.type === "state") {
-      const { error } = await sb.from("provinces").update({ state_data: parsed.data, updated_at: new Date().toISOString() }).eq("name", prov);
+      const { error } = await sb.from("provinces").update({ state_data: parsed.data, updated_at: new Date().toISOString() }).eq("name", prov).eq("kd_code", parsed.kd);
       if (error) logger.error(`[STATE SAVE ERROR] ${error.message}`);
     } else if (parsed.type === "news") {
       for (const event of (parsed.data.events || [])) {
