@@ -33,6 +33,7 @@ import AIBuildManager from "./components/AIBuildManager";
 import DataSteward from "./components/DataSteward";
 import RepoTools from "./components/RepoTools";
 import GameStateIntel from "./components/GameStateIntel";
+import ResourceForecast from "./components/ResourceForecast";
 import Login from "./components/Login";
 const LOGIN_TTL_MS=24*60*60*1000;
 const GROUPS = [
@@ -54,8 +55,8 @@ const GROUPS = [
   ] },
   { id: "ai", label: "AI", color: "#34d399", tabs: [
     { id: "warreport", label: "War Report", component: AIWarReport }, { id: "targets", label: "Targets", component: AITargets },
-    { id: "ask", label: "Ask", component: AIAssistant }, { id: "advisorlog", label: "Advisor Log", component: AdvisorLog },
-    { id: "builds", label: "Reference Builds", component: AIBuildManager }, { id: "steward", label: "Data Steward", component: DataSteward }, { id: "science-calc", label: 'Sci Calc', component: ScienceCalculator },
+    { id: "forecast", label: "24/48 Forecast", component: ResourceForecast }, { id: "ask", label: "Ask", component: AIAssistant },
+    { id: "advisorlog", label: "Advisor Log", component: AdvisorLog }, { id: "builds", label: "Reference Builds", component: AIBuildManager }, { id: "steward", label: "Data Steward", component: DataSteward }, { id: "science-calc", label: 'Sci Calc', component: ScienceCalculator },
   ] },
   { id: "tools", label: "TOOLS", color: "#60a5fa", tabs: [{ id: "repo-tools", label: "Repo Toolkit", component: RepoTools }] },
 ];
