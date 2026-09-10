@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const http = require('http');
 const supabaseService = require('./supabase');
 const logger = require('./logger');
@@ -63,6 +64,40 @@ function routeData(type, data, classification) {
   return selected;
 }
 
+async function preserveCapture(row, data, classification, reason = 'unclassified') {
+  const sb = supabaseService.getClient();
+  if (!sb) return null;
+  const payload = {
+    ...data,
+    __universal_capture: {
+      ingest_id: row.id,
+      classification,
+      preserved_reason: reason,
+      preserved_at: new Date().toISOString()
+    }
+  };
+  const raw = row.raw_text || data.raw_text || data.raw || data.text || '';
+  const hash = crypto.createHash('sha256').update(JSON.stringify([row.id, row.url, row.kd_code, row.province, payload])).digest('hex');
+  const { data: existing, error: lookupError } = await sb.from('intel_complete_vault').select('id').eq('payload_hash', hash).maybeSingle();
+  if (lookupError) throw lookupError;
+  if (existing) return existing;
+  const { data: saved, error } = await sb.from('intel_complete_vault').insert({
+    kd_code: row.kd_code || null,
+    province: row.province || null,
+    source: 'universal-capture',
+    tab: row.tab || null,
+    url: row.url || null,
+    data_type: 'universal-capture',
+    raw_text: raw,
+    payload,
+    field_names: Object.keys(payload),
+    payload_hash: hash,
+    is_current: true
+  }).select('id').single();
+  if (error) throw error;
+  return saved;
+}
+
 function postToExistingReceiver(row, data) {
   return new Promise((resolve, reject) => {
     const body = new URLSearchParams({
@@ -121,12 +156,7 @@ async function processBatch() {
       }
 
       const data = toData(row);
-      const capture = {
-        ...row,
-        data,
-        title: row.parsed?.title,
-        page_kind: row.parsed?.page_kind || row.tab
-      };
+      const capture = { ...row, data, title: row.parsed?.title, page_kind: row.parsed?.page_kind || row.tab };
       const classification = classifyUniversalCapture(capture);
       const classified = Boolean(classification.type && classification.confidence >= 75);
 
@@ -141,59 +171,36 @@ async function processBatch() {
           data: routeData(classification.type, data, classification)
         }, row.province);
 
-        // The existing receiver owns the authoritative destination writers/parsers.
-        // Feed it the captured page text so Universal Steward does not create a
-        // parallel persistence path or duplicate schema logic.
         try {
           await postToExistingReceiver(row, data);
         } catch (routeError) {
+          await preserveCapture(row, data, classification, 'destination-route-failed');
           await dataSteward.raise({
-            source_type: 'universal-capture',
-            source: row.source || 'universal-capture',
-            source_id: row.id,
-            kd_code: row.kd_code,
-            province: row.province,
-            issue_type: 'universal_capture_route_failed',
-            severity: 'high',
-            observed_value: { page_kind: row.tab, url: row.url, classification },
-            raw_excerpt: row.raw_text || '',
+            source_type: 'universal-capture', source: row.source || 'universal-capture', source_id: row.id,
+            kd_code: row.kd_code, province: row.province, issue_type: 'universal_capture_route_failed', severity: 'high',
+            observed_value: { page_kind: row.tab, url: row.url, classification }, raw_excerpt: row.raw_text || '',
             destination_table: dataSteward.ROUTES[classification.type]?.table || 'intel_complete_vault',
             destination_dashboard: dataSteward.ROUTES[classification.type]?.dashboard || 'Complete Vault / Universal Capture',
-            reason: routeError.message,
-            recommendation: 'Keep the Universal Capture intact and retry routing after the existing receiver is healthy.',
-            confidence: classification.confidence,
-            auto_resolved: false
+            reason: routeError.message, recommendation: 'Keep the Universal Capture intact and retry routing after the existing receiver is healthy.',
+            confidence: classification.confidence, auto_resolved: false
           });
           throw routeError;
         }
       } else {
-        // Unknown/ambiguous pages stay safely inside the existing Universal Capture
-        // route. The vault is the lossless landing zone; no page is discarded.
+        await preserveCapture(row, data, classification, 'unclassified-or-ambiguous');
         await dataSteward.inspect({
-          type: 'universal-capture',
-          source: row.source || 'universal-capture',
-          source_id: row.id,
-          kd: row.kd_code,
-          prov: row.province,
-          url: row.url,
+          type: 'universal-capture', source: row.source || 'universal-capture', source_id: row.id,
+          kd: row.kd_code, prov: row.province, url: row.url,
           data: { ...data, _universal_classification: classification }
         }, row.province);
       }
 
       await dataSteward.raise({
-        source_type: 'universal-capture',
-        source: row.source || 'universal-capture',
-        source_id: row.id,
-        kd_code: row.kd_code,
-        province: row.province,
+        source_type: 'universal-capture', source: row.source || 'universal-capture', source_id: row.id,
+        kd_code: row.kd_code, province: row.province,
         issue_type: classified ? 'universal_capture_classified' : 'universal_capture_unclassified',
         severity: classified ? 'low' : 'medium',
-        observed_value: {
-          page_kind: row.tab,
-          url: row.url,
-          classification: classification.type,
-          confidence: classification.confidence
-        },
+        observed_value: { page_kind: row.tab, url: row.url, classification: classification.type, confidence: classification.confidence },
         raw_excerpt: row.raw_text || '',
         destination_table: classified ? (dataSteward.ROUTES[classification.type]?.table || 'intel_complete_vault') : 'intel_complete_vault',
         destination_dashboard: classified ? (dataSteward.ROUTES[classification.type]?.dashboard || 'Complete Vault / Universal Capture') : 'Complete Vault / Universal Capture',
