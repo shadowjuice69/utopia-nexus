@@ -6,6 +6,14 @@ const reconciler = require('./dataStewardReconciler');
 // treating them as unknown data. These routes point at existing production tables;
 // they do not create duplicate storage.
 Object.assign(dataSteward.ROUTES, {
+  "universal-capture": {
+    table: 'intel_complete_vault',
+    dashboard: 'Complete Vault / Universal Capture',
+    fields: [
+      'url', 'text', 'page_kind', 'capture_id', 'raw_length', 'captured_at',
+      'subject_identity', 'raw', 'raw_text', '_universal'
+    ]
+  },
   attack: {
     table: 'attacks',
     dashboard: 'News / War / Attacks',
