@@ -49,22 +49,27 @@ function classifyUniversalCapture(capture = {}) {
   if (/spell|magic.*cast|successfully cast|failed spell/.test(text)) add("spell", 8);
   if (/thievery|thieves|thievery operation|stole|robbed|sabotage/.test(text)) add("thievery", 8);
 
+  // Match the actual Utopia route names used by the Universal Capture browser script.
   if (/\/throne(?:[/?#]|$)/.test(url)) add("throne", 12);
-  if (/\/survey(?:[/?#]|$)/.test(url)) add("survey", 12);
-  if (/\/science(?:[/?#]|$)/.test(url)) add("science", 12);
-  if (/\/military|\/som(?:[/?#]|$)/.test(url)) add("som", 12);
-  if (/\/state(?:[/?#]|$)/.test(url)) add("state", 12);
-  if (/\/news(?:[/?#]|$)/.test(url)) add("news", 12);
-  if (/\/kingdom(?:[/?#]|$)/.test(url)) add("kingdom-page", 12);
+  if (/\/survey(?:[/?#]|$)|\/build(?:[/?#]|$)/.test(url)) add("survey", 12);
+  if (/\/science(?:[/?#]|$)|\/council_science(?:[/?#]|$)/.test(url)) add("science", 12);
+  if (/\/military|\/som(?:[/?#]|$)|\/send_armies(?:[/?#]|$)|\/train_army(?:[/?#]|$)|\/release_army(?:[/?#]|$)/.test(url)) add("som", 12);
+  if (/\/state(?:[/?#]|$)|\/council_state(?:[/?#]|$)/.test(url)) add("state", 12);
+  if (/\/news(?:[/?#]|$)|\/province_news(?:[/?#]|$)|\/kingdom_news(?:[/?#]|$)/.test(url)) add("news", 12);
+  if (/\/kingdom(?:[/?#]|$)|\/kingdom_details(?:[/?#]|$)/.test(url)) add("kingdom-page", 12);
   if (/\/stats(?:[/?#]|$)|kd.?stats/.test(url)) add("kd-stats-generic", 12);
   if (/\/attack|\/war/.test(url)) add("attack", 10);
   if (/\/spell|\/magic/.test(url)) add("spell", 10);
   if (/\/thievery|\/thieves/.test(url)) add("thievery", 10);
+  if (/intel\.utopia\.site/.test(url)) add("intel-site", 20);
 
   // Specialized aliases are only selected when the capture itself strongly indicates them.
   if (/building.*stats|stats.*building/.test(text)) scores["kd-stats-buildings"] += 10;
   if (/complete vault|intel 7|intel-site/.test(text)) scores["intel-site"] += 12;
 
+  // A generic game page must not be forced into a specialized table just because
+  // it contains broad words such as "magic", "thieves", or "population".
+  // The URL-specific evidence above is preferred and the fallback remains lossless.
   let best = null;
   let second = 0;
   for (const [type, score] of Object.entries(scores)) {
