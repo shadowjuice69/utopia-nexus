@@ -37,6 +37,17 @@ function classifyUniversalCapture(capture = {}) {
 
   const add = (type, points) => { if (scores[type] !== undefined) scores[type] += points; };
 
+  // Intel Site is already a complete intelligence source. Its hostname is
+  // authoritative for the top-level route, even when the page contains
+  // target/province text such as "thievery", "magic", or another kingdom.
+  // Those embedded KD/province references are useful subject metadata and
+  // must not cause the capture itself to be reclassified as a game page.
+  const isIntelSite = /(^|\.)intel\.utopia\.site(?:[/:?#]|$)/.test(url) ||
+    /(^|\.)intel\.utopia-game\.com(?:[/:?#]|$)/.test(url);
+  if (isIntelSite) {
+    add("intel-site", 100);
+  }
+
   if (/throne|province.*summary|province.*overview|ruler|your province/.test(text)) add("throne", 8);
   if (/survey|buildings|building.*efficiency|construction/.test(text)) add("survey", 8);
   if (/science|alchemy|channeling|crime|housing|magic|military.*science/.test(text)) add("science", 7);
@@ -61,10 +72,23 @@ function classifyUniversalCapture(capture = {}) {
   if (/\/attack|\/war/.test(url)) add("attack", 10);
   if (/\/spell|\/magic|\/council_spells(?:[/?#]|$)/.test(url)) add("spell", 10);
   if (/\/thievery|\/thieves/.test(url)) add("thievery", 10);
-  if (/intel\.utopia\.site/.test(url)) add("intel-site", 20);
 
   if (/building.*stats|stats.*building/.test(text)) scores["kd-stats-buildings"] += 10;
   if (/complete vault|intel 7|intel-site/.test(text)) scores["intel-site"] += 12;
+
+  // Intel Site is a hard top-level route. Never let embedded page content
+  // outrank it. The capture remains lossless and the Steward can still use
+  // its embedded KD/province references for downstream subject records.
+  if (isIntelSite) {
+    const confidence = 99;
+    return {
+      type: "intel-site",
+      confidence,
+      ambiguous: false,
+      scores,
+      reason: "Universal capture originated from the Intel Site hostname; routed as complete Intel Site evidence."
+    };
+  }
 
   // A generic game page must not be forced into a specialized table just because
   // it contains broad words such as "magic", "thieves", or "population".
