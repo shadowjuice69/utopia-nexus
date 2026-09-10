@@ -30,8 +30,6 @@
   let selectedRow = null;
   let minimized = GM_getValue("nexus_v8_minimized", false);
 
-  const sleep = ms => new Promise(r => setTimeout(r, ms));
-
   function toast(message, good = true) {
     document.getElementById("nexus-v8-toast")?.remove();
     const el = document.createElement("div");
@@ -92,13 +90,10 @@
     };
   }
 
-  /* Compatibility transport: the current receiver already preserves data.raw
-     in intel_page_ingest for kd-stats-generic and receives no rows, so no
-     province intel is created or overwritten. */
   function encode(record) {
     const form = new URLSearchParams();
     form.set("key", KEY);
-    form.set("source", "kd-stats-generic");
+    form.set("source", "universal-capture");
     form.set("tab", "universal");
     form.set("prov", record.subject_identity.province || "");
     form.set("kd", record.subject_identity.kd || "");
@@ -107,7 +102,6 @@
     form.set("captured_at", record.captured_at);
     form.set("data_simple", JSON.stringify({
       category: "universal-capture",
-      rows: [],
       capture_id: record.capture_id,
       captured_at: record.captured_at,
       scraper_version: record.scraper_version,
