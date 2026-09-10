@@ -1,7 +1,7 @@
 const supabaseService = require('./supabase');
 const logger = require('./logger');
 
-const IDENTITY_TYPES = new Set(['throne', 'state', 'som', 'survey', 'science']);
+const IDENTITY_TYPES = new Set(['throne', 'state', 'som', 'survey', 'science', 'kingdom-page', 'kd-stats-buildings']);
 const CACHE_MS = Math.max(15000, Number(process.env.PROVINCE_IDENTITY_CACHE_MS || 60000));
 let cache = null;
 let loadedAt = 0;
@@ -18,11 +18,11 @@ async function loadRoster(force = false) {
   loading = (async () => {
     const sb = supabaseService.getClient();
     if (!sb) return null;
-    const { data, error } = await sb.from('provinces').select('province_name,kd_code');
+    const { data, error } = await sb.from('provinces').select('name,kd_code');
     if (error) throw error;
     const byProvince = new Map();
     for (const row of data || []) {
-      const name = norm(row.province_name);
+      const name = norm(row.name);
       const kd = String(row.kd_code || '').trim();
       if (!name || !kd) continue;
       const existing = byProvince.get(name);
@@ -43,7 +43,7 @@ async function validate({ type, province, kd }) {
   if (!name || !assignedKd) return { checked: true, valid: false, reason: 'missing-province-or-kd' };
   const roster = await loadRoster();
   if (!roster) return { checked: false, valid: true, reason: 'roster-unavailable' };
-  if (!roster.has(name)) return { checked: true, valid: false, reason: 'province-not-in-authoritative-roster', canonical_kd: null };
+  if (!roster.has(name)) return { checked: true, valid: true, reason: 'province-not-in-local-roster', canonical_kd: null };
   const canonicalKd = roster.get(name);
   if (!canonicalKd) return { checked: true, valid: false, reason: 'ambiguous-province-identity', canonical_kd: null };
   return { checked: true, valid: canonicalKd === assignedKd, reason: canonicalKd === assignedKd ? 'authoritative-match' : 'province-belongs-to-different-kd', canonical_kd: canonicalKd };
