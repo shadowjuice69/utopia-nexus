@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Utopia Nexus Universal Capture
-// @namespace    utopia-nexus
-// @version      8.0.4
-// @description  Universal Utopia page capture. Raw DOM is the source of truth; no page-type filtering or AI.
+// @namespace    utopia-nexus-universal
+// @version      9.0.0
+// @description  Capture every Utopia page as raw DOM for Nexus storage. No page filtering and no AI.
 // @match        https://www.utopia-game.com/*
 // @match        https://utopia-game.com/*
 // @match        https://intel.utopia-game.com/*
@@ -18,54 +18,90 @@
 
 (function () {
   "use strict";
-  const VERSION = "8.0.4";
+
+  const VERSION = "9.0.0";
+  const SOURCE = "universal-capture";
+  const TAB = "universal";
   const ENDPOINT = "https://utopia-nexus.onrender.com/intel";
   const KEY = "NikkoAce";
-  const PANEL_ID = "nexus-universal-panel";
-  const AUTO_DELAY = 2500;
+  const PANEL_ID = "nexus-universal-capture-panel";
+  const AUTO_DELAY_MS = 2500;
+
   let autoTimer = null;
   let captureBusy = false;
-  let lastAutoUrl = "";
+  let lastCapturedUrl = "";
   let lastCapture = null;
   let selectedRow = null;
-  let minimized = GM_getValue("nexus_v8_minimized", false);
+  let minimized = GM_getValue("nexus_universal_minimized", false);
 
-  function toast(message, good = true) {
-    document.getElementById("nexus-v8-toast")?.remove();
-    const el = document.createElement("div");
-    el.id = "nexus-v8-toast";
-    el.textContent = message;
-    el.style.cssText = `position:fixed;top:18px;right:18px;z-index:2147483647;max-width:360px;padding:10px 14px;border-radius:8px;font:600 12px monospace;color:#fff;background:${good ? "#238636" : "#da3633"};box-shadow:0 4px 18px rgba(0,0,0,.4)`;
-    document.documentElement.appendChild(el);
-    setTimeout(() => el.remove(), 3000);
+  function showToast(message, success = true) {
+    document.getElementById("nexus-universal-toast")?.remove();
+    const toast = document.createElement("div");
+    toast.id = "nexus-universal-toast";
+    toast.textContent = message;
+    toast.style.cssText = [
+      "position:fixed",
+      "top:18px",
+      "right:18px",
+      "z-index:2147483647",
+      "max-width:360px",
+      "padding:10px 14px",
+      "border-radius:8px",
+      "font:600 12px monospace",
+      "color:#fff",
+      `background:${success ? "#238636" : "#da3633"}`,
+      "box-shadow:0 4px 18px rgba(0,0,0,.4)"
+    ].join(";");
+    document.documentElement.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
   }
 
-  function bytes(text) {
-    const n = new Blob([String(text || "")]).size;
-    if (n < 1024) return `${n} B`;
-    if (n < 1048576) return `${(n / 1024).toFixed(1)} KB`;
-    return `${(n / 1048576).toFixed(2)} MB`;
+  function formatBytes(value) {
+    const size = new Blob([String(value || "")]).size;
+    if (size < 1024) return `${size} B`;
+    if (size < 1048576) return `${(size / 1024).toFixed(1)} KB`;
+    return `${(size / 1048576).toFixed(2)} MB`;
   }
 
-  function identityHints(text) {
-    const out = {};
-    const province = text.match(/(?:Province:\s*|The Province of\s+)([^\n(]{2,60})\s*\(?([0-9]+:[0-9]+)?/i);
-    if (province) {
-      out.province = province[1].trim();
-      if (province[2]) out.kd = province[2];
+  function makeCaptureId() {
+    if (window.crypto && typeof window.crypto.randomUUID === "function") {
+      return window.crypto.randomUUID();
     }
-    const kd = text.match(/\b(\d+):(\d+)\b/);
-    if (!out.kd && kd) out.kd = `${kd[1]}:${kd[2]}`;
-    return out;
+    return `nx-${Date.now()}-${Math.random().toString(36).slice(2)}`;
   }
 
-  function captureRecord() {
+  function findIdentityHints(text) {
+    const identity = {};
+    const sourceText = String(text || "");
+
+    const provinceMatch = sourceText.match(
+      /(?:Province:\s*|The Province of\s+)([^\n(]{2,80})\s*\(?([0-9]+:[0-9]+)?/i
+    );
+
+    if (provinceMatch) {
+      identity.province = provinceMatch[1].trim();
+      if (provinceMatch[2]) identity.kd_code = provinceMatch[2];
+    }
+
+    if (!identity.kd_code) {
+      const kdMatch = sourceText.match(/\b(\d+):(\d+)\b/);
+      if (kdMatch) identity.kd_code = `${kdMatch[1]}:${kdMatch[2]}`;
+    }
+
+    return identity;
+  }
+
+  function buildCapture() {
     const raw = document.documentElement?.outerHTML || "";
-    const visibleText = String(document.body?.innerText || "").replace(/\u00a0/g, " ").replace(/\r\n?/g, "\n").trim();
+    const visibleText = String(document.body?.innerText || "")
+      .replace(/\u00a0/g, " ")
+      .replace(/\r\n?/g, "\n")
+      .trim();
     const capturedAt = new Date().toISOString();
-    const subject = identityHints(visibleText);
+    const subjectIdentity = findIdentityHints(visibleText);
+
     return {
-      capture_id: crypto?.randomUUID ? crypto.randomUUID() : `nx-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      capture_id: makeCaptureId(),
       captured_at: capturedAt,
       scraper_version: VERSION,
       page: {
@@ -81,27 +117,17 @@
       },
       source_identity: {
         hostname: location.hostname,
-        origin: location.origin,
-        game_host: /(^|\.)utopia-game\.com$/.test(location.hostname) ? "utopia-game" : "intel-site"
+        origin: location.origin
       },
-      subject_identity: subject,
+      subject_identity: subjectIdentity,
       visible_text: visibleText,
       raw
     };
   }
 
-  function encode(record) {
-    const form = new URLSearchParams();
-    form.set("key", KEY);
-    form.set("source", "universal-capture");
-    form.set("tab", "universal");
-    form.set("prov", record.subject_identity.province || "");
-    form.set("kd", record.subject_identity.kd || "");
-    form.set("url", record.page.url);
-    form.set("capture_id", record.capture_id);
-    form.set("captured_at", record.captured_at);
-    form.set("data_simple", JSON.stringify({
-      category: "universal-capture",
+  function encodeCapture(record) {
+    const data = {
+      category: SOURCE,
       rows: [],
       capture_id: record.capture_id,
       captured_at: record.captured_at,
@@ -111,19 +137,33 @@
       subject_identity: record.subject_identity,
       visible_text: record.visible_text,
       raw: record.raw
-    }));
+    };
+
+    const form = new URLSearchParams();
+    form.set("key", KEY);
+    form.set("source", SOURCE);
+    form.set("tab", TAB);
+    form.set("prov", record.subject_identity.province || "");
+    form.set("kd", record.subject_identity.kd_code || "");
+    form.set("url", record.page.url);
+    form.set("capture_id", record.capture_id);
+    form.set("captured_at", record.captured_at);
+    form.set("data_simple", JSON.stringify(data));
     return form.toString();
   }
 
-  function send(record) {
+  function sendCapture(record) {
     return new Promise(resolve => {
       GM_xmlhttpRequest({
         method: "POST",
         url: ENDPOINT,
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        data: encode(record),
+        data: encodeCapture(record),
         timeout: 30000,
-        onload: r => resolve({ ok: r.status >= 200 && r.status < 300, status: r.status }),
+        onload: response => resolve({
+          ok: response.status >= 200 && response.status < 300,
+          status: response.status
+        }),
         onerror: () => resolve({ ok: false, status: 0 }),
         ontimeout: () => resolve({ ok: false, status: 0 })
       });
@@ -133,144 +173,190 @@
   async function capture(manual = false) {
     if (captureBusy) return;
     captureBusy = true;
+
     try {
-      const record = captureRecord();
+      const record = buildCapture();
       lastCapture = record;
-      render(record, "Sending…", true);
-      const result = await send(record);
+      renderPanel(record, "Sending…", true);
+
+      const result = await sendCapture(record);
+
       if (result.ok) {
-        lastAutoUrl = location.href;
-        render(record, "Saved ✓", true);
-        if (manual) toast(`Captured ${bytes(record.raw)} DOM`, true);
+        lastCapturedUrl = location.href;
+        renderPanel(record, "Saved ✓", true);
+        if (manual) showToast(`Captured ${formatBytes(record.raw)} DOM`, true);
       } else {
-        render(record, `HTTP ${result.status || "connection error"}`, false);
-        toast("Nexus capture failed to save", false);
+        renderPanel(record, `HTTP ${result.status || "connection error"}`, false);
+        showToast("Nexus capture failed to save", false);
       }
     } finally {
       captureBusy = false;
     }
   }
 
-  function copy(text, message) {
-    GM_setClipboard(text, "text");
-    toast(message, true);
+  function copyText(text, message) {
+    GM_setClipboard(String(text || ""), "text");
+    showToast(message, true);
   }
 
   function copyDom() {
     const html = document.documentElement?.outerHTML || "";
-    if (!html) return toast("No DOM available", false);
-    copy(html, `Copied complete DOM (${bytes(html)})`);
-  }
-
-  function copyRow() {
-    const row = selectedRow || document.querySelector("tr");
-    if (!row) return toast("No table row found", false);
-    copy(row.outerHTML, "Copied row HTML");
-  }
-
-  function button(label, action, secondary = false) {
-    const b = document.createElement("button");
-    b.type = "button";
-    b.textContent = label;
-    b.style.cssText = `flex:1;padding:8px 6px;border:0;border-radius:6px;background:${secondary ? "#30363d" : "#238636"};color:#fff;font:bold 11px monospace;cursor:pointer`;
-    b.onclick = action;
-    return b;
-  }
-
-  function render(record = lastCapture, state = "Ready", good = true) {
-    const panel = document.getElementById(PANEL_ID);
-    if (!panel) return;
-    panel.innerHTML = "";
-    if (minimized) {
-      const row = document.createElement("div");
-      row.style.cssText = "display:flex;align-items:center;gap:8px;color:#7ee787;font:bold 12px monospace";
-      row.append("⚡ Nexus v8");
-      const b = button("▲", () => { minimized = false; GM_setValue("nexus_v8_minimized", false); render(record, state, good); }, true);
-      b.style.flex = "0 0 auto";
-      row.appendChild(b);
-      panel.appendChild(row);
+    if (!html) {
+      showToast("No DOM available", false);
       return;
     }
-    const head = document.createElement("div");
-    head.style.cssText = "display:flex;align-items:center;justify-content:space-between;margin-bottom:7px";
+    copyText(html, `Copied complete DOM (${formatBytes(html)})`);
+  }
+
+  function copySelectedRow() {
+    const row = selectedRow || document.querySelector("tr");
+    if (!row) {
+      showToast("No table row found", false);
+      return;
+    }
+    copyText(row.outerHTML, "Copied row HTML");
+  }
+
+  function makeButton(label, handler, secondary = false) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = label;
+    button.style.cssText = [
+      "flex:1",
+      "padding:8px 6px",
+      "border:0",
+      "border-radius:6px",
+      `background:${secondary ? "#30363d" : "#238636"}`,
+      "color:#fff",
+      "font:bold 11px monospace",
+      "cursor:pointer"
+    ].join(";");
+    button.addEventListener("click", handler);
+    return button;
+  }
+
+  function renderPanel(record = lastCapture, state = "Ready", success = true) {
+    const panel = document.getElementById(PANEL_ID);
+    if (!panel) return;
+
+    panel.replaceChildren();
+
+    if (minimized) {
+      const compact = document.createElement("div");
+      compact.style.cssText = "display:flex;align-items:center;gap:8px;color:#7ee787;font:bold 12px monospace";
+      compact.append("⚡ Nexus Universal");
+      const expand = makeButton("▲", () => {
+        minimized = false;
+        GM_setValue("nexus_universal_minimized", false);
+        renderPanel(record, state, success);
+      }, true);
+      expand.style.flex = "0 0 auto";
+      compact.appendChild(expand);
+      panel.appendChild(compact);
+      return;
+    }
+
+    const header = document.createElement("div");
+    header.style.cssText = "display:flex;align-items:center;justify-content:space-between;margin-bottom:7px";
+
     const title = document.createElement("div");
-    title.textContent = "⚡ Nexus Universal Capture";
+    title.textContent = `⚡ Nexus Universal Capture v${VERSION}`;
     title.style.cssText = "color:#7ee787;font:bold 13px monospace";
-    const min = button("—", () => { minimized = true; GM_setValue("nexus_v8_minimized", true); render(record, state, good); }, true);
-    min.style.flex = "0 0 auto";
-    head.append(title, min);
-    panel.appendChild(head);
+
+    const minimize = makeButton("—", () => {
+      minimized = true;
+      GM_setValue("nexus_universal_minimized", true);
+      renderPanel(record, state, success);
+    }, true);
+    minimize.style.flex = "0 0 auto";
+
+    header.append(title, minimize);
+    panel.appendChild(header);
 
     const note = document.createElement("div");
     note.textContent = "Complete DOM + visible text + metadata · no AI · no filtering";
     note.style.cssText = "color:#8b949e;font:9px monospace;line-height:1.35;margin-bottom:7px";
     panel.appendChild(note);
 
-    const st = document.createElement("div");
-    st.id = "nexus-v8-status";
-    st.textContent = state;
-    st.style.cssText = `color:${good ? "#7ee787" : "#ff7b72"};font:10px monospace;word-break:break-word;margin-bottom:7px`;
-    panel.appendChild(st);
+    const status = document.createElement("div");
+    status.textContent = state;
+    status.style.cssText = `color:${success ? "#7ee787" : "#ff7b72"};font:10px monospace;word-break:break-word;margin-bottom:7px`;
+    panel.appendChild(status);
 
-    const a = document.createElement("div");
-    a.style.cssText = "display:flex;gap:6px;margin-bottom:6px";
-    a.append(button("Capture", () => capture(true)), button("Copy DOM", copyDom, true));
-    panel.appendChild(a);
+    const firstRow = document.createElement("div");
+    firstRow.style.cssText = "display:flex;gap:6px;margin-bottom:6px";
+    firstRow.append(
+      makeButton("Capture", () => capture(true)),
+      makeButton("Copy DOM", copyDom, true)
+    );
+    panel.appendChild(firstRow);
 
-    const c = document.createElement("div");
-    c.style.cssText = "display:flex;gap:6px";
-    c.append(button("Copy Row", copyRow, true), button("Refresh", () => location.reload(), true));
-    panel.appendChild(c);
+    const secondRow = document.createElement("div");
+    secondRow.style.cssText = "display:flex;gap:6px";
+    secondRow.append(
+      makeButton("Copy Row", copySelectedRow, true),
+      makeButton("Refresh", () => location.reload(), true)
+    );
+    panel.appendChild(secondRow);
 
     if (record) {
-      const meta = document.createElement("div");
-      meta.style.cssText = "margin-top:7px;padding-top:6px;border-top:1px solid #30363d;color:#8b949e;font:9px monospace;line-height:1.4;word-break:break-word";
-      meta.textContent = `${record.page.pathname} · ${bytes(record.raw)} DOM · ${record.visible_text.length.toLocaleString()} text chars`;
-      panel.appendChild(meta);
+      const metadata = document.createElement("div");
+      metadata.style.cssText = "margin-top:7px;padding-top:6px;border-top:1px solid #30363d;color:#8b949e;font:9px monospace;line-height:1.4;word-break:break-word";
+      metadata.textContent = `${record.page.pathname} · ${formatBytes(record.raw)} DOM · ${record.visible_text.length.toLocaleString()} text chars`;
+      panel.appendChild(metadata);
     }
   }
 
   function installPanel() {
     if (document.getElementById(PANEL_ID)) return;
+
     const panel = document.createElement("div");
     panel.id = PANEL_ID;
-    panel.style.cssText = "position:fixed;right:14px;bottom:14px;width:260px;padding:11px;z-index:2147483646;background:#0d1117;border:1px solid #30363d;border-radius:9px;box-shadow:0 8px 28px rgba(0,0,0,.45)";
+    panel.style.cssText = "position:fixed;right:14px;bottom:14px;width:280px;padding:11px;z-index:2147483646;background:#0d1117;border:1px solid #30363d;border-radius:9px;box-shadow:0 8px 28px rgba(0,0,0,.45)";
     document.documentElement.appendChild(panel);
-    render(null, "Ready");
-    document.addEventListener("click", e => {
-      const row = e.target.closest?.("tr");
-      if (row && !e.target.closest("button,input,select,textarea,a")) selectedRow = row;
+    renderPanel(null, "Ready", true);
+
+    document.addEventListener("click", event => {
+      const row = event.target?.closest?.("tr");
+      if (row && !event.target.closest("button,input,select,textarea,a")) {
+        selectedRow = row;
+      }
     }, true);
   }
 
-  function scheduleAuto() {
+  function scheduleAutoCapture() {
     clearTimeout(autoTimer);
     autoTimer = setTimeout(() => {
       if (document.visibilityState === "hidden") return;
-      if (lastAutoUrl === location.href) return;
+      if (lastCapturedUrl === location.href) return;
       capture(false);
-    }, AUTO_DELAY);
+    }, AUTO_DELAY_MS);
   }
 
   function watchNavigation() {
     for (const method of ["pushState", "replaceState"]) {
       const original = history[method];
-      if (!original) continue;
+      if (typeof original !== "function") continue;
+
       history[method] = function () {
         const result = original.apply(this, arguments);
-        setTimeout(scheduleAuto, 100);
+        setTimeout(scheduleAutoCapture, 100);
         return result;
       };
     }
-    addEventListener("popstate", () => setTimeout(scheduleAuto, 100));
+
+    addEventListener("popstate", () => setTimeout(scheduleAutoCapture, 100));
   }
 
   function boot() {
     installPanel();
     watchNavigation();
-    scheduleAuto();
+    scheduleAutoCapture();
   }
 
-  if (document.readyState === "loading") addEventListener("DOMContentLoaded", boot, { once: true });
-  else boot();
+  if (document.readyState === "loading") {
+    addEventListener("DOMContentLoaded", boot, { once: true });
+  } else {
+    boot();
+  }
 })();
