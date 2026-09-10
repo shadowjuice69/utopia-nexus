@@ -36,6 +36,17 @@ const THRONE_FROM_PROVINCE = {
   requests: 'requests'
 };
 
+// These are single-province identity tables. For these tables, a province's
+// canonical KD comes from the authoritative `provinces` roster. This lets the
+// Steward repair old rows without touching legitimate cross-KD attack/event data.
+const PROVINCE_IDENTITY_TABLES = [
+  'intel_throne',
+  'intel_state',
+  'intel_military',
+  'intel_buildings',
+  'intel_science'
+];
+
 function clean(v) {
   if (v === null || v === undefined) return '';
   return String(v).trim();
@@ -79,12 +90,72 @@ async function latestProvinces(sb) {
   });
 }
 
+async function historicalIdentityRepair(sb, provinces, stats) {
+  // Build an unambiguous province-name -> canonical KD index. Never repair a
+  // row when the same province name belongs to multiple canonical KDs.
+  const canonicalByName = new Map();
+  const ambiguousNames = new Set();
+  for (const p of provinces) {
+    const name = clean(p.name).toLowerCase();
+    const kd = clean(p.kd_code);
+    if (!name || !kd) continue;
+    const existing = canonicalByName.get(name);
+    if (existing && !same(existing.kd_code, kd)) ambiguousNames.add(name);
+    else if (!existing) canonicalByName.set(name, { kd_code: kd, province_id: p.id });
+  }
+
+  for (const table of PROVINCE_IDENTITY_TABLES) {
+    const { data: rows, error } = await sb.from(table)
+      .select('id,province,kd_code,updated_at')
+      .not('province', 'is', null)
+      .limit(10000);
+    if (error) {
+      stats.errors += 1;
+      logger.warn(`[DATA STEWARD HISTORICAL IDENTITY] ${table}: ${error.message}`);
+      continue;
+    }
+
+    for (const row of rows || []) {
+      stats.identity_reviewed += 1;
+      const name = clean(row.province).toLowerCase();
+      const canonical = canonicalByName.get(name);
+      if (!canonical || ambiguousNames.has(name)) continue;
+      if (!clean(row.kd_code) || same(row.kd_code, canonical.kd_code)) continue;
+
+      const oldKd = clean(row.kd_code);
+      const { error: updateError } = await sb.from(table)
+        .update({ kd_code: canonical.kd_code })
+        .eq('id', row.id)
+        .eq('kd_code', oldKd);
+      if (updateError) {
+        stats.errors += 1;
+        logger.warn(`[DATA STEWARD HISTORICAL IDENTITY] ${table}/${row.province}: ${updateError.message}`);
+        continue;
+      }
+
+      stats.identity_repaired += 1;
+      await audit(sb, {
+        action: 'repaired_historical_kd_identity',
+        source_type: 'provinces',
+        source_id: canonical.province_id,
+        decision: 'safe_canonical_province_match',
+        destination_table: table,
+        province: row.province,
+        old_kd_code: oldKd,
+        new_kd_code: canonical.kd_code,
+        rule: 'Repair historical KD only when the exact province name maps uniquely to one canonical province roster entry. Never alter ambiguous names or cross-KD event participants.'
+      });
+      logger.info(`[DATA STEWARD HISTORICAL IDENTITY] repaired ${table}: ${row.province} ${oldKd} -> ${canonical.kd_code}`);
+    }
+  }
+}
+
 async function reconcile() {
   if (running || !ENABLED) return { skipped: true };
   const sb = supabaseService.getClient();
   if (!sb) return { skipped: true, reason: 'supabase_disabled' };
   running = true;
-  const stats = { reviewed: 0, repaired: 0, fields: 0, age: null, conflicts: 0, errors: 0 };
+  const stats = { reviewed: 0, repaired: 0, fields: 0, age: null, conflicts: 0, errors: 0, identity_reviewed: 0, identity_repaired: 0 };
   try {
     const [{ data: throneRows, error: throneError }, provinces, ageResult] = await Promise.all([
       sb.from('intel_throne').select('*').order('updated_at', { ascending: false }).limit(5000),
@@ -92,6 +163,10 @@ async function reconcile() {
       sb.from('age_updates').select('age_number,status,approved_at,created_at,source').eq('status', 'approved').order('approved_at', { ascending: false }).order('created_at', { ascending: false }).limit(1).maybeSingle()
     ]);
     if (throneError) throw throneError;
+
+    // Historical repair runs before normal field reconciliation so all later
+    // Steward work sees the correct KD boundary.
+    await historicalIdentityRepair(sb, provinces, stats);
 
     const provinceMap = new Map();
     for (const p of provinces) provinceMap.set(`${clean(p.kd_code).toLowerCase()}|${clean(p.name).toLowerCase()}`, p);
@@ -151,7 +226,7 @@ async function reconcile() {
       });
     }
 
-    logger.info(`[DATA STEWARD RECONCILIATION] reviewed=${stats.reviewed} repaired=${stats.repaired} fields=${stats.fields} age=${stats.age ?? 'unknown'} conflicts=${stats.conflicts} errors=${stats.errors}`);
+    logger.info(`[DATA STEWARD RECONCILIATION] reviewed=${stats.reviewed} repaired=${stats.repaired} fields=${stats.fields} identity_reviewed=${stats.identity_reviewed} identity_repaired=${stats.identity_repaired} age=${stats.age ?? 'unknown'} conflicts=${stats.conflicts} errors=${stats.errors}`);
     return stats;
   } catch (error) {
     stats.errors += 1;
