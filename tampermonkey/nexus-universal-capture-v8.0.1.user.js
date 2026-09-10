@@ -93,7 +93,7 @@
   function encode(record) {
     const form = new URLSearchParams();
     form.set("key", KEY);
-    form.set("source", "kd-stats-generic");
+    form.set("source", "universal-capture");
     form.set("tab", "universal");
     form.set("prov", record.subject_identity.province || "");
     form.set("kd", record.subject_identity.kd || "");
