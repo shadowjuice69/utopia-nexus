@@ -96,8 +96,8 @@ client.once('clientReady', async () => {
 });
 
 const port = Number(process.env.PORT || 10000);
-const intelReceiver = require('./services/intelReceiver');
-intelReceiver.start();
+const universalReceiver = require('./services/universalReceiver');
+universalReceiver.start();
 
 logger.info('🚀 Nexus clean core starting');
 logger.info(`[INTEL7] channel count=${intel7.channels.size} kd=${intel7.kd}`);
