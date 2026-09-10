@@ -91,6 +91,18 @@ function parseSurvey(text) {
   return { buildings };
 }
 
+function decodeHtml(value) {
+  return clean(String(value || "")
+    .replace(/<br\s*\/?>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'"));
+}
+
 function parseScience(text) {
   const science = {};
   const effects = {};
@@ -99,8 +111,25 @@ function parseScience(text) {
     "Tactics", "Valor", "Heroism", "Resilience", "Crime", "Channeling", "Shielding", "Cunning",
     "Sorcery", "Finesse", "Arcana"
   ]);
+  const source = String(text || "");
 
-  for (const line of String(text || "").split(/\r?\n/)) {
+  // Universal Capture stores the complete DOM. Parse the actual science table
+  // directly when the capture is HTML, while retaining the tab-delimited path
+  // for the council_science text capture.
+  const htmlRow = /<td[^>]*>\s*(Alchemy|Tools|Housing|Production|Bookkeeping|Artisan|Strategy|Siege|Tactics|Valor|Heroism|Resilience|Crime|Channeling|Shielding|Cunning|Sorcery|Finesse|Arcana)\s*<\/td>\s*<td[^>]*>\s*([\d,]+)\s*<\/td>\s*<td[^>]*>([\s\S]*?)<\/td>/gi;
+  let match;
+  while ((match = htmlRow.exec(source)) !== null) {
+    const name = clean(match[1]);
+    const books = number(match[2]);
+    if (books == null || !known.has(name)) continue;
+    const key = name.toLowerCase();
+    science[key] = books;
+    const effect = decodeHtml(match[3]);
+    if (effect) effects[key] = effect;
+  }
+
+  // Also parse normal visible-text/tab-delimited captures.
+  for (const line of source.split(/\r?\n/)) {
     const cols = line.split(/\t/).map(clean);
     if (cols.length < 2 || !known.has(cols[0])) continue;
     const books = number(cols[1]);
