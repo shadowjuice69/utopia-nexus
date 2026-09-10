@@ -4,6 +4,7 @@ const supabaseService = require('./supabase');
 const logger = require('./logger');
 const dataSteward = require('./dataStewardService');
 const { classifyUniversalCapture } = require('./dataStewardUniversalClassifier');
+const { guardCapture } = require('./provinceIntelIdentityGuard');
 
 const CURSOR_KEY = 'universal_steward_cursor';
 const INTERNAL_PORT = Number(process.env.PORT || 3000);
@@ -164,6 +165,24 @@ async function processBatch() {
 
       try {
         if (classified) {
+          const identityGuard = await guardCapture(row, classification.type);
+          if (!identityGuard.allowed) {
+            await dataSteward.raise({
+              source_type: 'universal-capture', source: row.source || 'universal-capture', source_id: row.id,
+              kd_code: row.kd_code, province: row.province, issue_type: 'invalid_province_kd_identity', severity: 'high',
+              observed_value: { page_kind: row.tab, url: row.url, classification, validation: identityGuard.validation },
+              raw_excerpt: row.raw_text || '',
+              destination_table: dataSteward.ROUTES[classification.type]?.table || 'intel_complete_vault',
+              destination_dashboard: dataSteward.ROUTES[classification.type]?.dashboard || 'Complete Vault / Universal Capture',
+              reason: 'Province/KD identity did not match the authoritative provinces roster; active destination write was blocked.',
+              recommendation: 'Keep the capture in the Complete Vault and do not write province intel under the wrong kingdom.',
+              confidence: 100, auto_resolved: false
+            });
+            cursor = rowId;
+            await saveCursor(cursor);
+            continue;
+          }
+
           await dataSteward.inspect({
             type: classification.type,
             source: row.source || 'universal-capture',
@@ -213,11 +232,9 @@ async function processBatch() {
           auto_resolved: classified
         });
 
-        // Advance the durable cursor only after the entire row has completed.
         cursor = rowId;
         await saveCursor(cursor);
       } catch (error) {
-        // Do not advance past a failed row. The next poll/restart retries it safely.
         logger.warn(`[UNIVERSAL STEWARD] row=${row.id} held for retry: ${error.message}`);
         break;
       }
