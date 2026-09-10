@@ -109,10 +109,12 @@ async function historicalIdentityRepair(sb, provinces, stats) {
       const oldKd = clean(row.kd_code);
       await preserveBeforeRemoval(sb, table, row, canonical, 'province does not exist in the KD assigned to the active row');
 
+      // Delete by immutable primary key only. Some identity tables have unique
+      // (province,kd_code) constraints and concurrent ingestion can make a
+      // compound filter behave badly; the row id is the authoritative target.
       const { error: deleteError } = await sb.from(table)
         .delete()
-        .eq('id', row.id)
-        .eq('kd_code', oldKd);
+        .eq('id', row.id);
       if (deleteError) {
         stats.errors += 1;
         logger.warn(`[DATA STEWARD HISTORICAL IDENTITY] ${table}/${row.province}: ${deleteError.message}`);
