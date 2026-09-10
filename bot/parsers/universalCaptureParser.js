@@ -61,22 +61,71 @@ function parseKingdomDetails(text) {
   return parsed;
 }
 
+function parseSurvey(text) {
+  const buildings = {};
+  const known = [
+    "Barren Land", "Homes", "Farms", "Mills", "Banks", "Training Grounds",
+    "Armouries", "Military Barracks", "Forts", "Castles", "Hospitals", "Guilds",
+    "Towers", "Thieves' Dens", "Watch Towers", "Universities", "Libraries", "Stables", "Dungeons"
+  ];
+
+  for (const line of String(text || "").split(/\r?\n/)) {
+    const tabs = line.split(/\t/).map(clean);
+    if (tabs.length >= 3 && known.includes(tabs[0])) {
+      const qty = number(tabs[1]);
+      const pct = parseFloat(String(tabs[2]).replace("%", ""));
+      if (qty != null && Number.isFinite(pct)) {
+        buildings[tabs[0].toLowerCase().replace(/[^a-z]+/g, "_")] = { qty, pct };
+        continue;
+      }
+    }
+
+    const m = line.match(/^(.+?)\s+([\d,]+)\s*\(([\d.]+)%\)/);
+    if (m) {
+      const name = clean(m[1]);
+      const key = name.toLowerCase().replace(/[^a-z]+/g, "_");
+      if (!buildings[key]) buildings[key] = { qty: number(m[2]), pct: parseFloat(m[3]) };
+    }
+  }
+
+  return { buildings };
+}
+
+function parseScience(text) {
+  const science = {};
+  const effects = {};
+  const known = new Set([
+    "Alchemy", "Tools", "Housing", "Production", "Bookkeeping", "Artisan", "Strategy", "Siege",
+    "Tactics", "Valor", "Heroism", "Resilience", "Crime", "Channeling", "Shielding", "Cunning",
+    "Sorcery", "Finesse", "Arcana"
+  ]);
+
+  for (const line of String(text || "").split(/\r?\n/)) {
+    const cols = line.split(/\t/).map(clean);
+    if (cols.length < 2 || !known.has(cols[0])) continue;
+    const books = number(cols[1]);
+    if (books == null) continue;
+    const key = cols[0].toLowerCase();
+    science[key] = books;
+    if (cols[2]) effects[key] = cols[2];
+  }
+
+  return { science, science_effects: effects };
+}
+
 function parseUniversalCapture(url, rawText) {
   const text = String(rawText || "");
   const kind = detectKind(url, text);
   const base = { kind, raw_length: text.length };
 
   if (kind === "kingdom") return { type: "kingdom", data: parseKingdomDetails(text), ...base };
-  if (kind === "throne") {
-    const p = parseThrone(text);
-    return { type: "throne", data: p, ...base };
-  }
+  if (kind === "throne") return { type: "throne", data: parseThrone(text), ...base };
   if (kind === "state") return { type: "state", data: parseState(text), ...base };
   if (kind === "news") return { type: "news", data: { events: parseNews(text) }, ...base };
   if (kind === "som") return { type: "som", data: { armies: parseArmies(text), raw: text }, ...base };
+  if (kind === "survey") return { type: "survey", data: { ...parseSurvey(text), raw: text }, ...base };
+  if (kind === "science") return { type: "science", data: { ...parseScience(text), raw: text }, ...base };
 
-  // These pages are intentionally retained as structured universal data until
-  // their page-specific extractors are rebuilt. Raw capture remains authoritative.
   return {
     type: "universal-page",
     data: {
@@ -89,4 +138,4 @@ function parseUniversalCapture(url, rawText) {
   };
 }
 
-module.exports = { detectKind, parseUniversalCapture, parseKingdomDetails };
+module.exports = { detectKind, parseUniversalCapture, parseKingdomDetails, parseSurvey, parseScience };
