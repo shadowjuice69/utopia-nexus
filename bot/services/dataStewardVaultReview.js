@@ -1,3 +1,4 @@
+const http = require('http');
 const supabaseService = require('./supabase');
 const logger = require('./logger');
 const dataSteward = require('./dataStewardService');
@@ -35,6 +36,42 @@ async function audit(sb, action, decision, details) {
   if (error) logger.warn(`[DATA STEWARD VAULT AUDIT] ${error.message}`);
 }
 
+async function routeThroughReceiver(row, capture) {
+  const body = new URLSearchParams({
+    key: process.env.INTEL_KEY || '',
+    url: row.url || '',
+    prov: row.province || '',
+    kd: row.kd_code || '',
+    tab: row.tab || capture.page_kind || '',
+    data_simple: capture.raw_text
+  }).toString();
+
+  return new Promise((resolve, reject) => {
+    const req = http.request({
+      hostname: '127.0.0.1',
+      port: Number(process.env.PORT || 3000),
+      path: '/intel',
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Content-Length': Buffer.byteLength(body)
+      },
+      timeout: 30000
+    }, res => {
+      let response = '';
+      res.on('data', chunk => { response += chunk; });
+      res.on('end', () => {
+        if (res.statusCode >= 200 && res.statusCode < 300) resolve(response);
+        else reject(new Error(`receiver returned ${res.statusCode}: ${response}`));
+      });
+    });
+    req.on('timeout', () => req.destroy(new Error('receiver timeout')));
+    req.on('error', reject);
+    req.write(body);
+    req.end();
+  });
+}
+
 async function reviewBatch() {
   if (running) return;
   const sb = supabaseService.getClient();
@@ -57,22 +94,33 @@ async function reviewBatch() {
         const capture = captureFromVault(row);
         const classification = classifyUniversalCapture(capture);
         const classified = Boolean(classification.type && classification.confidence >= 75);
+        const route = classified ? dataSteward.ROUTES[classification.type] : null;
 
-        if (!classified) {
+        if (!classified || !route || classification.type === 'universal-capture') {
           held++;
           await audit(sb, 'vault_review_held', 'unclassified_or_ambiguous', {
             vault_id: row.id,
             payload_hash: row.payload_hash,
             classification,
             url: row.url,
-            tab: row.tab
+            tab: row.tab,
+            reason: !classified ? 'insufficient classification evidence' : 'no promotable destination'
           });
           continue;
         }
 
-        const route = dataSteward.ROUTES[classification.type];
-        if (!route || classification.type === 'universal-capture') {
+        // intel-site intentionally uses the Complete Vault as its authoritative
+        // destination. Never route a vault row back into the vault or mark it
+        // consumed; it would create a self-feeding promotion loop.
+        if (route.table === 'intel_complete_vault') {
           held++;
+          await audit(sb, 'vault_review_held', 'vault_is_authoritative_destination', {
+            vault_id: row.id,
+            payload_hash: row.payload_hash,
+            classification,
+            destination_table: route.table,
+            destination_dashboard: route.dashboard
+          });
           continue;
         }
 
@@ -86,41 +134,9 @@ async function reviewBatch() {
           data: row.payload || {}
         }, row.province);
 
-        const http = require('http');
-        const body = new URLSearchParams({
-          key: process.env.INTEL_KEY || '',
-          url: row.url || '',
-          prov: row.province || '',
-          kd: row.kd_code || '',
-          tab: row.tab || capture.page_kind || '',
-          data_simple: capture.raw_text
-        }).toString();
+        await routeThroughReceiver(row, capture);
 
-        await new Promise((resolve, reject) => {
-          const req = http.request({
-            hostname: '127.0.0.1',
-            port: Number(process.env.PORT || 3000),
-            path: '/intel',
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/x-www-form-urlencoded',
-              'Content-Length': Buffer.byteLength(body)
-            },
-            timeout: 30000
-          }, res => {
-            let response = '';
-            res.on('data', chunk => { response += chunk; });
-            res.on('end', () => {
-              if (res.statusCode >= 200 && res.statusCode < 300) resolve(response);
-              else reject(new Error(`receiver returned ${res.statusCode}: ${response}`));
-            });
-          });
-          req.on('timeout', () => req.destroy(new Error('receiver timeout')));
-          req.on('error', reject);
-          req.write(body);
-          req.end();
-        });
-
+        // Consume the vault item only after the destination receiver accepted it.
         const { error: updateError } = await sb.from('intel_complete_vault')
           .update({ is_current: false })
           .eq('id', row.id)
