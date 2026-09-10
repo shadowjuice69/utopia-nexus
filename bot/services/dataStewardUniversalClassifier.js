@@ -51,19 +51,18 @@ function classifyUniversalCapture(capture = {}) {
 
   // Match the actual Utopia route names used by the Universal Capture browser script.
   if (/\/throne(?:[/?#]|$)/.test(url)) add("throne", 12);
-  if (/\/survey(?:[/?#]|$)|\/build(?:[/?#]|$)/.test(url)) add("survey", 12);
+  if (/\/survey(?:[/?#]|$)|\/build(?:[/?#]|$)|\/council_internal(?:[/?#]|$)/.test(url)) add("survey", 12);
   if (/\/science(?:[/?#]|$)|\/council_science(?:[/?#]|$)/.test(url)) add("science", 12);
-  if (/\/military|\/som(?:[/?#]|$)|\/send_armies(?:[/?#]|$)|\/train_army(?:[/?#]|$)|\/release_army(?:[/?#]|$)/.test(url)) add("som", 12);
+  if (/\/military|\/som(?:[/?#]|$)|\/send_armies(?:[/?#]|$)|\/train_army(?:[/?#]|$)|\/release_army(?:[/?#]|$)|\/council_military(?:[/?#]|$)/.test(url)) add("som", 12);
   if (/\/state(?:[/?#]|$)|\/council_state(?:[/?#]|$)/.test(url)) add("state", 12);
   if (/\/news(?:[/?#]|$)|\/province_news(?:[/?#]|$)|\/kingdom_news(?:[/?#]|$)/.test(url)) add("news", 12);
   if (/\/kingdom(?:[/?#]|$)|\/kingdom_details(?:[/?#]|$)/.test(url)) add("kingdom-page", 12);
   if (/\/stats(?:[/?#]|$)|kd.?stats/.test(url)) add("kd-stats-generic", 12);
   if (/\/attack|\/war/.test(url)) add("attack", 10);
-  if (/\/spell|\/magic/.test(url)) add("spell", 10);
+  if (/\/spell|\/magic|\/council_spells(?:[/?#]|$)/.test(url)) add("spell", 10);
   if (/\/thievery|\/thieves/.test(url)) add("thievery", 10);
   if (/intel\.utopia\.site/.test(url)) add("intel-site", 20);
 
-  // Specialized aliases are only selected when the capture itself strongly indicates them.
   if (/building.*stats|stats.*building/.test(text)) scores["kd-stats-buildings"] += 10;
   if (/complete vault|intel 7|intel-site/.test(text)) scores["intel-site"] += 12;
 
