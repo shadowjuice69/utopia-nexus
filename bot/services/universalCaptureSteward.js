@@ -149,8 +149,10 @@ async function processBatch() {
     if (error) throw error;
 
     for (const row of rows || []) {
-      cursor = Math.max(cursor, Number(row.id));
+      const rowId = Number(row.id);
+      if (!Number.isFinite(rowId) || rowId <= cursor) continue;
       if (String(row.data_type || '').toLowerCase() !== 'universal-capture') {
+        cursor = rowId;
         await saveCursor(cursor);
         continue;
       }
@@ -160,57 +162,65 @@ async function processBatch() {
       const classification = classifyUniversalCapture(capture);
       const classified = Boolean(classification.type && classification.confidence >= 75);
 
-      if (classified) {
-        await dataSteward.inspect({
-          type: classification.type,
-          source: row.source || 'universal-capture',
-          source_id: row.id,
-          kd: row.kd_code,
-          prov: row.province,
-          url: row.url,
-          data: routeData(classification.type, data, classification)
-        }, row.province);
+      try {
+        if (classified) {
+          await dataSteward.inspect({
+            type: classification.type,
+            source: row.source || 'universal-capture',
+            source_id: row.id,
+            kd: row.kd_code,
+            prov: row.province,
+            url: row.url,
+            data: routeData(classification.type, data, classification)
+          }, row.province);
 
-        try {
-          await postToExistingReceiver(row, data);
-        } catch (routeError) {
-          await preserveCapture(row, data, classification, 'destination-route-failed');
-          await dataSteward.raise({
-            source_type: 'universal-capture', source: row.source || 'universal-capture', source_id: row.id,
-            kd_code: row.kd_code, province: row.province, issue_type: 'universal_capture_route_failed', severity: 'high',
-            observed_value: { page_kind: row.tab, url: row.url, classification }, raw_excerpt: row.raw_text || '',
-            destination_table: dataSteward.ROUTES[classification.type]?.table || 'intel_complete_vault',
-            destination_dashboard: dataSteward.ROUTES[classification.type]?.dashboard || 'Complete Vault / Universal Capture',
-            reason: routeError.message, recommendation: 'Keep the Universal Capture intact and retry routing after the existing receiver is healthy.',
-            confidence: classification.confidence, auto_resolved: false
-          });
-          throw routeError;
+          try {
+            await postToExistingReceiver(row, data);
+          } catch (routeError) {
+            await preserveCapture(row, data, classification, 'destination-route-failed');
+            await dataSteward.raise({
+              source_type: 'universal-capture', source: row.source || 'universal-capture', source_id: row.id,
+              kd_code: row.kd_code, province: row.province, issue_type: 'universal_capture_route_failed', severity: 'high',
+              observed_value: { page_kind: row.tab, url: row.url, classification }, raw_excerpt: row.raw_text || '',
+              destination_table: dataSteward.ROUTES[classification.type]?.table || 'intel_complete_vault',
+              destination_dashboard: dataSteward.ROUTES[classification.type]?.dashboard || 'Complete Vault / Universal Capture',
+              reason: routeError.message, recommendation: 'Keep the Universal Capture intact and retry routing after the existing receiver is healthy.',
+              confidence: classification.confidence, auto_resolved: false
+            });
+            throw routeError;
+          }
+        } else {
+          await preserveCapture(row, data, classification, 'unclassified-or-ambiguous');
+          await dataSteward.inspect({
+            type: 'universal-capture', source: row.source || 'universal-capture', source_id: row.id,
+            kd: row.kd_code, prov: row.province, url: row.url,
+            data: { ...data, _universal_classification: classification }
+          }, row.province);
         }
-      } else {
-        await preserveCapture(row, data, classification, 'unclassified-or-ambiguous');
-        await dataSteward.inspect({
-          type: 'universal-capture', source: row.source || 'universal-capture', source_id: row.id,
-          kd: row.kd_code, prov: row.province, url: row.url,
-          data: { ...data, _universal_classification: classification }
-        }, row.province);
+
+        await dataSteward.raise({
+          source_type: 'universal-capture', source: row.source || 'universal-capture', source_id: row.id,
+          kd_code: row.kd_code, province: row.province,
+          issue_type: classified ? 'universal_capture_classified' : 'universal_capture_unclassified',
+          severity: classified ? 'low' : 'medium',
+          observed_value: { page_kind: row.tab, url: row.url, classification: classification.type, confidence: classification.confidence },
+          raw_excerpt: row.raw_text || '',
+          destination_table: classified ? (dataSteward.ROUTES[classification.type]?.table || 'intel_complete_vault') : 'intel_complete_vault',
+          destination_dashboard: classified ? (dataSteward.ROUTES[classification.type]?.dashboard || 'Complete Vault / Universal Capture') : 'Complete Vault / Universal Capture',
+          reason: classification.reason,
+          recommendation: classification.ambiguous ? 'Keep in the lossless vault and improve classification evidence before trusting a specialized destination.' : 'Classified deterministically and handed to the existing receiver destination parser.',
+          confidence: classification.confidence,
+          auto_resolved: classified
+        });
+
+        // Advance the durable cursor only after the entire row has completed.
+        cursor = rowId;
+        await saveCursor(cursor);
+      } catch (error) {
+        // Do not advance past a failed row. The next poll/restart retries it safely.
+        logger.warn(`[UNIVERSAL STEWARD] row=${row.id} held for retry: ${error.message}`);
+        break;
       }
-
-      await dataSteward.raise({
-        source_type: 'universal-capture', source: row.source || 'universal-capture', source_id: row.id,
-        kd_code: row.kd_code, province: row.province,
-        issue_type: classified ? 'universal_capture_classified' : 'universal_capture_unclassified',
-        severity: classified ? 'low' : 'medium',
-        observed_value: { page_kind: row.tab, url: row.url, classification: classification.type, confidence: classification.confidence },
-        raw_excerpt: row.raw_text || '',
-        destination_table: classified ? (dataSteward.ROUTES[classification.type]?.table || 'intel_complete_vault') : 'intel_complete_vault',
-        destination_dashboard: classified ? (dataSteward.ROUTES[classification.type]?.dashboard || 'Complete Vault / Universal Capture') : 'Complete Vault / Universal Capture',
-        reason: classification.reason,
-        recommendation: classification.ambiguous ? 'Keep in the lossless vault and improve classification evidence before trusting a specialized destination.' : 'Classified deterministically and handed to the existing receiver destination parser.',
-        confidence: classification.confidence,
-        auto_resolved: classified
-      });
-
-      await saveCursor(cursor);
     }
   } catch (error) {
     logger.warn(`[UNIVERSAL STEWARD] ${error.message}`);
