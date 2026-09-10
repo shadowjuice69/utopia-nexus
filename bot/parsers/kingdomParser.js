@@ -1,3 +1,5 @@
+const MAX_PROVINCES_PER_KINGDOM = 25;
+
 function parseKingdom(text) {
   const result = {
     kd_code: null,
@@ -36,7 +38,12 @@ function parseKingdom(text) {
   const nwRank = source.match(/Networth Rank\s*[:\t]\s*([\d,]+)\s+of\s+([\d,]+)/i);
   const landRank = source.match(/Land Rank\s*[:\t]\s*([\d,]+)\s+of\s+([\d,]+)/i);
 
-  result.total_provinces = totalProvinces ? number(totalProvinces[1]) : null;
+  const parsedTotalProvinces = totalProvinces ? number(totalProvinces[1]) : null;
+  // Utopia kingdoms cannot legitimately exceed 25 provinces. Never let a bad
+  // capture advertise an impossible kingdom size to downstream consumers.
+  result.total_provinces = parsedTotalProvinces == null
+    ? null
+    : Math.min(parsedTotalProvinces, MAX_PROVINCES_PER_KINGDOM);
   result.total_nw = totalNw ? number(totalNw[1]) : null;
   result.total_land = totalLand ? number(totalLand[1]) : null;
   result.nw_rank = nwRank ? number(nwRank[1]) : null;
@@ -53,4 +60,4 @@ function parseKingdom(text) {
   return result;
 }
 
-module.exports = { parseKingdom };
+module.exports = { parseKingdom, MAX_PROVINCES_PER_KINGDOM };
