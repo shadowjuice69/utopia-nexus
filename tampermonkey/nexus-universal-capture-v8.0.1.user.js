@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Utopia Nexus Universal Capture
 // @namespace    utopia-nexus
-// @version      8.0.3
+// @version      8.0.4
 // @description  Universal Utopia page capture. Raw DOM is the source of truth; no page-type filtering or AI.
 // @match        https://www.utopia-game.com/*
 // @match        https://utopia-game.com/*
@@ -18,7 +18,7 @@
 
 (function () {
   "use strict";
-  const VERSION = "8.0.3";
+  const VERSION = "8.0.4";
   const ENDPOINT = "https://utopia-nexus.onrender.com/intel";
   const KEY = "NikkoAce";
   const PANEL_ID = "nexus-universal-panel";
@@ -93,7 +93,7 @@
   function encode(record) {
     const form = new URLSearchParams();
     form.set("key", KEY);
-    form.set("source", "universal-capture");
+    form.set("source", "kd-stats-generic");
     form.set("tab", "universal");
     form.set("prov", record.subject_identity.province || "");
     form.set("kd", record.subject_identity.kd || "");
