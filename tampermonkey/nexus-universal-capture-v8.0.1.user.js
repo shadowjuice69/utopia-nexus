@@ -93,7 +93,7 @@
   function encode(record) {
     const form = new URLSearchParams();
     form.set("key", KEY);
-    form.set("source", "universal-capture");
+    form.set("source", "kd-stats-generic");
     form.set("tab", "universal");
     form.set("prov", record.subject_identity.province || "");
     form.set("kd", record.subject_identity.kd || "");
@@ -102,6 +102,7 @@
     form.set("captured_at", record.captured_at);
     form.set("data_simple", JSON.stringify({
       category: "universal-capture",
+      rows: [],
       capture_id: record.capture_id,
       captured_at: record.captured_at,
       scraper_version: record.scraper_version,
