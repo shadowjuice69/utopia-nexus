@@ -1,6 +1,7 @@
 const dataSteward = require('./dataStewardService');
 const decisionReview = require('./dataStewardDecisionReview');
 const reconciler = require('./dataStewardReconciler');
+const vaultReview = require('./dataStewardVaultReview');
 
 // The Steward should recognize the event types that Nexus already stores instead of
 // treating them as unknown data. These routes point at existing production tables;
@@ -82,7 +83,8 @@ function start() {
   originalStart();
   reconciler.start();
   decisionReview.start(realDiscordClient);
+  vaultReview.start();
   sendThankYouOnce();
 }
 
-module.exports = { ...dataSteward, setClient, start, decisionReview, reconciler };
+module.exports = { ...dataSteward, setClient, start, decisionReview, reconciler, vaultReview };
