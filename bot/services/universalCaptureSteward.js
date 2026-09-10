@@ -19,6 +19,22 @@ function toData(row) {
   return parsed;
 }
 
+function routeData(type, data, classification) {
+  const route = dataSteward.ROUTES[type];
+  if (!route) return { raw: data.raw || '', _universal_classification: classification };
+  const allowed = new Set(route.fields || []);
+  const selected = {};
+  for (const [key, value] of Object.entries(data)) {
+    if (allowed.has(key)) selected[key] = value;
+  }
+  // Preserve the original page evidence only when the destination contract supports it.
+  if (allowed.has('raw') && data.raw) selected.raw = data.raw;
+  if (allowed.has('raw_text') && data.raw_text) selected.raw_text = data.raw_text;
+  if (allowed.has('_universal')) selected._universal = true;
+  if (allowed.has('_universal_classification')) selected._universal_classification = classification;
+  return selected;
+}
+
 async function processBatch() {
   if (running) return;
   const sb = supabaseService.getClient();
@@ -36,37 +52,37 @@ async function processBatch() {
       cursor = Math.max(cursor, Number(row.id));
       if (String(row.data_type || '').toLowerCase() !== 'universal-capture') continue;
 
+      const data = toData(row);
       const capture = {
         ...row,
-        data: toData(row),
+        data,
         title: row.parsed?.title,
         page_kind: row.parsed?.page_kind || row.tab
       };
       const classification = classifyUniversalCapture(capture);
-      const context = {
-        source: row.source || 'universal-capture',
-        source_id: row.id,
-        kd: row.kd_code,
-        prov: row.province,
-        url: row.url,
-        data: {
-          ...capture.data,
-          _universal_classification: classification
-        }
-      };
+      const classified = Boolean(classification.type && classification.confidence >= 75);
 
-      if (classification.type && classification.confidence >= 75) {
+      if (classified) {
         await dataSteward.inspect({
-          ...context,
-          type: classification.type
+          type: classification.type,
+          source: row.source || 'universal-capture',
+          source_id: row.id,
+          kd: row.kd_code,
+          prov: row.province,
+          url: row.url,
+          data: routeData(classification.type, data, classification)
         }, row.province);
       } else {
         // Unknown/ambiguous pages stay safely inside the existing Universal Capture
-        // route. The Steward's vault is the lossless landing zone until a trusted
-        // classification exists; nothing is discarded just because the page is new.
+        // route. The vault is the lossless landing zone; no page is discarded.
         await dataSteward.inspect({
-          ...context,
-          type: 'universal-capture'
+          type: 'universal-capture',
+          source: row.source || 'universal-capture',
+          source_id: row.id,
+          kd: row.kd_code,
+          prov: row.province,
+          url: row.url,
+          data: { ...data, _universal_classification: classification }
         }, row.province);
       }
 
@@ -76,8 +92,8 @@ async function processBatch() {
         source_id: row.id,
         kd_code: row.kd_code,
         province: row.province,
-        issue_type: classification.type ? 'universal_capture_classified' : 'universal_capture_unclassified',
-        severity: classification.type ? 'low' : 'medium',
+        issue_type: classified ? 'universal_capture_classified' : 'universal_capture_unclassified',
+        severity: classified ? 'low' : 'medium',
         observed_value: {
           page_kind: row.tab,
           url: row.url,
@@ -85,12 +101,12 @@ async function processBatch() {
           confidence: classification.confidence
         },
         raw_excerpt: row.raw_text || '',
-        destination_table: classification.type ? (dataSteward.ROUTES[classification.type]?.table || 'intel_complete_vault') : 'intel_complete_vault',
-        destination_dashboard: classification.type ? (dataSteward.ROUTES[classification.type]?.dashboard || 'Complete Vault / Universal Capture') : 'Complete Vault / Universal Capture',
+        destination_table: classified ? (dataSteward.ROUTES[classification.type]?.table || 'intel_complete_vault') : 'intel_complete_vault',
+        destination_dashboard: classified ? (dataSteward.ROUTES[classification.type]?.dashboard || 'Complete Vault / Universal Capture') : 'Complete Vault / Universal Capture',
         reason: classification.reason,
         recommendation: classification.ambiguous ? 'Keep in the lossless vault and improve classification evidence before trusting a specialized destination.' : 'Classified deterministically and handed to the existing Steward route.',
         confidence: classification.confidence,
-        auto_resolved: Boolean(classification.type && classification.confidence >= 75)
+        auto_resolved: classified
       });
     }
   } catch (error) {
