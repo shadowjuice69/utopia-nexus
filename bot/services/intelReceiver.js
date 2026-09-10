@@ -30,7 +30,22 @@ function parseIntel(url, prov, text, source="", tab="") {
   const kdMatch = url.match(/kd[=\\/](\\d+:\\d+)/) || text.match(/\\((\\d+:\\d+)\\)/);
   result.kd = kdMatch ? kdMatch[1] : MY_KD;
 
-  if (source === "kingdom-page") {
+  if (source === "universal-capture") {
+    result.type = "universal-capture";
+    try {
+      const parsed = JSON.parse(text);
+      result.raw = parsed.raw || parsed.html || "";
+      delete parsed.raw;
+      delete parsed.html;
+      result.data = parsed;
+      const subject = parsed.subject_identity || {};
+      if (subject.kd_code) result.kd = subject.kd_code;
+      if (subject.province) result.prov = subject.province;
+    } catch (e) {
+      result.raw = text;
+      result.data = {};
+    }
+  } else if (source === "kingdom-page") {
     result.type = "kingdom-page";
     try {
       const parsed = JSON.parse(text);
@@ -246,6 +261,9 @@ function decodeCombo(combo) {
 
 async function saveRawPageIntel(sb, parsed, prov) {
   try {
+    const universal = parsed.source === "universal-capture";
+    const rawText = universal ? (parsed.raw || null) : (parsed.data?.raw || parsed.data?.text || null);
+    const payload = parsed.data || {};
     const { error } = await sb.from("intel_page_ingest").insert({
       kd_code: parsed.kd || MY_KD,
       province: prov || parsed.prov || null,
@@ -253,8 +271,8 @@ async function saveRawPageIntel(sb, parsed, prov) {
       tab: parsed.tab || null,
       url: parsed.url || null,
       data_type: parsed.type || "unknown",
-      raw_text: parsed.data?.raw || parsed.data?.text || null,
-      parsed: parsed.data || {}
+      raw_text: rawText,
+      parsed: payload
     });
     if (error) logger.error(`[RAW PAGE SAVE ERROR] ${error.message}`);
     else logger.info(`[RAW PAGE SAVED] type=${parsed.type} tab=${parsed.tab || ""} kd=${parsed.kd || MY_KD} prov=${prov || ""}`);
@@ -262,7 +280,6 @@ async function saveRawPageIntel(sb, parsed, prov) {
     logger.error(`[RAW PAGE SAVE CATCH] ${e.message}`);
   }
 }
-
 async function saveIntel(parsed, prov) {
   const sb = supabaseService.getClient();
   // Throne pages contain the authoritative province name + coordinates.
