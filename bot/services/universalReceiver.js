@@ -7,6 +7,7 @@ const { parseUniversalCapture } = require("../parsers/universalCaptureParser");
 const INTEL_KEY = process.env.INTEL_KEY || "NikkoAce";
 const PORT = parseInt(process.env.PORT || "10000", 10);
 const MY_KD = process.env.MY_KD || null;
+const MY_PROV = process.env.MY_PROV || null;
 
 function clean(value) {
   return String(value || "").replace(/\s+/g, " ").trim();
@@ -32,7 +33,7 @@ function decodeRequest(body) {
 
   const subject = payload.subject_identity || {};
   const resolvedKd = subject.kd_code || kd || MY_KD || null;
-  const resolvedProv = subject.province || prov || null;
+  const resolvedProv = subject.province || prov || MY_PROV || null;
   const pageUrl = payload.page?.url || url;
   const visibleText = payload.visible_text || payload.text || "";
   const raw = payload.raw || payload.html || "";
