@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         Utopia Nexus Universal Capture
+// @name         Utopia Nexus Universal Capture + Kingdom Cycler
 // @namespace    utopia-nexus-universal
-// @version      9.0.0
-// @description  Capture every Utopia page as raw DOM for Nexus storage. No page filtering and no AI.
+// @version      9.1.0
+// @description  Capture every Utopia page as raw DOM for Nexus and automatically cycle Kingdom Details pages.
 // @match        https://www.utopia-game.com/*
 // @match        https://utopia-game.com/*
 // @match        https://intel.utopia-game.com/*
@@ -19,7 +19,7 @@
 (function () {
   "use strict";
 
-  const VERSION = "9.0.0";
+  const VERSION = "9.1.0";
   const SOURCE = "universal-capture";
   const TAB = "universal";
   const ENDPOINT = "https://utopia-nexus.onrender.com/intel";
@@ -27,12 +27,16 @@
   const PANEL_ID = "nexus-universal-capture-panel";
   const AUTO_DELAY_MS = 2500;
 
+  const KINGDOM_CYCLER_KEY = "nexus_universal_kingdom_cycler";
+  const KINGDOM_PATH_RE = /\/wol\/game\/kingdom_details\/(\d+)\/(\d+)/i;
+
   let autoTimer = null;
   let captureBusy = false;
   let lastCapturedUrl = "";
   let lastCapture = null;
   let selectedRow = null;
   let minimized = GM_getValue("nexus_universal_minimized", false);
+  let kingdomAdvanceScheduled = false;
 
   function showToast(message, success = true) {
     document.getElementById("nexus-universal-toast")?.remove();
@@ -44,16 +48,17 @@
       "top:18px",
       "right:18px",
       "z-index:2147483647",
-      "max-width:360px",
+      "max-width:420px",
       "padding:10px 14px",
       "border-radius:8px",
       "font:600 12px monospace",
       "color:#fff",
       `background:${success ? "#238636" : "#da3633"}`,
-      "box-shadow:0 4px 18px rgba(0,0,0,.4)"
+      "box-shadow:0 4px 18px rgba(0,0,0,.4)",
+      "white-space:pre-wrap"
     ].join(";");
     document.documentElement.appendChild(toast);
-    setTimeout(() => toast.remove(), 3000);
+    setTimeout(() => toast.remove(), 3500);
   }
 
   function formatBytes(value) {
@@ -170,6 +175,154 @@
     });
   }
 
+  function getKingdomFromUrl(url = location.href) {
+    const match = String(url).match(KINGDOM_PATH_RE);
+    if (!match) return null;
+    return {
+      world: Number(match[1]),
+      kingdom: Number(match[2]),
+      code: `${match[1]}:${match[2]}`
+    };
+  }
+
+  function getKingdomCyclerState() {
+    return GM_getValue(KINGDOM_CYCLER_KEY, { active: false });
+  }
+
+  function setKingdomCyclerActive(active) {
+    GM_setValue(KINGDOM_CYCLER_KEY, { active: !!active });
+  }
+
+  function isKingdomDetailsPage() {
+    return !!getKingdomFromUrl();
+  }
+
+  function getNavigationLabel(element) {
+    return String(
+      element?.innerText ||
+      element?.textContent ||
+      element?.getAttribute?.("aria-label") ||
+      element?.getAttribute?.("title") ||
+      ""
+    ).replace(/\s+/g, " ").trim();
+  }
+
+  function findNextKingdomElement() {
+    if (!isKingdomDetailsPage()) return null;
+
+    const candidates = Array.from(document.querySelectorAll(
+      "a,button,input[type='button'],input[type='submit']"
+    ));
+
+    for (const element of candidates) {
+      const label = getNavigationLabel(element);
+      if (/^next$/i.test(label) || /^next\s+kingdom$/i.test(label)) {
+        return element;
+      }
+    }
+
+    for (const element of candidates) {
+      const label = getNavigationLabel(element);
+      if (/\bnext\b/i.test(label) && !/previous/i.test(label)) {
+        return element;
+      }
+    }
+
+    return null;
+  }
+
+  function getNextKingdomTarget() {
+    const element = findNextKingdomElement();
+    if (!element) return null;
+
+    const href = element.getAttribute?.("href");
+    if (href && href !== "#" && !/^javascript:/i.test(href)) {
+      try {
+        const url = new URL(href, location.href);
+        const kingdom = getKingdomFromUrl(url.href);
+        if (kingdom) {
+          return { type: "url", element, url: url.href, kingdom };
+        }
+      } catch (_) {}
+    }
+
+    const dataHref = element.getAttribute?.("data-href");
+    if (dataHref) {
+      try {
+        const url = new URL(dataHref, location.href);
+        const kingdom = getKingdomFromUrl(url.href);
+        if (kingdom) {
+          return { type: "url", element, url: url.href, kingdom };
+        }
+      } catch (_) {}
+    }
+
+    return { type: "click", element, kingdom: null };
+  }
+
+  function maybeStartKingdomCycler() {
+    const kingdom = getKingdomFromUrl();
+    if (!kingdom) return;
+
+    const state = getKingdomCyclerState();
+
+    if (kingdom.world === 1 && kingdom.kingdom === 1 && !state.active) {
+      setKingdomCyclerActive(true);
+      showToast("Kingdom Cycler ✓ started at 1:1", true);
+      console.log("[Nexus Universal] Kingdom Cycler started at", kingdom.code);
+    }
+  }
+
+  function advanceKingdomAfterSave() {
+    if (kingdomAdvanceScheduled) return;
+
+    const current = getKingdomFromUrl();
+    if (!current) return;
+
+    const state = getKingdomCyclerState();
+    if (!state.active) return;
+
+    const target = getNextKingdomTarget();
+
+    if (!target) {
+      setKingdomCyclerActive(false);
+      showToast(`Kingdom Cycler ✓ finished at ${current.code}`, true, 8000);
+      console.log("[Nexus Universal] Kingdom Cycler finished", current.code);
+      return;
+    }
+
+    kingdomAdvanceScheduled = true;
+
+    if (target.type === "url") {
+      showToast(
+        `Kingdom ${current.code} ✓ saved\nNext → ${target.kingdom.code}`,
+        true,
+        3500
+      );
+      console.log("[Nexus Universal] Kingdom Cycler advancing", {
+        current: current.code,
+        next: target.kingdom.code,
+        url: target.url
+      });
+
+      setTimeout(() => {
+        window.location.href = target.url;
+      }, 2200);
+      return;
+    }
+
+    showToast(
+      `Kingdom ${current.code} ✓ saved\nNext → following Utopia Next navigation`,
+      true,
+      3500
+    );
+    console.log("[Nexus Universal] Kingdom Cycler clicking Utopia Next", current.code);
+
+    setTimeout(() => {
+      target.element.click();
+    }, 2200);
+  }
+
   async function capture(manual = false) {
     if (captureBusy) return;
     captureBusy = true;
@@ -185,6 +338,7 @@
         lastCapturedUrl = location.href;
         renderPanel(record, "Saved ✓", true);
         if (manual) showToast(`Captured ${formatBytes(record.raw)} DOM`, true);
+        advanceKingdomAfterSave();
       } else {
         renderPanel(record, `HTTP ${result.status || "connection error"}`, false);
         showToast("Nexus capture failed to save", false);
@@ -274,7 +428,7 @@
     panel.appendChild(header);
 
     const note = document.createElement("div");
-    note.textContent = "Complete DOM + visible text + metadata · no AI · no filtering";
+    note.textContent = "Complete DOM + visible text + metadata · no AI · no filtering · kingdom cycler automatic";
     note.style.cssText = "color:#8b949e;font:9px monospace;line-height:1.35;margin-bottom:7px";
     panel.appendChild(note);
 
@@ -351,6 +505,7 @@
   function boot() {
     installPanel();
     watchNavigation();
+    maybeStartKingdomCycler();
     scheduleAutoCapture();
   }
 
