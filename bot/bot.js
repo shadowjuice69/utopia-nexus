@@ -3,7 +3,7 @@ const http = require('http');
 const { WebSocket: NodeWebSocket } = require('ws');
 globalThis.WebSocket = NodeWebSocket;
 
-const { Client, GatewayIntentBits } = require('discord.js');
+const { Client, GatewayIntentBits, PermissionFlagsBits } = require('discord.js');
 const logger = require('./services/logger');
 const directMusicAdapter = require('./services/directMusicAdapter');
 const musicPlayer = require('./services/musicPlayerService');
@@ -14,6 +14,9 @@ const dataSteward = require('./services/dataStewardBootstrap');
 const universalCaptureSteward = require('./services/universalCaptureSteward');
 
 if (!process.env.DISCORD_TOKEN) throw new Error('DISCORD_TOKEN is required');
+
+const CLEANUP_CHANNEL_ID = '1546379989484830730';
+const CLEANUP_AUTHOR_ID = '1518122625354956820';
 
 const client = new Client({
   intents: [
@@ -44,7 +47,66 @@ client.on('interactionCreate', interaction => {
   });
 });
 
-client.on('messageCreate', message => {
+client.on('messageCreate', async message => {
+  try {
+    if (message.author?.bot && message.author.id === CLEANUP_AUTHOR_ID) return;
+    if (!message.content?.trim().toLowerCase().startsWith('!clearbot')) return;
+    if (!message.guild) return;
+    if (!message.member?.permissions?.has(PermissionFlagsBits.Administrator)) return;
+
+    const parts = message.content.trim().split(/\s+/);
+    const channelId = parts[1] || CLEANUP_CHANNEL_ID;
+    const authorId = parts[2] || CLEANUP_AUTHOR_ID;
+
+    if (!/^\d{17,20}$/.test(channelId) || !/^\d{17,20}$/.test(authorId)) {
+      return message.reply('❌ Usage: `!clearbot [channel_id] [user_id]`');
+    }
+
+    const channel = await client.channels.fetch(channelId);
+    if (!channel?.isTextBased() || !channel.messages) {
+      return message.reply('❌ That channel is not a text channel I can read.');
+    }
+
+    let before;
+    let deleted = 0;
+    let scanned = 0;
+
+    while (true) {
+      const batch = await channel.messages.fetch({ limit: 100, ...(before ? { before } : {}) });
+      if (!batch.size) break;
+      scanned += batch.size;
+
+      const targets = batch.filter(m => m.author?.id === authorId);
+      if (targets.size) {
+        const removable = targets.filter(m => Date.now() - m.createdTimestamp < 14 * 24 * 60 * 60 * 1000);
+        const old = targets.filter(m => Date.now() - m.createdTimestamp >= 14 * 24 * 60 * 60 * 1000);
+
+        if (removable.size) {
+          const removed = await channel.bulkDelete(removable, true);
+          deleted += removed.size;
+        }
+
+        for (const msg of old.values()) {
+          try {
+            await msg.delete();
+            deleted++;
+          } catch (error) {
+            logger.warn(`[CLEARBOT] Could not delete old message ${msg.id}: ${error.message}`);
+          }
+        }
+      }
+
+      before = batch.last().id;
+      if (batch.size < 100) break;
+    }
+
+    await message.reply(`✅ Cleared ${deleted} message(s) from <#${channelId}> posted by <@${authorId}>. Scanned ${scanned} message(s).`);
+    logger.info(`[CLEARBOT] deleted=${deleted} scanned=${scanned} channel=${channelId} author=${authorId} requestedBy=${message.author.id}`);
+  } catch (error) {
+    logger.error(`[CLEARBOT ERROR] ${error.stack || error.message}`);
+    if (!message.replied) message.reply(`❌ Cleanup failed: ${error.message}`).catch(() => {});
+  }
+
   const type = intel7.channels.get(message.channelId);
   if (!type) return;
 });
@@ -65,7 +127,6 @@ client.once('clientReady', async () => {
   dataSteward.start();
   universalCaptureSteward.start();
 
-  // Optional live-status DM. This is deliberately opt-in so normal restarts stay quiet.
   if (process.env.NEXUS_LIVE_TEST_MESSAGE === 'true') {
     const recipientId = process.env.DATA_STEWARD_DISCORD_USER_ID;
     if (recipientId) {
