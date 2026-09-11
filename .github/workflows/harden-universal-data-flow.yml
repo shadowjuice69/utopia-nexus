@@ -1,3 +1,4 @@
+# Triggered hardening pass for universal capture data flow.
 name: Harden universal capture data flow
 
 on:
@@ -19,8 +20,6 @@ jobs:
         shell: python
         run: |
           from pathlib import Path
-          import re
-
           p = Path('bot/parsers/universalCaptureParser.js')
           t = p.read_text()
           start = t.index('function parseKingdomDetails(text) {')
@@ -35,7 +34,6 @@ jobs:
     'Duke', 'Duchess', 'Prince', 'Princess', 'King', 'Queen', 'Emperor',
     'Empress', 'Noble'
   ]);
-
   const parseCells = (cells) => {
     const c = cells.map(clean);
     if (c.length < 8) return null;
@@ -48,28 +46,23 @@ jobs:
     const nob = clean(c[6]);
     const gains = number(c[7]);
     if (slot == null || !province || !race || land == null || nw == null || nwpa == null || gains == null) return null;
-    if (nobility.size && !nobility.has(nob)) return null;
+    if (!nobility.has(nob)) return null;
     return { slot, name: province, race, land, nw, nwpa, nobility: nob, gains };
   };
-
   const header = lines.findIndex(line => /Slot\/Online/i.test(line));
   if (header >= 0) {
     for (let i = header + 1; i < lines.length; i++) {
       const line = lines[i];
       if (!/^\d{1,2}(?:\s|\t|$)/.test(line)) continue;
-      const cells = line.split(/\t+/).map(clean);
-      const row = parseCells(cells);
+      const row = parseCells(line.split(/\t+/));
       if (row) provinces.push(row);
     }
   }
-
   parsed.provinces = provinces;
   parsed.province_count_parsed = provinces.length;
   parsed.raw_kind = 'kingdom_details';
-
   const stance = String(text || '').match(/\bStance\s*[:\t]+([^\n]+)/i);
   if (stance) parsed.stance = clean(stance[1]);
-
   return parsed;
 }
 '''
@@ -83,9 +76,7 @@ jobs:
   const urlKd = kingdomUrlMatch ? `${kingdomUrlMatch[1]}:${kingdomUrlMatch[2]}` : null;
   const resolvedKd = urlKd || subject.kd_code || kd || MY_KD || null;
   const resolvedProv = subject.province || prov || MY_PROV || null;'''
-          if old in t:
-              t = t.replace(old, new, 1)
-
+          if old in t: t = t.replace(old, new, 1)
           t = t.replace('  if (!data || !request.kd) return;\n\n  await upsertByIdentity(\n    sb,\n    "kingdoms",\n    { kd_code: request.kd },', '  if (!data || !request.kd) return;\n  const kingdomKd = data.kd_code || request.kd;\n\n  await upsertByIdentity(\n    sb,\n    "kingdoms",\n    { kd_code: kingdomKd },', 1)
           t = t.replace('{ kd_code: request.kd, name: clean(province.name) },', '{ kd_code: kingdomKd, name: clean(province.name) },', 1)
           t = t.replace('        gains: province.gains == null ? null : String(province.gains),', '        gains: province.gains == null ? null : String(province.gains),\n        nwpa: province.nwpa == null ? null : String(province.nwpa),', 1)
@@ -104,18 +95,13 @@ jobs:
           new = '''    .eq("data_type", "kingdom")
     .order("received_at", { ascending: false })
     .limit(100);'''
-          if old in t:
-              t = t.replace(old, new, 1)
+          if old in t: t = t.replace(old, new, 1)
           old = '      setKingdom(dbKingdom || (kingdomCapture ? {'
-          new = '      setKingdom(kingdomCapture ? {'
-          if old in t:
-              t = t.replace(old, new, 1)
+          if old in t: t = t.replace(old, '      setKingdom(kingdomCapture ? {', 1)
           old = '''        updated_at: kingdomCapture.received_at,
       } : null));'''
-          new = '''        updated_at: kingdomCapture.received_at,
-      } : dbKingdom));'''
-          if old in t:
-              t = t.replace(old, new, 1)
+          if old in t: t = t.replace(old, '''        updated_at: kingdomCapture.received_at,
+      } : dbKingdom));''', 1)
           p.write_text(t)
 
       - name: Commit hardening changes
