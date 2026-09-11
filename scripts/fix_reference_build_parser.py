@@ -48,9 +48,7 @@ new = r'''function parseBuild(text){
   return out;
 }'''
 pat=r'function parseBuild\(text\)\{.*?\n?function typeLabel'
-s2,n=re.subn(pat,new+'\nfunction typeLabel',s,count=1,flags=re.S)
+s2,n=re.subn(pat,lambda _m: new+'\nfunction typeLabel',s,count=1,flags=re.S)
 if n!=1: raise SystemExit('parseBuild function not found')
 p.write_text(s2)
 print('patched',p)
-
-# Trigger the workflow after the parser patch is committed.
