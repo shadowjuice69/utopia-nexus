@@ -4,7 +4,7 @@ import re
 p = Path("dashboard/src/components/AIBuildManager.jsx")
 s = p.read_text()
 new = r'''function parseBuild(text){
-  const out={buildings:{},military:{},science:{},spells:{},thievery:{},priorities:[],warnings:[]};
+  const out={buildings:{},military:{},science:{},spells:{},thievery:{},priorities:[],notes:[],warnings:[]};
   let section="";
   const scienceSections=new Set(["science_economy","science_military","science_arcane","science"]);
   const normalizeMetric=v=>v.toLowerCase().replace(/\s+/g,"");
@@ -54,4 +54,4 @@ pat=r'function parseBuild\(text\)\{.*?\n?function typeLabel'
 s2,n=re.subn(pat,lambda _m: new+'\nfunction typeLabel',s,count=1,flags=re.S)
 if n!=1: raise SystemExit('parseBuild function not found')
 p.write_text(s2)
-print('patched',p)
+print('patched universal military/build/science parser',p)
