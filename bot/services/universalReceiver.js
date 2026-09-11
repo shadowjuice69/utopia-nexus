@@ -13,6 +13,10 @@ function clean(value) {
   return String(value || "").replace(/\s+/g, " ").trim();
 }
 
+function compact(data) {
+  return Object.fromEntries(Object.entries(data || {}).filter(([, value]) => value !== undefined && value !== null));
+}
+
 function decodeRequest(body) {
   const form = new URLSearchParams(String(body || ""));
   const source = form.get("source") || "universal-capture";
@@ -88,13 +92,14 @@ async function findExisting(sb, table, filters) {
 }
 
 async function upsertByIdentity(sb, table, filters, data) {
+  const payload = compact(data);
   const id = await findExisting(sb, table, filters);
   if (id) {
-    const { error } = await sb.from(table).update(data).eq("id", id);
+    const { error } = await sb.from(table).update(payload).eq("id", id);
     if (error) throw new Error(`${table} update: ${error.message}`);
     return id;
   }
-  const { data: inserted, error } = await sb.from(table).insert({ ...filters, ...data }).select("id").maybeSingle();
+  const { data: inserted, error } = await sb.from(table).insert({ ...filters, ...payload }).select("id").maybeSingle();
   if (error) throw new Error(`${table} insert: ${error.message}`);
   return inserted?.id || null;
 }
@@ -113,7 +118,8 @@ async function saveKingdom(sb, request, data) {
       total_provinces: data.total_provinces ?? data.province_count_parsed,
       nw_rank: data.nw_rank,
       land_rank: data.land_rank,
-      data
+      data,
+      updated_at: new Date().toISOString()
     }
   );
 
@@ -128,7 +134,8 @@ async function saveKingdom(sb, request, data) {
         acres: province.land == null ? null : String(province.land),
         nw: province.nw == null ? null : String(province.nw),
         nobility: province.nobility || null,
-        gains: province.gains == null ? null : String(province.gains)
+        gains: province.gains == null ? null : String(province.gains),
+        updated_at: new Date().toISOString()
       }
     );
   }
@@ -138,56 +145,76 @@ async function saveStructured(sb, request, parsed) {
   const data = parsed.data || {};
   const province = request.prov;
   const kd = request.kd;
+  const now = new Date().toISOString();
 
   if (parsed.type === "kingdom") return saveKingdom(sb, request, data);
 
   if (parsed.type === "throne" && province) {
-    await upsertByIdentity(sb, "intel_throne", { kd_code: kd, province }, {
-      race: data.race || null,
-      ruler: data.ruler || null,
-      land: data.land == null ? null : String(data.land),
-      networth: data.networth == null ? null : String(data.networth),
-      honor: data.honor == null ? null : String(data.honor),
-      offense: data.offense == null ? null : String(data.offense),
-      defense: data.defense == null ? null : String(data.defense),
-      be: data.be == null ? null : String(data.be),
-      peasants: data.peasants == null ? null : String(data.peasants),
-      troops: data.troops || {},
+    await upsertByIdentity(sb, "intel_throne", { kd_code: kd, province }, compact({
+      race: data.race,
+      personality: data.personality,
+      ruler: data.ruler,
+      land: data.acres == null ? data.land : String(data.acres),
+      networth: data.nw == null ? data.networth : String(data.nw),
+      honor: data.honor,
+      offense: data.off == null ? data.offense : String(data.off),
+      defense: data.def == null ? data.defense : String(data.def),
+      be: data.be,
+      mana: data.mana,
+      stealth: data.stlth == null ? data.stealth : data.stlth,
+      peasants: data.peons == null ? data.peasants : String(data.peons),
+      troops: data.troops || compact({
+        soldiers: data.soldiers,
+        off_specs: data.off_specs,
+        def_specs: data.def_specs,
+        elites: data.elites,
+        war_horses: data.war_horses,
+        prisoners: data.prisoners,
+        mercs: data.mercs,
+        generals: data.generals
+      }),
       spells: data.spells || null,
-      thieves: Number(data.thieves || 0),
-      wizards: Number(data.wizards || 0),
-      tpa: Number(data.tpa || 0),
-      wpa: Number(data.wpa || 0),
-      good_spells: data.spells || null
-    });
+      thieves: data.thieves,
+      wizards: data.wizards,
+      tpa: data.o_tpa == null ? data.tpa : Number(data.o_tpa),
+      wpa: data.o_wpa == null ? data.wpa : Number(data.o_wpa),
+      map: data.map,
+      good_spells: data.good_spells,
+      wages: data.wages,
+      intel_age: data.intel_age,
+      updated_at: now
+    }));
     return;
   }
 
   if (parsed.type === "state" && province) {
-    await upsertByIdentity(sb, "intel_state", { kd_code: kd, province }, { ...data });
+    await upsertByIdentity(sb, "intel_state", { kd_code: kd, province }, { ...data, updated_at: now });
     return;
   }
 
   if (parsed.type === "som" && province) {
+    const armies = data.armies || [];
     await upsertByIdentity(sb, "intel_military", { kd_code: kd, province }, {
       offense: data.offense,
       defense: data.defense,
       generals: data.generals,
       troops: data.troops || {},
-      armies: data.armies || []
+      armies,
+      updated_at: now
     });
     return;
   }
 
   if (parsed.type === "survey" && province && data.buildings) {
-    await upsertByIdentity(sb, "intel_buildings", { kd_code: kd, province }, { buildings: data.buildings });
+    await upsertByIdentity(sb, "intel_buildings", { kd_code: kd, province }, { buildings: data.buildings, updated_at: now });
     return;
   }
 
   if (parsed.type === "science" && province) {
     await upsertByIdentity(sb, "intel_science", { kd_code: kd, province }, {
       ...data.science,
-      science_effects: data.science_effects || {}
+      science_effects: data.science_effects || {},
+      updated_at: now
     });
     return;
   }
@@ -215,14 +242,14 @@ async function saveStructured(sb, request, parsed) {
 }
 
 async function handleCapture(request) {
-  const parsed = parseUniversalCapture(request.url, request.visibleText);
+  const parsed = parseUniversalCapture(request.url, request.visibleText, request.raw);
   const sb = supabaseService.getClient();
   if (!sb) throw new Error("Supabase client unavailable");
 
   await saveRaw(sb, request, parsed);
   await saveStructured(sb, request, parsed);
 
-  logger.info(`[UNIVERSAL RECEIVER] type=${parsed.type} kind=${parsed.kind} kd=${request.kd || ""} prov=${request.prov || ""} capture=${request.capture_id || ""}`);
+  logger.info(`[UNIVERSAL RECEIVER] type=${parsed.type} kind=${parsed.kind} kd=${request.kd || ""} prov=${request.prov || ""} capture=${request.capture_id || ""} parsed_fields=${Object.keys(parsed.data || {}).length}`);
 
   return {
     ok: true,
@@ -240,7 +267,7 @@ function start() {
     try {
       if (req.method === "GET" && req.url === "/health") {
         res.writeHead(200, { "Content-Type": "application/json" });
-        return res.end(JSON.stringify({ ok: true, service: "universal-receiver", version: "1.0.0" }));
+        return res.end(JSON.stringify({ ok: true, service: "universal-receiver", version: "1.1.0" }));
       }
 
       if (req.method !== "POST" || !req.url.startsWith("/intel")) {
