@@ -1,7 +1,7 @@
 from pathlib import Path
 import re
 
-p=Path("dashboard/src/components/AIBuildManager.jsx")
+p=Path("src/components/AIBuildManager.jsx") if Path("src/components/AIBuildManager.jsx").exists() else Path("dashboard/src/components/AIBuildManager.jsx")
 s=p.read_text()
 new=r'''function parseBuild(text){
   const out={buildings:{},military:{},science:{},spells:{},thievery:{},priorities:[],warnings:[]};
