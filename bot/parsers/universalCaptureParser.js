@@ -13,6 +13,36 @@ function number(value) {
   return Number.isFinite(n) ? n : null;
 }
 
+function htmlToText(value) {
+  return String(value || "")
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<style[\s\S]*?<\/style>/gi, "")
+    .replace(/<br\s*\/?\s*>/gi, "\n")
+    .replace(/<\/tr\s*>/gi, "\n")
+    .replace(/<\/t[dh]\s*>/gi, "\t")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
+    .split(/\r?\n/)
+    .map(line => line.replace(/[ \t]+$/g, "").trim())
+    .filter(Boolean)
+    .join("\n");
+}
+
+function normalizeCaptureText(visibleText, raw) {
+  const visible = String(visibleText || "").trim();
+  const html = String(raw || "").trim();
+  const htmlText = html ? htmlToText(html) : "";
+  if (!visible) return htmlText;
+  if (!htmlText) return visible;
+  return `${visible}\n${htmlText}`;
+}
+
 function detectKind(url, text) {
   const u = String(url || "").toLowerCase();
   const t = String(text || "");
@@ -93,7 +123,7 @@ function parseSurvey(text) {
 
 function decodeHtml(value) {
   return clean(String(value || "")
-    .replace(/<br\s*\/?>/gi, " ")
+    .replace(/<br\s*\/?\s*>/gi, " ")
     .replace(/<[^>]+>/g, " ")
     .replace(/&amp;/gi, "&")
     .replace(/&nbsp;/gi, " ")
@@ -113,9 +143,6 @@ function parseScience(text) {
   ]);
   const source = String(text || "");
 
-  // Universal Capture stores the complete DOM. Parse the actual science table
-  // directly when the capture is HTML, while retaining the tab-delimited path
-  // for the council_science text capture.
   const htmlRow = /<td[^>]*>\s*(Alchemy|Tools|Housing|Production|Bookkeeping|Artisan|Strategy|Siege|Tactics|Valor|Heroism|Resilience|Crime|Channeling|Shielding|Cunning|Sorcery|Finesse|Arcana)\s*<\/td>\s*<td[^>]*>\s*([\d,]+)\s*<\/td>\s*<td[^>]*>([\s\S]*?)<\/td>/gi;
   let match;
   while ((match = htmlRow.exec(source)) !== null) {
@@ -128,7 +155,6 @@ function parseScience(text) {
     if (effect) effects[key] = effect;
   }
 
-  // Also parse normal visible-text/tab-delimited captures.
   for (const line of source.split(/\r?\n/)) {
     const cols = line.split(/\t/).map(clean);
     if (cols.length < 2 || !known.has(cols[0])) continue;
@@ -142,8 +168,8 @@ function parseScience(text) {
   return { science, science_effects: effects };
 }
 
-function parseUniversalCapture(url, rawText) {
-  const text = String(rawText || "");
+function parseUniversalCapture(url, rawText, rawHtml = "") {
+  const text = normalizeCaptureText(rawText, rawHtml);
   const kind = detectKind(url, text);
   const base = { kind, raw_length: text.length };
 
@@ -167,4 +193,4 @@ function parseUniversalCapture(url, rawText) {
   };
 }
 
-module.exports = { detectKind, parseUniversalCapture, parseKingdomDetails, parseSurvey, parseScience };
+module.exports = { detectKind, parseUniversalCapture, parseKingdomDetails, parseSurvey, parseScience, normalizeCaptureText, htmlToText };
