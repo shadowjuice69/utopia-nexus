@@ -15,19 +15,52 @@ let lastIngestId = 0;
 let autoMappings = {};
 let mappingsLoadedAt = 0;
 
+const VAULT_FIELDS = [
+  "rows","raw","raw_text","text","url","page_kind","capture_id","captured_at","raw_length",
+  "_universal","_universal_classification","__universal","data","event","format","channel_type","province_refs"
+];
+const INTEL7_EVENT_FIELDS = [
+  "event","format","channel_type","province_refs","success","amount","resourceType","resource_type",
+  "attackerProvince","attackerKingdom","targetProvince","targetKingdom","operation","spellName","runes",
+  "durationDays","wizardsKilled","casterProvince","castCount","castNeeded","dragonName","strength",
+  "targetName","targetKd","attackerName","attackerKd","acres","lootAmount","lootResource","ourLosses",
+  "enemyTroopsKilled","armyReturnDays","result","direction","attackType","acresCaptured","acresRecaptured",
+  "acresDestroyed","acresRazed","credits","peasants","buildingsSurvived","kills","imprisoned","returnDays",
+  "enemyDefense","losses","thievesSent","thievesLost","offenseMil","defenseMil","spell","data","raw"
+];
+const ATTACK_FIELDS = [
+  ...INTEL7_EVENT_FIELDS,
+  "message_id","msg_id","timestamp","created_at","attacker_province","attacker_kingdom","target_province",
+  "target_kingdom","attack_type","offense_sent","off_sent","enemy_defense","training_credits","spec_creds",
+  "peasants_gained","return_days","acres_captured","acres_recaptured","acres_destroyed","troops_lost","troop_type",
+  "prisoners","buildings_survived","kills","losses"
+];
+
 const ROUTES = {
   throne: { table: "intel_throne", dashboard: "Province Intel", fields: ["race","ruler","land","networth","honor","offense","defense","be","peasants","troops","thieves","wizards","tpa","wpa","spells"] },
   survey: { table: "intel_buildings", dashboard: "Buildings", fields: ["buildings"] },
   science: { table: "intel_science", dashboard: "Science", fields: ["science","science_effects","raw"] },
   som: { table: "intel_military", dashboard: "KD Military / Military Intel", fields: ["offense","defense","generals","troops","armies"] },
-  state: { table: "intel_state", dashboard: "Province State", fields: ["peasants","army","thieves","wizards","total_pop","max_pop","unemployed","unfilled_jobs","employment_pct","daily_income","daily_wages","networth","land","honor","land_rank","nw_rank","map","income_yesterday","wages_yesterday","draft_yesterday","net_yesterday","peasants_yesterday","food_grown_yesterday","food_needed_yesterday","food_decay_yesterday","food_net_yesterday","runes_produced_yesterday","runes_decay_yesterday","runes_net_yesterday","income_month","wages_month","draft_month","net_month","peasants_month","food_grown_month","food_needed_month","food_decay_month","food_net_month","runes_produced_month","runes_decay_month","runes_net_month"] },
+  state: { table: "intel_state", dashboard: "Province State", fields: ["peasants","army","thieves","wizards","total_pop","max_pop","unemployed","unfilled_jobs","employment_pct","daily_income","daily_wages","networth","land","honor","land_rank","nw_rank","map","income_yesterday","wages_yesterday","draft_yesterday","draft_rate","draft_month","net_yesterday","peasants_yesterday","food_grown_yesterday","food_needed_yesterday","food_decay_yesterday","food_net_yesterday","runes_produced_yesterday","runes_decay_yesterday","runes_net_yesterday","income_month","wages_month","peasants_month","food_grown_month","food_needed_month","food_decay_month","food_net_month","runes_produced_month","runes_decay_month","runes_net_month"] },
   news: { table: "news_events", dashboard: "News / War", fields: ["events"] },
   "intel-site": { table: "intel_complete_vault", dashboard: "Complete Vault / Intel 7", fields: ["rows","raw"] },
+  "universal-capture": { table: "intel_complete_vault", dashboard: "Complete Vault / Universal Capture", fields: VAULT_FIELDS },
+  "universal-page": { table: "intel_complete_vault", dashboard: "Complete Vault / Universal Capture", fields: VAULT_FIELDS },
   kingdom: { table: "kingdoms", dashboard: "Kingdom Overview", fields: ["kd_code","kingdom_name","kd_name","total_provinces","total_nw","total_land","nw_rank","land_rank","provinces"] },
   "kingdom-page": { table: "kingdoms", dashboard: "Kingdom Overview", fields: ["kd_code","kingdom_name","kd_name","total_provinces","total_nw","total_land","nw_rank","land_rank","provinces","data"] },
   "kd-stats-generic": { table: "intel_kd_stats", dashboard: "KD Stats", fields: ["category","rows","data"] },
-  "kd-stats-buildings": { table: "intel_buildings", dashboard: "Buildings / KD Stats", fields: ["provinces","buildings"] }
+  "kd-stats-buildings": { table: "intel_buildings", dashboard: "Buildings / KD Stats", fields: ["provinces","buildings"] },
+  attack: { table: "attacks", dashboard: "Attack Log / War", fields: ATTACK_FIELDS },
+  "battle_report": { table: "attacks", dashboard: "Attack Log / War", fields: ATTACK_FIELDS },
+  "land_capture": { table: "attacks", dashboard: "Attack Log / War", fields: ATTACK_FIELDS },
+  thievery: { table: "intel7_events", dashboard: "Intel 7 / Thievery", fields: INTEL7_EVENT_FIELDS },
+  spell: { table: "intel7_events", dashboard: "Intel 7 / Spells", fields: INTEL7_EVENT_FIELDS },
+  ritual: { table: "intel7_events", dashboard: "Intel 7 / Rituals", fields: INTEL7_EVENT_FIELDS },
+  aid: { table: "intel7_events", dashboard: "Intel 7 / Aid", fields: INTEL7_EVENT_FIELDS },
+  dragon: { table: "intel7_events", dashboard: "Intel 7 / Dragons", fields: INTEL7_EVENT_FIELDS }
 };
+
+const IGNORED_TYPES = new Set(["test"]);
 
 function setClient(client) { discordClient = client; }
 function fingerprint(issue) {
@@ -119,8 +152,6 @@ async function autoRemediate(issue, parsed) {
   if (issue.issue_type === "unmapped_field") {
     const field = String(issue.field_name || "").trim();
     if (!field || effectiveFields(parsed.type, route).has(field)) return false;
-    // Safe remediation: preserve the complete payload in the existing vault first,
-    // then persist the mapping contract. No production schema or RLS is changed.
     await captureSafely(issue, parsed);
     const next = { ...autoMappings };
     next[parsed.type] = Array.from(new Set([...(Array.isArray(next[parsed.type]) ? next[parsed.type] : []), field])).slice(0, 250);
@@ -150,7 +181,7 @@ async function upsertIssue(issue) {
     reason: issue.reason, recommendation: issue.recommendation || null, confidence: issue.confidence ?? null,
     ai_analysis: issue.ai_analysis || {}, last_seen: new Date().toISOString(), updated_at: new Date().toISOString(),
     resolved_at: autoResolved ? new Date().toISOString() : null,
-    resolved_by: autoResolved ? "ai-data-steward:auto" : null
+    resolved_by: autoResolved ? "data-steward:auto" : null
   };
   const { data: existing } = await sb.from("nexus_data_steward_issues").select("id,status,occurrence_count").eq("fingerprint", fp).maybeSingle();
   if (existing) {
@@ -215,6 +246,10 @@ async function raise(issue) {
 async function inspect(parsed, prov) {
   if (!ENABLED || !parsed) return;
   await loadAutoMappings();
+  if (IGNORED_TYPES.has(parsed.type)) {
+    await audit(null, { action: "ignored_nonproduction_type", source_type: parsed.type, source_id: parsed.source_id || null, decision: "ignore_test_payload", details: { kd_code: parsed.kd || null, province: prov || parsed.prov || null } });
+    return;
+  }
   const route = ROUTES[parsed.type];
   const data = parsed.data || {};
   const context = { source_type: parsed.type, source: parsed.source, source_id: parsed.source_id, kd_code: parsed.kd, province: prov || parsed.prov };
@@ -244,7 +279,7 @@ async function inspect(parsed, prov) {
     }
     await raise(issue);
   }
-  if (parsed.type === "intel-site" && data.rows?.length) {
+  if (parsed.type === "intel-site" && parsed.source !== "intel-site-csv" && data.rows?.length) {
     const raw = data.rows.map(r => r.raw || "").join("\n");
     if (raw.length > 100) {
       try {
@@ -252,12 +287,15 @@ async function inspect(parsed, prov) {
         const cleaned = ai.replace(/^```json\s*/i, "").replace(/```$/i, "").trim();
         const result = JSON.parse(cleaned);
         if (result.has_unmapped_data) {
+          const trustedDestination = Object.values(ROUTES).some(r => r.table === result.destination_table)
+            ? result.destination_table
+            : route.table;
           const issue = { ...context, issue_type: "ai_detected_unmapped_data", severity: Number(result.confidence || 0) >= 90 ? "high" : "medium",
             field_name: Array.isArray(result.fields) ? result.fields.join(", ") : null,
-            destination_table: result.destination_table || route.table, destination_dashboard: result.destination_dashboard || route.dashboard,
+            destination_table: trustedDestination, destination_dashboard: result.destination_dashboard || route.dashboard,
             observed_value: result.fields || raw.slice(0, 1000), raw_excerpt: raw.slice(0, 1800),
             reason: result.reason || "AI detected data without a verified Nexus destination.", recommendation: result.recommendation,
-            confidence: Number(result.confidence || 0), ai_analysis: result };
+            confidence: Number(result.confidence || 0), ai_analysis: { ...result, proposed_destination_table: result.destination_table || null } };
           try {
             const remediation = await autoRemediate(issue, parsed);
             if (remediation) {
