@@ -1,0 +1,39 @@
+name: Fix reference build compact military targets
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/fix-reference-build-targets.yml'
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch parser
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('dashboard/src/components/AIBuildManager.jsx')
+          s=p.read_text()
+          old='''    m=line.match(/^(.+?)\\s*[—-]\\s*(\\d+(?:\\.\\d+)?\\+?)\\s*(ppa|tpa|wpa|ospa|epa\\/dspa)\\b/i);'''
+          new='''    m=line.match(/^(.+?)\\s*[—-]\\s*(\\d+(?:\\.\\d+)?\\+?)\\s*(ppa|tpa|wpa|ospa|epa\\/dspa|epa\\/ospa)\\b/i);'''
+          if old not in s: raise SystemExit('military metric regex not found')
+          s=s.replace(old,new,1)
+          old2='''  for(const x of text.matchAll(/^\\s*(peasants|thieves|wizards|off specs|elites\\/acre[^—-]*)\\s*[—-]\\s*([\\d+.]+)\\s*(ppa|tpa|wpa|ospa|epa\\/dspa)\\b.*$/gim)){const label=x[1].trim();out.military[cleanKey(label)]={value:Number(x[2]),metric:x[3].toLowerCase(),minimum:/at least|first/i.test(label),source:x[0].trim()}}'''
+          new2='''  // Compact reference-build targets such as: 6 ppa, 3 tpa, 2 wpa, 6 dspa, 10 epa/ospa.
+  for(const x of text.matchAll(/^\\s*(\\d+(?:\\.\\d+)?)\\s*(ppa|tpa|wpa|dspa|ospa|epa\\/dspa|epa\\/ospa)\\s*$/gim)){
+    const metric=x[2].toLowerCase();
+    out.military[cleanKey(metric)]={value:Number(x[1]),metric,minimum:false,source:x[0].trim()};
+  }
+  for(const x of text.matchAll(/^\\s*(peasants|thieves|wizards|off specs|elites\\/acre[^—-]*)\\s*[—-]\\s*([\\d+.]+)\\s*(ppa|tpa|wpa|dspa|ospa|epa\\/dspa|epa\\/ospa)\\b.*$/gim)){const label=x[1].trim();out.military[cleanKey(label)]={value:Number(x[2]),metric:x[3].toLowerCase(),minimum:/at least|first/i.test(label),source:x[0].trim()}}'''
+          if old2 not in s: raise SystemExit('military target loop not found')
+          s=s.replace(old2,new2,1)
+          p.write_text(s)
+          PY
+      - name: Commit parser fix
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add dashboard/src/components/AIBuildManager.jsx
+          git commit -m 'Fix compact military target parsing'
+          git push
