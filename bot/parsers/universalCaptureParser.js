@@ -67,21 +67,44 @@ function parseKingdomDetails(text) {
 
   const header = lines.findIndex(line => /^Slot\/Online$/i.test(line));
   if (header >= 0) {
+    // The captured Kingdom Details HTML has one table cell per line after
+    // normalization. Parse each row as: slot, province, race, land, nw,
+    // nwpa, nobility, gains. This is intentionally independent of whitespace
+    // inside the original HTML cells.
     for (let i = header + 1; i < lines.length; i++) {
-      const m = lines[i].match(/^(\d{1,2})\s+(.+?)\s+(Human|Elf|Orc|Undead|Halfling|Faery|Gnome|Dwarf|Dark Elf|Draconian|Dryad|Bocan)\s+([\d,]+)a\s+([\d,]+)gc\s+([\d,]+)gc\s+(.+?)\s+([\d,]+)$/i);
-      if (!m) continue;
-      const province = clean(m[2].replace(/\s*\*+$/, "").replace(/\s*\(M\)|\s*\(S\)/gi, ""));
-      if (!province || races.has(province) || !nobility.has(clean(m[7]))) continue;
-      provinces.push({
-        slot: number(m[1]),
-        name: province,
-        race: clean(m[3]),
-        land: number(m[4]),
-        nw: number(m[5]),
-        nwpa: number(m[6]),
-        nobility: clean(m[7]),
-        gains: number(m[8])
-      });
+      const slotMatch = lines[i].match(/^(\d{1,2})(?:\s|$)/);
+      if (!slotMatch) continue;
+
+      const slot = number(slotMatch[1]);
+      const cells = [];
+      let j = i;
+      while (j < lines.length && cells.length < 8) {
+        const line = lines[j];
+        if (j !== i && /^\d{1,2}(?:\s|$)/.test(line) && cells.length < 8) break;
+        if (j === i) {
+          const remainder = clean(line.slice(slotMatch[0].length));
+          if (remainder) cells.push(remainder);
+        } else {
+          cells.push(line);
+        }
+        j++;
+      }
+
+      // A valid row has province, race, land, nw, nwpa, nobility, gains.
+      if (cells.length < 7) continue;
+      const province = clean(cells[0].replace(/\s*\*+$/, "").replace(/\s*\(M\)|\s*\(S\)/gi, ""));
+      const race = clean(cells[1]);
+      const land = number(cells[2]);
+      const nw = number(cells[3]);
+      const nwpa = number(cells[4]);
+      const nob = clean(cells[5]);
+      const gains = number(cells[6]);
+
+      if (!province || races.has(province) || !races.has(race) || !nobility.has(nob)) continue;
+      if (land == null || nw == null || nwpa == null || gains == null) continue;
+
+      provinces.push({ slot, name: province, race, land, nw, nwpa, nobility: nob, gains });
+      i = j - 1;
     }
   }
 
