@@ -14,45 +14,55 @@ function parseBuild(text){
   const out={buildings:{},military:{},science:{},spells:{},thievery:{},priorities:[],warnings:[]};
   let section="";
   const scienceSections=new Set(["science_economy","science_military","science_arcane","science"]);
-  const normalizeMetric=v=>v.toLowerCase().replace(/\s+/g,"");
-  const saveMilitary=(label,value,metric,source,minimum=false)=>{
-    const cleanMetric=normalizeMetric(metric);
+  const metricRe=/(epa\s*\/\s*(?:dspa|ospa)|ppa|tpa|wpa|dspa|ospa|epa)/i;
+  const saveMilitary=(label,value,metric,source)=>{
+    const cleanMetric=String(metric).toLowerCase().replace(/\s+/g,"");
     const key=label?cleanKey(label):cleanKey(cleanMetric);
-    if(!key)return;
-    out.military[key]={value:Number(value),metric:cleanMetric,minimum:Boolean(minimum),source};
+    if(key)out.military[key]={value:Number(value),metric:cleanMetric,minimum:/at least|minimum|first|fill|\+/i.test(source),source};
   };
   const saveScience=(name,value,kind,category)=>{
-    const cleanName=name.replace(/\s*\(.*?\)\s*$/,'').trim();
-    if(!cleanName)return;
-    if(kind==="books")out.science[cleanKey(cleanName)]={books:Number(value),category};
-    else out.science[cleanKey(cleanName)]={value:Number(value),metric:"%",category};
+    const cleanName=String(name).replace(/\s*\(.*?\)\s*$/,'').trim();
+    const key=cleanKey(cleanName);
+    if(!key)return;
+    out.science[key]=kind==="books"?{books:Number(value),category}:{value:Number(value),metric:"%",category};
   };
-  for(const [index,raw] of text.split(/\r?\n/).entries()){
-    const line=cleanLine(raw); if(!line) continue;
-    const upper=line.toUpperCase().trim();
+  const saveBuilding=(name,value)=>{
+    const key=normalizeBuilding(String(name).replace(/\s*\(.*?\)\s*$/,''));
+    if(!key||/^(build|buildings|military|science|allocation|economy|arcane|plan)$/.test(key))return false;
+    out.buildings[key]={value:Number(value),metric:"%",kind:"target"};
+    return true;
+  };
+  for(const [index,raw] of String(text||"").split(/\r?\n/).entries()){
+    let line=cleanLine(raw).replace(/^[🎖🏗📌#>*\s]+/,"").trim();
+    if(!line)continue;
+    const upper=line.toUpperCase().replace(/[:：]+$/,'').trim();
     if(/^(ECONOMY|ECONOMY SCIENCE)$/.test(upper)){section="science_economy";continue}
     if(/^(MILITARY|MILITARY SCIENCE)$/.test(upper)){section="science_military";continue}
     if(/^(ARCANE|ARCANE SCIENCE)$/.test(upper)){section="science_arcane";continue}
-    if(/^SCIENCE ALLOCATION$/.test(upper)){section="science";continue}
-    if(/^MILITARY PLAN$/.test(upper)){section="military";continue}
-    if(/^(BUILD|BUILDINGS)$/.test(upper)){section="buildings";continue}
-    let m=line.match(/^(\d+(?:\.\d+)?)\s*x\s+(.+?)\s*$/i);
-    if(m && scienceSections.has(section)){saveScience(m[2],m[1],"books",section.replace("science_",""));continue}
-    m=line.match(/^(\d+(?:\.\d+)?)\s*%\s+(.+?)\s*$/i);
-    if(m && scienceSections.has(section)){saveScience(m[2],m[1],"percent",section.replace("science_",""));continue}
-    m=line.match(/^(.+?)\s*[—-]\s*(\d+(?:\.\d+)?)\s*books?\b/i);
-    if(m){saveScience(m[1],m[2],"books",section||"unknown");continue}
-    m=line.match(/^(.+?)\s*[—-]\s*(\d+(?:\.\d+)?)\s*(ppa|tpa|wpa|dspa|ospa|epa\s*\/\s*dspa|epa\s*\/\s*ospa)\s*$/i);
-    if(m){saveMilitary(m[1].trim(),m[2],m[3],line,/at least|minimum|first|fill|\+/i.test(m[1]));continue}
-    m=line.match(/^(\d+(?:\.\d+)?)\s*(ppa|tpa|wpa|dspa|ospa|epa\s*\/\s*dspa|epa\s*\/\s*ospa)\s*$/i);
-    if(m){saveMilitary("",m[1],m[2],line,false);continue}
-    m=line.match(/^(.+?)\s*[—-]\s*(\d+(?:\.\d+)?)\s*%\s*$/);
-    if(m){const key=normalizeBuilding(m[1]);if(key&&!/set_by|build|military|science|allocation/.test(key)){out.buildings[key]={value:Number(m[2]),metric:"%",kind:"target"};continue}}
-    m=line.match(/^(.+?)\s+(\d+(?:\.\d+)?)\s*%\s*$/);
-    if(m){const key=normalizeBuilding(m[1].replace(/\s*\(.*?\)\s*$/,''));if(key&&!/set_by|build|military|science|allocation/.test(key)){out.buildings[key]={value:Number(m[2]),metric:"%",kind:"target"};continue}}
-    if(/^(🏗|🎖|—)?\s*(HALFLING|PLAN|SPELL|THIEV)/i.test(line))continue;
-    if(/^(peasants|thieves|wizards|off specs|elites\/acre|this means how many books|economy science|military science|arcane science|science allocation)/i.test(line))continue;
-    if(/^(🏗|🎖|—|SCIENCE|ECONOMY|MILITARY|ARCANE)/i.test(line))continue;
+    if(/^SCIENCE( ALLOCATION)?$/.test(upper)){section="science";continue}
+    if(/^(MILITARY PLAN|MILITARY TARGETS?|MIL PLAN)$/.test(upper)){section="military";continue}
+    if(/^(BUILD|BUILDING|BUILDINGS|BUILD PLAN)$/.test(upper)){section="buildings";continue}
+    if(/^UPDATED SCI PLACEMENT$|^THIS MEANS HOW MANY BOOKS|^LIVE PIN\b|^RENDERED\b|^\.UNPIN\b/i.test(line))continue;
+
+    let m=line.match(/^([0-9]+(?:\.[0-9]+)?)\s*x\s+(.+?)\s*$/i);
+    if(m&&scienceSections.has(section)){saveScience(m[2],m[1],"books",section.replace("science_",""));continue}
+    m=line.match(/^([0-9]+(?:\.[0-9]+)?)\s*%\s+(.+?)\s*$/i);
+    if(m&&scienceSections.has(section)){saveScience(m[2],m[1],"percent",section.replace("science_",""));continue}
+    m=line.match(/^(.+?)\s*[—-]\s*([0-9]+(?:\.[0-9]+)?)\s*books?\b/i);
+    if(m){saveScience(m[1],m[2],"books",section.startsWith("science_")?section.replace("science_",""):"unknown");continue}
+
+    m=line.match(new RegExp("^(.+?)\\s*[—-]\\s*([0-9]+(?:\\.[0-9]+)?)\\s*\\+?\\s*("+metricRe.source+")\\s*$","i"));
+    if(m&&section==="military"){saveMilitary(m[1],m[2],m[3],line);continue}
+    m=line.match(new RegExp("^(.+?)\\s+([0-9]+(?:\\.[0-9]+)?)\\s*\\+?\\s*("+metricRe.source+")\\s*$","i"));
+    if(m&&section==="military"){saveMilitary(m[1],m[2],m[3],line);continue}
+    m=line.match(new RegExp("^([0-9]+(?:\\.[0-9]+)?)\\s*\\+?\\s*("+metricRe.source+")\\s*$","i"));
+    if(m){saveMilitary("",m[1],m[2],line);continue}
+
+    m=line.match(/^(.+?)\s*[—-]\s*([0-9]+(?:\.[0-9]+)?)\s*%\s*$/);
+    if(m&&saveBuilding(m[1],m[2]))continue;
+    m=line.match(/^(.+?)\s+([0-9]+(?:\.[0-9]+)?)\s*%\s*$/);
+    if(m&&saveBuilding(m[1],m[2]))continue;
+    if(/^(peasants\/acre|thieves\/acre|wizards\/acre|off specs\/acre|def specs\/acre|elites\/acre)$/i.test(line))continue;
     out.warnings.push({line:index+1,text:line});
   }
   return out;
