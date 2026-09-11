@@ -40,3 +40,7 @@ When continuing work:
 2. Check Supabase tables and recent data flow.
 3. Trace issues from Discord input -> bot parser/service -> Supabase -> dashboard.
 4. Preserve existing architecture unless a migration is intentional.
+
+## Universal Capture Hardening
+
+- September 11, 2026: validating universal kingdom roster parsing, identity attribution, and dashboard freshness.
