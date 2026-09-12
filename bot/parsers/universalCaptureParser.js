@@ -63,9 +63,10 @@ function detectKind(url, text) {
 function parseKingdomDetails(text, rawHtml = "") {
   const parsed = parseKingdom(text);
   const provinces = [];
-  const races = new Set(["Human", "Elf", "Orc", "Undead", "Halfling", "Faery", "Gnome", "Dwarf", "Dark Elf", "Draconian", "Dryad", "Bocan"]);
-  const nobility = new Set(["Peasant", "Squire", "Knight", "Lord", "Lady", "Baron", "Baroness", "Viscount", "Viscountess", "Count", "Countess", "Marquis", "Marchioness", "Duke", "Duchess", "Prince", "Princess", "King", "Queen", "Emperor", "Empress", "Noble"]);
-  const cleanProvince = value => clean(decodeHtml(String(value || "").replace(/<[^>]+>/g, " ")).replace(/\s*\*+$/, "").replace(/\s*\(M\)|\s*\(S\)/gi, ""));
+  const cleanProvince = value => clean(decodeHtml(String(value || "").replace(/<[^>]+>/g, " "))
+    .replace(/\s*\*+$/, "")
+    .replace(/\s*\(M\)|\s*\(S\)/gi, ""));
+
   const addProvince = cells => {
     if (!cells || cells.length < 8) return false;
     const slot = number(cells[0]);
@@ -76,7 +77,11 @@ function parseKingdomDetails(text, rawHtml = "") {
     const nwpa = number(cells[5]);
     const nob = clean(cells[6]);
     const gains = number(cells[7]);
-    if (slot != null && province && races.has(race) && nobility.has(nob) && land != null && nw != null && nwpa != null && gains != null) {
+
+    // Do not maintain a hard-coded race/nobility allow-list. Utopia can add/change
+    // races or titles, and the table structure itself is the authoritative source.
+    if (slot != null && slot >= 1 && slot <= 25 && province && race && nob &&
+        land != null && nw != null && nwpa != null && gains != null) {
       provinces.push({ slot, name: province, race, land, nw, nwpa, nobility: nob, gains });
       return true;
     }
@@ -90,7 +95,11 @@ function parseKingdomDetails(text, rawHtml = "") {
       const rows = tableMatch[1].match(/<tr\b[^>]*>[\s\S]*?<\/tr>/gi) || [];
       for (const row of rows) {
         const cells = (row.match(/<td\b[^>]*>[\s\S]*?<\/td>/gi) || [])
-          .map(cell => decodeHtml(cell.replace(/^<td\b[^>]*>/i, "").replace(/<\/td>$/i, "").replace(/<[^>]+>/g, " ")));
+          .map(cell => decodeHtml(
+            cell.replace(/^<td\b[^>]*>/i, "")
+              .replace(/<\/td>$/i, "")
+              .replace(/<[^>]+>/g, " ")
+          ));
         addProvince(cells);
       }
     }
@@ -116,7 +125,9 @@ function parseKingdomDetails(text, rawHtml = "") {
     }
   }
 
-  parsed.provinces = provinces.slice(0, 25);
+  const bySlot = new Map();
+  for (const province of provinces) bySlot.set(province.slot, province);
+  parsed.provinces = [...bySlot.values()].sort((a, b) => a.slot - b.slot).slice(0, 25);
   parsed.province_count_parsed = parsed.provinces.length;
   parsed.raw_kind = "kingdom_details";
   return parsed;
