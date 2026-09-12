@@ -1,16 +1,27 @@
 const roles = require("../config/roles");
 const database = require("./database");
 
+function trustedAdminIds() {
+  return String(process.env.SPARTAN_TRUSTED_ADMIN_IDS || "")
+    .split(",")
+    .map(id => id.trim())
+    .filter(Boolean);
+}
+
 module.exports = {
   isOwner(userId) {
-    return userId === roles.owner;
+    return String(userId) === String(roles.owner);
   },
 
   isAdmin(userId) {
-    if (userId === roles.owner) return true;
+    const id = String(userId || "");
+    if (!id) return false;
+    if (this.isOwner(id)) return true;
+    if (trustedAdminIds().includes(id)) return true;
+
     const db = database.getDb();
     const admins = db.get("admins").value() || [];
-    return admins.includes(userId);
+    return admins.map(String).includes(id);
   },
 
   async addAdmin(userId) {
