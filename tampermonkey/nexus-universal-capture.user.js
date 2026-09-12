@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Utopia Nexus Universal Capture + Kingdom Cycler
 // @namespace    utopia-nexus-universal
-// @version      9.1.0
-// @description  Capture every Utopia page as raw DOM for Nexus and automatically cycle Kingdom Details pages.
+// @version      10.0.0
+// @description  Lossless Utopia DOM capture with authoritative URL identity and deterministic kingdom cycling.
 // @match        https://www.utopia-game.com/*
 // @match        https://utopia-game.com/*
 // @match        https://intel.utopia-game.com/*
@@ -19,80 +19,141 @@
 (function () {
   "use strict";
 
-  const VERSION = "9.1.0";
+  const VERSION = "10.0.0";
   const SOURCE = "universal-capture";
   const TAB = "universal";
   const ENDPOINT = "https://utopia-nexus.onrender.com/intel";
-  const KEY = "NikkoAce";
+  const KEY_STORAGE = "nexus_universal_intel_key";
   const PANEL_ID = "nexus-universal-capture-panel";
+  const CYCLER_STORAGE = "nexus_universal_kingdom_cycler_v10";
   const AUTO_DELAY_MS = 2500;
-
-  const KINGDOM_CYCLER_KEY = "nexus_universal_kingdom_cycler";
+  const RETRIES = 3;
+  const RETRY_DELAY_MS = 2500;
+  const MAX_WORLD = 9;
+  const MAX_KINGDOM = 13;
   const KINGDOM_PATH_RE = /\/wol\/game\/kingdom_details\/(\d+)\/(\d+)/i;
 
-  let autoTimer = null;
   let captureBusy = false;
   let lastCapturedUrl = "";
   let lastCapture = null;
-  let selectedRow = null;
   let minimized = GM_getValue("nexus_universal_minimized", false);
-  let kingdomAdvanceScheduled = false;
+  let advanceScheduled = false;
 
-  function showToast(message, success = true) {
+  function clean(value) {
+    return String(value || "").replace(/\u00a0/g, " ").replace(/\s+/g, " ").trim();
+  }
+
+  function toast(message, success = true, duration = 4500) {
     document.getElementById("nexus-universal-toast")?.remove();
-    const toast = document.createElement("div");
-    toast.id = "nexus-universal-toast";
-    toast.textContent = message;
-    toast.style.cssText = [
-      "position:fixed",
-      "top:18px",
-      "right:18px",
-      "z-index:2147483647",
-      "max-width:420px",
-      "padding:10px 14px",
-      "border-radius:8px",
-      "font:600 12px monospace",
-      "color:#fff",
+    const el = document.createElement("div");
+    el.id = "nexus-universal-toast";
+    el.textContent = message;
+    el.style.cssText = [
+      "position:fixed","top:18px","right:18px","z-index:2147483647",
+      "max-width:460px","padding:10px 14px","border-radius:8px",
+      "font:600 12px monospace","color:#fff",
       `background:${success ? "#238636" : "#da3633"}`,
-      "box-shadow:0 4px 18px rgba(0,0,0,.4)",
-      "white-space:pre-wrap"
+      "box-shadow:0 4px 18px rgba(0,0,0,.4)","white-space:pre-wrap"
     ].join(";");
-    document.documentElement.appendChild(toast);
-    setTimeout(() => toast.remove(), 3500);
+    document.documentElement.appendChild(el);
+    setTimeout(() => el.remove(), duration);
   }
 
-  function formatBytes(value) {
-    const size = new Blob([String(value || "")]).size;
-    if (size < 1024) return `${size} B`;
-    if (size < 1048576) return `${(size / 1024).toFixed(1)} KB`;
-    return `${(size / 1048576).toFixed(2)} MB`;
+  function bytes(value) {
+    const n = new Blob([String(value || "")]).size;
+    if (n < 1024) return `${n} B`;
+    if (n < 1048576) return `${(n / 1024).toFixed(1)} KB`;
+    return `${(n / 1048576).toFixed(2)} MB`;
   }
 
-  function makeCaptureId() {
-    if (window.crypto && typeof window.crypto.randomUUID === "function") {
-      return window.crypto.randomUUID();
-    }
+  function captureId() {
+    if (crypto?.randomUUID) return crypto.randomUUID();
     return `nx-${Date.now()}-${Math.random().toString(36).slice(2)}`;
   }
 
-  function findIdentityHints(text) {
+  function kingdomFromUrl(url = location.href) {
+    const m = String(url).match(KINGDOM_PATH_RE);
+    return m ? { world: Number(m[1]), kingdom: Number(m[2]), code: `${m[1]}:${m[2]}` } : null;
+  }
+
+  function kingdomCode(world, kingdom) {
+    return `${world}:${kingdom}`;
+  }
+
+  function nextKingdom(current) {
+    if (!current) return null;
+    if (current.kingdom < MAX_KINGDOM) {
+      return { world: current.world, kingdom: current.kingdom + 1, code: kingdomCode(current.world, current.kingdom + 1) };
+    }
+    if (current.world < MAX_WORLD) {
+      return { world: current.world + 1, kingdom: 1, code: kingdomCode(current.world + 1, 1) };
+    }
+    return null;
+  }
+
+  function kingdomUrl(k) {
+    return `${location.origin}/wol/game/kingdom_details/${k.world}/${k.kingdom}`;
+  }
+
+  function getCycler() {
+    return GM_getValue(CYCLER_STORAGE, { active: false });
+  }
+
+  function setCycler(state) {
+    GM_setValue(CYCLER_STORAGE, state);
+  }
+
+  function startCycler() {
+    const current = kingdomFromUrl();
+    if (!current) {
+      toast("Open a Kingdom Details page first.", false);
+      return;
+    }
+    setCycler({ active: true, started_at: new Date().toISOString(), start: current.code });
+    advanceScheduled = false;
+    toast(`Kingdom Cycler ✓ active from ${current.code}`);
+    renderPanel(lastCapture, "Cycler active", true);
+  }
+
+  function stopCycler() {
+    setCycler({ active: false });
+    advanceScheduled = false;
+    toast("Kingdom Cycler stopped.");
+    renderPanel(lastCapture, "Cycler stopped", true);
+  }
+
+  function resetCycler() {
+    setCycler({ active: false });
+    advanceScheduled = false;
+    GM_setValue("nexus_universal_cycler_last", null);
+    toast("Kingdom Cycler reset.");
+    renderPanel(lastCapture, "Cycler reset", true);
+  }
+
+  function getKey() {
+    let key = String(GM_getValue(KEY_STORAGE, "") || "").trim();
+    if (key) return key;
+    key = String(window.prompt("Nexus Universal Capture\n\nEnter your Nexus Intel key.\n\nLeave blank if the receiver does not require one.") || "").trim();
+    if (key) GM_setValue(KEY_STORAGE, key);
+    return key;
+  }
+
+  function identityHints(visibleText) {
     const identity = {};
-    const sourceText = String(text || "");
+    const pageKingdom = kingdomFromUrl();
+    if (pageKingdom) identity.kd_code = pageKingdom.code;
 
-    const provinceMatch = sourceText.match(
-      /(?:Province:\s*|The Province of\s+)([^\n(]{2,80})\s*\(?([0-9]+:[0-9]+)?/i
-    );
-
-    if (provinceMatch) {
-      identity.province = provinceMatch[1].trim();
-      if (provinceMatch[2]) identity.kd_code = provinceMatch[2];
+    const text = String(visibleText || "");
+    const province = text.match(/(?:Province:\s*|The Province of\s+)([^\n(]{2,100})\s*\(?([0-9]+:[0-9]+)?/i);
+    if (province) {
+      identity.province = clean(province[1]);
+      if (!identity.kd_code && province[2]) identity.kd_code = province[2];
     }
 
     if (!identity.kd_code) {
-      const kdMatch = sourceText.match(/\b(\d+):(\d+)\b/);
-      if (kdMatch) identity.kd_code = `${kdMatch[1]}:${kdMatch[2]}`;
+      const kd = text.match(/\b(\d+):(\d+)\b/);
+      if (kd) identity.kd_code = `${kd[1]}:${kd[2]}`;
     }
-
     return identity;
   }
 
@@ -101,12 +162,11 @@
     const visibleText = String(document.body?.innerText || "")
       .replace(/\u00a0/g, " ")
       .replace(/\r\n?/g, "\n")
+      .replace(/[ \t]+\n/g, "\n")
       .trim();
     const capturedAt = new Date().toISOString();
-    const subjectIdentity = findIdentityHints(visibleText);
-
     return {
-      capture_id: makeCaptureId(),
+      capture_id: captureId(),
       captured_at: capturedAt,
       scraper_version: VERSION,
       page: {
@@ -120,17 +180,14 @@
         ready_state: document.readyState,
         language: document.documentElement?.lang || null
       },
-      source_identity: {
-        hostname: location.hostname,
-        origin: location.origin
-      },
-      subject_identity: subjectIdentity,
+      source_identity: { hostname: location.hostname, origin: location.origin },
+      subject_identity: identityHints(visibleText),
       visible_text: visibleText,
       raw
     };
   }
 
-  function encodeCapture(record) {
+  function encode(record, key) {
     const data = {
       category: SOURCE,
       rows: [],
@@ -143,9 +200,8 @@
       visible_text: record.visible_text,
       raw: record.raw
     };
-
     const form = new URLSearchParams();
-    form.set("key", KEY);
+    if (key) form.set("key", key);
     form.set("source", SOURCE);
     form.set("tab", TAB);
     form.set("prov", record.subject_identity.province || "");
@@ -157,278 +213,130 @@
     return form.toString();
   }
 
-  function sendCapture(record) {
+  function send(record, key) {
     return new Promise(resolve => {
+      const body = encode(record, key);
       GM_xmlhttpRequest({
         method: "POST",
         url: ENDPOINT,
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        data: encodeCapture(record),
+        data: body,
         timeout: 30000,
-        onload: response => resolve({
-          ok: response.status >= 200 && response.status < 300,
-          status: response.status
-        }),
-        onerror: () => resolve({ ok: false, status: 0 }),
-        ontimeout: () => resolve({ ok: false, status: 0 })
+        onload: r => {
+          let text = String(r.responseText || "").replace(/\s+/g, " ").trim();
+          if (text.length > 400) text = text.slice(0, 400) + "...";
+          resolve({ ok: r.status >= 200 && r.status < 300, status: r.status, text, size: new Blob([body]).size });
+        },
+        onerror: e => resolve({ ok: false, status: 0, text: e?.error || e?.message || "network error" }),
+        ontimeout: () => resolve({ ok: false, status: 0, text: "timeout" })
       });
     });
   }
 
-  function getKingdomFromUrl(url = location.href) {
-    const match = String(url).match(KINGDOM_PATH_RE);
-    if (!match) return null;
-    return {
-      world: Number(match[1]),
-      kingdom: Number(match[2]),
-      code: `${match[1]}:${match[2]}`
-    };
-  }
-
-  function getKingdomCyclerState() {
-    return GM_getValue(KINGDOM_CYCLER_KEY, { active: false });
-  }
-
-  function setKingdomCyclerActive(active) {
-    GM_setValue(KINGDOM_CYCLER_KEY, { active: !!active });
-  }
-
-  function isKingdomDetailsPage() {
-    return !!getKingdomFromUrl();
-  }
-
-  function getNavigationLabel(element) {
-    return String(
-      element?.innerText ||
-      element?.textContent ||
-      element?.getAttribute?.("aria-label") ||
-      element?.getAttribute?.("title") ||
-      ""
-    ).replace(/\s+/g, " ").trim();
-  }
-
-  function findNextKingdomElement() {
-    if (!isKingdomDetailsPage()) return null;
-
-    const candidates = Array.from(document.querySelectorAll(
-      "a,button,input[type='button'],input[type='submit']"
-    ));
-
-    for (const element of candidates) {
-      const label = getNavigationLabel(element);
-      if (/^next$/i.test(label) || /^next\s+kingdom$/i.test(label)) {
-        return element;
-      }
+  async function sendWithRetry(record, key) {
+    let result = null;
+    for (let attempt = 1; attempt <= RETRIES; attempt++) {
+      toast(`Nexus capture → sending ${attempt}/${RETRIES}`);
+      result = await send(record, key);
+      if (result.ok) return result;
+      if (attempt < RETRIES) await new Promise(r => setTimeout(r, RETRY_DELAY_MS));
     }
-
-    for (const element of candidates) {
-      const label = getNavigationLabel(element);
-      if (/\bnext\b/i.test(label) && !/previous/i.test(label)) {
-        return element;
-      }
-    }
-
-    return null;
+    return result || { ok: false, status: 0, text: "unknown failure" };
   }
 
-  function getNextKingdomTarget() {
-    const element = findNextKingdomElement();
-    if (!element) return null;
-
-    const href = element.getAttribute?.("href");
-    if (href && href !== "#" && !/^javascript:/i.test(href)) {
-      try {
-        const url = new URL(href, location.href);
-        const kingdom = getKingdomFromUrl(url.href);
-        if (kingdom) {
-          return { type: "url", element, url: url.href, kingdom };
-        }
-      } catch (_) {}
-    }
-
-    const dataHref = element.getAttribute?.("data-href");
-    if (dataHref) {
-      try {
-        const url = new URL(dataHref, location.href);
-        const kingdom = getKingdomFromUrl(url.href);
-        if (kingdom) {
-          return { type: "url", element, url: url.href, kingdom };
-        }
-      } catch (_) {}
-    }
-
-    return { type: "click", element, kingdom: null };
+  function failure(result) {
+    if (!result) return "unknown failure";
+    if (result.status === 401) return "401 Unauthorized — key rejected";
+    if (result.status === 413) return "413 Payload Too Large";
+    if (result.status === 500) return `500 Server Error — ${result.text || "receiver failed"}`;
+    if ([502,503,504].includes(result.status)) return `${result.status} — receiver unavailable`;
+    if (result.status === 0) return `Network failure — ${result.text || "request failed"}`;
+    return `${result.status} ${result.text || "request failed"}`;
   }
 
-  function maybeStartKingdomCycler() {
-    const kingdom = getKingdomFromUrl();
-    if (!kingdom) return;
+  function advanceAfterSave() {
+    if (advanceScheduled) return;
+    const current = kingdomFromUrl();
+    const state = getCycler();
+    if (!current || !state.active) return;
 
-    const state = getKingdomCyclerState();
-
-    if (kingdom.world === 1 && kingdom.kingdom === 1 && !state.active) {
-      setKingdomCyclerActive(true);
-      showToast("Kingdom Cycler ✓ started at 1:1", true);
-      console.log("[Nexus Universal] Kingdom Cycler started at", kingdom.code);
-    }
-  }
-
-  function advanceKingdomAfterSave() {
-    if (kingdomAdvanceScheduled) return;
-
-    const current = getKingdomFromUrl();
-    if (!current) return;
-
-    const state = getKingdomCyclerState();
-    if (!state.active) return;
-
-    const target = getNextKingdomTarget();
-
-    if (!target) {
-      setKingdomCyclerActive(false);
-      showToast(`Kingdom Cycler ✓ finished at ${current.code}`, true, 8000);
-      console.log("[Nexus Universal] Kingdom Cycler finished", current.code);
+    const next = nextKingdom(current);
+    GM_setValue("nexus_universal_cycler_last", current.code);
+    if (!next) {
+      stopCycler();
+      toast(`Kingdom Cycler ✓ complete at ${current.code}`, true, 9000);
       return;
     }
 
-    kingdomAdvanceScheduled = true;
-
-    if (target.type === "url") {
-      showToast(
-        `Kingdom ${current.code} ✓ saved\nNext → ${target.kingdom.code}`,
-        true,
-        3500
-      );
-      console.log("[Nexus Universal] Kingdom Cycler advancing", {
-        current: current.code,
-        next: target.kingdom.code,
-        url: target.url
-      });
-
-      setTimeout(() => {
-        window.location.href = target.url;
-      }, 2200);
-      return;
-    }
-
-    showToast(
-      `Kingdom ${current.code} ✓ saved\nNext → following Utopia Next navigation`,
-      true,
-      3500
-    );
-    console.log("[Nexus Universal] Kingdom Cycler clicking Utopia Next", current.code);
-
+    advanceScheduled = true;
+    toast(`Saved ${current.code} ✓\nNext → ${next.code}`, true, 3500);
     setTimeout(() => {
-      target.element.click();
+      window.location.href = kingdomUrl(next);
     }, 2200);
   }
 
   async function capture(manual = false) {
     if (captureBusy) return;
     captureBusy = true;
-
     try {
+      const key = getKey();
       const record = buildCapture();
       lastCapture = record;
       renderPanel(record, "Sending…", true);
-
-      const result = await sendCapture(record);
-
-      if (result.ok) {
-        lastCapturedUrl = location.href;
-        renderPanel(record, "Saved ✓", true);
-        if (manual) showToast(`Captured ${formatBytes(record.raw)} DOM`, true);
-        advanceKingdomAfterSave();
-      } else {
-        renderPanel(record, `HTTP ${result.status || "connection error"}`, false);
-        showToast("Nexus capture failed to save", false);
+      if (!record.raw) throw new Error("No DOM available");
+      const result = await sendWithRetry(record, key);
+      if (!result.ok) {
+        renderPanel(record, failure(result), false);
+        toast(`Nexus capture ✕ ${failure(result)}`, false, 9000);
+        return;
       }
+      lastCapturedUrl = location.href;
+      GM_setValue("nexus_universal_last_capture", { url: location.href, capture_id: record.capture_id, captured_at: record.captured_at });
+      renderPanel(record, `Saved ✓ ${bytes(record.raw)} · KD ${record.subject_identity.kd_code || "unknown"}`, true);
+      if (manual) toast(`Captured ${bytes(record.raw)} DOM ✓`, true);
+      advanceAfterSave();
+    } catch (error) {
+      renderPanel(lastCapture, error?.message || "capture failed", false);
+      toast(`Nexus capture ✕ ${error?.message || "capture failed"}`, false, 9000);
     } finally {
       captureBusy = false;
     }
   }
 
-  function copyText(text, message) {
-    GM_setClipboard(String(text || ""), "text");
-    showToast(message, true);
-  }
-
   function copyDom() {
     const html = document.documentElement?.outerHTML || "";
-    if (!html) {
-      showToast("No DOM available", false);
-      return;
-    }
-    copyText(html, `Copied complete DOM (${formatBytes(html)})`);
+    if (!html) return toast("No DOM available", false);
+    GM_setClipboard(html, "text");
+    toast(`Copied complete DOM (${bytes(html)}) ✓`);
   }
 
-  function copySelectedRow() {
-    const row = selectedRow || document.querySelector("tr");
-    if (!row) {
-      showToast("No table row found", false);
-      return;
-    }
-    copyText(row.outerHTML, "Copied row HTML");
-  }
-
-  function makeButton(label, handler, secondary = false) {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.textContent = label;
-    button.style.cssText = [
-      "flex:1",
-      "padding:8px 6px",
-      "border:0",
-      "border-radius:6px",
-      `background:${secondary ? "#30363d" : "#238636"}`,
-      "color:#fff",
-      "font:bold 11px monospace",
-      "cursor:pointer"
-    ].join(";");
-    button.addEventListener("click", handler);
-    return button;
+  function button(label, handler, secondary = false) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.textContent = label;
+    b.style.cssText = ["flex:1","padding:8px 6px","border:0","border-radius:6px",`background:${secondary ? "#30363d" : "#238636"}`,"color:#fff","font:bold 11px monospace","cursor:pointer"].join(";");
+    b.onclick = handler;
+    return b;
   }
 
   function renderPanel(record = lastCapture, state = "Ready", success = true) {
     const panel = document.getElementById(PANEL_ID);
     if (!panel) return;
-
     panel.replaceChildren();
-
-    if (minimized) {
-      const compact = document.createElement("div");
-      compact.style.cssText = "display:flex;align-items:center;gap:8px;color:#7ee787;font:bold 12px monospace";
-      compact.append("⚡ Nexus Universal");
-      const expand = makeButton("▲", () => {
-        minimized = false;
-        GM_setValue("nexus_universal_minimized", false);
-        renderPanel(record, state, success);
-      }, true);
-      expand.style.flex = "0 0 auto";
-      compact.appendChild(expand);
-      panel.appendChild(compact);
-      return;
-    }
 
     const header = document.createElement("div");
     header.style.cssText = "display:flex;align-items:center;justify-content:space-between;margin-bottom:7px";
-
     const title = document.createElement("div");
-    title.textContent = `⚡ Nexus Universal Capture v${VERSION}`;
+    title.textContent = `⚡ Nexus Universal v${VERSION}`;
     title.style.cssText = "color:#7ee787;font:bold 13px monospace";
-
-    const minimize = makeButton("—", () => {
-      minimized = true;
-      GM_setValue("nexus_universal_minimized", true);
-      renderPanel(record, state, success);
-    }, true);
-    minimize.style.flex = "0 0 auto";
-
-    header.append(title, minimize);
+    const min = button(minimized ? "▲" : "—", () => { minimized = !minimized; GM_setValue("nexus_universal_minimized", minimized); renderPanel(record, state, success); }, true);
+    min.style.flex = "0 0 auto";
+    header.append(title, min);
     panel.appendChild(header);
+    if (minimized) return;
 
     const note = document.createElement("div");
-    note.textContent = "Complete DOM + visible text + metadata · no AI · no filtering · kingdom cycler automatic";
+    note.textContent = "RAW DOM + visible text + metadata · URL-authoritative identity · deterministic 9×13 kingdom cycler";
     note.style.cssText = "color:#8b949e;font:9px monospace;line-height:1.35;margin-bottom:7px";
     panel.appendChild(note);
 
@@ -437,81 +345,73 @@
     status.style.cssText = `color:${success ? "#7ee787" : "#ff7b72"};font:10px monospace;word-break:break-word;margin-bottom:7px`;
     panel.appendChild(status);
 
-    const firstRow = document.createElement("div");
-    firstRow.style.cssText = "display:flex;gap:6px;margin-bottom:6px";
-    firstRow.append(
-      makeButton("Capture", () => capture(true)),
-      makeButton("Copy DOM", copyDom, true)
-    );
-    panel.appendChild(firstRow);
+    const row1 = document.createElement("div");
+    row1.style.cssText = "display:flex;gap:6px;margin-bottom:6px";
+    row1.append(button("Capture", () => capture(true)), button("Copy DOM", copyDom, true));
+    panel.appendChild(row1);
 
-    const secondRow = document.createElement("div");
-    secondRow.style.cssText = "display:flex;gap:6px";
-    secondRow.append(
-      makeButton("Copy Row", copySelectedRow, true),
-      makeButton("Refresh", () => location.reload(), true)
+    const row2 = document.createElement("div");
+    row2.style.cssText = "display:flex;gap:6px";
+    const active = !!getCycler().active;
+    row2.append(
+      button(active ? "Cycler ON" : "Start Cycler", startCycler),
+      button("Stop", stopCycler, true),
+      button("Reset", resetCycler, true)
     );
-    panel.appendChild(secondRow);
+    panel.appendChild(row2);
 
-    if (record) {
-      const metadata = document.createElement("div");
-      metadata.style.cssText = "margin-top:7px;padding-top:6px;border-top:1px solid #30363d;color:#8b949e;font:9px monospace;line-height:1.4;word-break:break-word";
-      metadata.textContent = `${record.page.pathname} · ${formatBytes(record.raw)} DOM · ${record.visible_text.length.toLocaleString()} text chars`;
-      panel.appendChild(metadata);
+    const current = kingdomFromUrl();
+    if (current) {
+      const info = document.createElement("div");
+      const next = nextKingdom(current);
+      info.textContent = `Current KD: ${current.code}${next ? ` · next: ${next.code}` : " · FINAL"}${getCycler().active ? " · CYCLING" : ""}`;
+      info.style.cssText = "color:#c9d1d9;font:9px monospace;margin-top:7px";
+      panel.appendChild(info);
     }
   }
 
   function installPanel() {
     if (document.getElementById(PANEL_ID)) return;
-
     const panel = document.createElement("div");
     panel.id = PANEL_ID;
-    panel.style.cssText = "position:fixed;right:14px;bottom:14px;width:280px;padding:11px;z-index:2147483646;background:#0d1117;border:1px solid #30363d;border-radius:9px;box-shadow:0 8px 28px rgba(0,0,0,.45)";
+    panel.style.cssText = ["position:fixed","right:16px","bottom:16px","z-index:2147483646","width:330px","padding:10px","background:#161b22","border:1px solid #30363d","border-radius:9px","box-shadow:0 8px 30px rgba(0,0,0,.45)","color:#fff"].join(";");
     document.documentElement.appendChild(panel);
-    renderPanel(null, "Ready", true);
-
-    document.addEventListener("click", event => {
-      const row = event.target?.closest?.("tr");
-      if (row && !event.target.closest("button,input,select,textarea,a")) {
-        selectedRow = row;
-      }
-    }, true);
+    renderPanel();
   }
 
-  function scheduleAutoCapture() {
-    clearTimeout(autoTimer);
-    autoTimer = setTimeout(() => {
-      if (document.visibilityState === "hidden") return;
-      if (lastCapturedUrl === location.href) return;
-      capture(false);
+  function scheduleCapture() {
+    setTimeout(() => {
+      if (location.href !== lastCapturedUrl) capture(false);
     }, AUTO_DELAY_MS);
   }
 
-  function watchNavigation() {
-    for (const method of ["pushState", "replaceState"]) {
-      const original = history[method];
-      if (typeof original !== "function") continue;
-
-      history[method] = function () {
-        const result = original.apply(this, arguments);
-        setTimeout(scheduleAutoCapture, 100);
-        return result;
-      };
-    }
-
-    addEventListener("popstate", () => setTimeout(scheduleAutoCapture, 100));
+  function hookNavigation() {
+    const push = history.pushState;
+    const replace = history.replaceState;
+    history.pushState = function (...args) { const result = push.apply(this, args); setTimeout(scheduleCapture, 700); return result; };
+    history.replaceState = function (...args) { const result = replace.apply(this, args); setTimeout(scheduleCapture, 700); return result; };
+    addEventListener("popstate", () => setTimeout(scheduleCapture, 700));
+    addEventListener("hashchange", () => setTimeout(scheduleCapture, 700));
   }
 
-  function boot() {
+  function observeDom() {
+    let timer = null;
+    const observer = new MutationObserver(() => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        if (!captureBusy && location.href !== lastCapturedUrl) capture(false);
+      }, 1400);
+    });
+    observer.observe(document.documentElement, { childList: true, subtree: true });
+  }
+
+  function start() {
     installPanel();
-    watchNavigation();
-    maybeStartKingdomCycler();
-    scheduleAutoCapture();
+    hookNavigation();
+    observeDom();
+    scheduleCapture();
+    console.log("[Nexus Universal] v10 active", { url: location.href, kingdom: kingdomFromUrl()?.code || null });
   }
 
-  if (document.readyState === "loading") {
-    addEventListener("DOMContentLoaded", boot, { once: true });
-  } else {
-    boot();
-  }
+  start();
 })();
