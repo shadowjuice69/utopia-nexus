@@ -1,4 +1,5 @@
 const http = require("http");
+const https = require("https");
 const { URLSearchParams } = require("url");
 const supabaseService = require("./supabase");
 const logger = require("./logger");
@@ -41,43 +42,14 @@ async function postToSpartan(request, parsed) {
     logger.warn('[SPARTAN BRIDGE] SPARTAN_CAPTURE_KEY is not configured; local Universal Capture remains active.');
     return { skipped: true };
   }
-  const body = JSON.stringify({
-    userId: process.env.SPARTAN_CAPTURE_USER_ID || undefined,
-    capture: {
-      captureId: request.capture_id,
-      capturedAt: request.captured_at,
-      source: request.source,
-      sourceId: request.capture_id,
-      pageKind: parsed.kind || parsed.type || request.tab,
-      url: request.url,
-      provinceId: request.prov,
-      kingdomId: request.kd,
-      rawText: request.raw || request.visibleText,
-      rawPayload: request.payload,
-      parsedPayload: parsed,
-    }
-  });
+  const body = JSON.stringify({ userId: process.env.SPARTAN_CAPTURE_USER_ID || undefined, capture: { captureId: request.capture_id, capturedAt: request.captured_at, source: request.source, sourceId: request.capture_id, pageKind: parsed.kind || parsed.type || request.tab, url: request.url, provinceId: request.prov, kingdomId: request.kd, rawText: request.raw || request.visibleText, rawPayload: request.payload, parsedPayload: parsed } });
   const target = new URL(SPARTAN_CAPTURE_URL);
+  const transport = target.protocol === 'https:' ? https : http;
   return new Promise((resolve, reject) => {
-    const req = http.request({
-      hostname: target.hostname,
-      port: target.port || (target.protocol === 'https:' ? 443 : 80),
-      path: `${target.pathname}${target.search}`,
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body), 'x-spartan-capture-key': SPARTAN_CAPTURE_KEY },
-      timeout: 30000,
-    }, res => {
-      let response = '';
-      res.on('data', chunk => { response += chunk; });
-      res.on('end', () => {
-        if (res.statusCode >= 200 && res.statusCode < 300) resolve({ ok: true, status: res.statusCode, response });
-        else reject(new Error(`Spartan returned ${res.statusCode}: ${response}`));
-      });
+    const req = transport.request({ hostname: target.hostname, port: target.port || (target.protocol === 'https:' ? 443 : 80), path: `${target.pathname}${target.search}`, method: 'POST', headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body), 'x-spartan-capture-key': SPARTAN_CAPTURE_KEY }, timeout: 30000 }, res => {
+      let response = ''; res.on('data', chunk => { response += chunk; }); res.on('end', () => { if (res.statusCode >= 200 && res.statusCode < 300) resolve({ ok: true, status: res.statusCode, response }); else reject(new Error(`Spartan returned ${res.statusCode}: ${response}`)); });
     });
-    req.on('timeout', () => req.destroy(new Error('Spartan bridge timeout')));
-    req.on('error', reject);
-    req.write(body);
-    req.end();
+    req.on('timeout', () => req.destroy(new Error('Spartan bridge timeout'))); req.on('error', reject); req.write(body); req.end();
   });
 }
 async function handleCapture(request) { const parsed = parseUniversalCapture(request.url, request.visibleText, request.raw); const sb = supabaseService.getClient(); if (!sb) throw new Error("Supabase client unavailable"); await saveRaw(sb, request, parsed); await saveStructured(sb, request, parsed); try { await postToSpartan(request, parsed); } catch (error) { logger.warn(`[SPARTAN BRIDGE] capture=${request.capture_id || ''} failed: ${error.message}`); } logger.info(`[UNIVERSAL RECEIVER] type=${parsed.type} kind=${parsed.kind} kd=${request.kd || ""} prov=${request.prov || ""} capture=${request.capture_id || ""} parsed_fields=${Object.keys(parsed.data || {}).length}`); return { ok: true, capture_id: request.capture_id, kd: request.kd, province: request.prov, type: parsed.type, kind: parsed.kind, raw_length: parsed.raw_length }; }
