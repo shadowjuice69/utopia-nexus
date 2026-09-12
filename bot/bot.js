@@ -10,8 +10,6 @@ const musicPlayer = require('./services/musicPlayerService');
 const music7 = require('./core/intel7');
 const interactions = require('./core/interactions');
 const commands = require('./core/commands');
-const dataSteward = require('./services/dataStewardBootstrap');
-const universalCaptureSteward = require('./services/universalCaptureSteward');
 const spartanQueueProcessor = require('./services/spartanQueueProcessor');
 
 if (!process.env.DISCORD_TOKEN) throw new Error('DISCORD_TOKEN is required');
@@ -29,22 +27,16 @@ const client = new Client({
 });
 
 global.__NEXUS_DISCORD_CLIENT = client;
-dataSteward.setClient(client);
-
 const intel7 = music7.initialize(client);
 
 client.on('raw', packet => {
-  if (packet?.t === 'MESSAGE_CREATE') {
-    logger.info(`[DISCORD RAW MESSAGE_CREATE] channel=${packet.d?.channel_id || 'unknown'} guild=${packet.d?.guild_id || 'DM'} author=${packet.d?.author?.username || 'unknown'} id=${packet.d?.id || 'unknown'}`);
-  }
+  if (packet?.t === 'MESSAGE_CREATE') logger.info(`[DISCORD RAW MESSAGE_CREATE] channel=${packet.d?.channel_id || 'unknown'} guild=${packet.d?.guild_id || 'DM'} author=${packet.d?.author?.username || 'unknown'} id=${packet.d?.id || 'unknown'}`);
 });
 
 client.on('interactionCreate', interaction => {
   interactions.handle(interaction).catch(error => {
     logger.error(`[INTERACTION ERROR] ${error.stack || error.message}`);
-    if (interaction.isRepliable() && !interaction.replied && !interaction.deferred) {
-      interaction.reply({ content: `❌ ${error.message}`, ephemeral: true }).catch(() => {});
-    }
+    if (interaction.isRepliable() && !interaction.replied && !interaction.deferred) interaction.reply({ content: `❌ ${error.message}`, ephemeral: true }).catch(() => {});
   });
 });
 
@@ -54,67 +46,40 @@ client.on('messageCreate', async message => {
     if (!message.content?.trim().toLowerCase().startsWith('!clearbot')) return;
     if (!message.guild) return;
     if (!message.member?.permissions?.has(PermissionFlagsBits.Administrator)) return;
-
     const parts = message.content.trim().split(/\s+/);
     const channelId = parts[1] || CLEANUP_CHANNEL_ID;
     const authorId = parts[2] || CLEANUP_AUTHOR_ID;
-
-    if (!/^\d{17,20}$/.test(channelId) || !/^\d{17,20}$/.test(authorId)) {
-      return message.reply('❌ Usage: `!clearbot [channel_id] [user_id]`');
-    }
-
+    if (!/^\d{17,20}$/.test(channelId) || !/^\d{17,20}$/.test(authorId)) return message.reply('❌ Usage: `!clearbot [channel_id] [user_id]`');
     const channel = await client.channels.fetch(channelId);
-    if (!channel?.isTextBased() || !channel.messages) {
-      return message.reply('❌ That channel is not a text channel I can read.');
-    }
-
+    if (!channel?.isTextBased() || !channel.messages) return message.reply('❌ That channel is not a text channel I can read.');
     let before;
     let deleted = 0;
     let scanned = 0;
-
     while (true) {
       const batch = await channel.messages.fetch({ limit: 100, ...(before ? { before } : {}) });
       if (!batch.size) break;
       scanned += batch.size;
-
       const targets = batch.filter(m => m.author?.id === authorId);
       if (targets.size) {
         const removable = targets.filter(m => Date.now() - m.createdTimestamp < 14 * 24 * 60 * 60 * 1000);
         const old = targets.filter(m => Date.now() - m.createdTimestamp >= 14 * 24 * 60 * 60 * 1000);
-
-        if (removable.size) {
-          const removed = await channel.bulkDelete(removable, true);
-          deleted += removed.size;
-        }
-
-        for (const msg of old.values()) {
-          try {
-            await msg.delete();
-            deleted++;
-          } catch (error) {
-            logger.warn(`[CLEARBOT] Could not delete old message ${msg.id}: ${error.message}`);
-          }
-        }
+        if (removable.size) deleted += (await channel.bulkDelete(removable, true)).size;
+        for (const msg of old.values()) { try { await msg.delete(); deleted++; } catch (error) { logger.warn(`[CLEARBOT] Could not delete old message ${msg.id}: ${error.message}`); } }
       }
-
       before = batch.last().id;
       if (batch.size < 100) break;
     }
-
     await message.reply(`✅ Cleared ${deleted} message(s) from <#${channelId}> posted by <@${authorId}>. Scanned ${scanned} message(s).`);
     logger.info(`[CLEARBOT] deleted=${deleted} scanned=${scanned} channel=${channelId} author=${authorId} requestedBy=${message.author.id}`);
   } catch (error) {
     logger.error(`[CLEARBOT ERROR] ${error.stack || error.message}`);
     if (!message.replied) message.reply(`❌ Cleanup failed: ${error.message}`).catch(() => {});
   }
-
   const type = intel7.channels.get(message.channelId);
   if (!type) return;
 });
 
-client.on('debug', message => {
-  if (!/heartbeat acknowledged|sending heartbeat/i.test(message)) logger.info(`[DISCORD DEBUG] ${message}`);
-});
+client.on('debug', message => { if (!/heartbeat acknowledged|sending heartbeat/i.test(message)) logger.info(`[DISCORD DEBUG] ${message}`); });
 client.on('warn', message => logger.warn(`[DISCORD WARN] ${message}`));
 client.on('error', error => logger.error(`[DISCORD CLIENT ERROR] ${error.stack || error.message}`));
 client.on('shardError', (error, shardId) => logger.error(`[DISCORD SHARD ${shardId} ERROR] ${error.stack || error.message}`));
@@ -124,9 +89,7 @@ client.on('shardReady', shardId => logger.info(`[DISCORD SHARD ${shardId} READY]
 
 client.once('clientReady', async () => {
   logger.info(`✅ Bot online as ${client.user.tag}`);
-  logger.info(`[DATA STEWARD] enabled=${process.env.DATA_STEWARD_ENABLED !== 'false'} alert_user=${process.env.DATA_STEWARD_DISCORD_USER_ID || 'configured default'}`);
-  dataSteward.start();
-  universalCaptureSteward.start();
+  logger.info('[SPARTAN] Fresh capture -> queue -> processor -> stewards -> projection pipeline active');
   spartanQueueProcessor.start();
 
   if (process.env.NEXUS_LIVE_TEST_MESSAGE === 'true') {
@@ -134,13 +97,9 @@ client.once('clientReady', async () => {
     if (recipientId) {
       try {
         const recipient = await client.users.fetch(recipientId);
-        await recipient.send(`🟢 **Utopia Nexus is LIVE**\n\nThe bot has connected to Discord successfully and the Data Steward is running.\n\nTime: ${new Date().toISOString()}`);
+        await recipient.send(`🟢 **Utopia Nexus is LIVE**\n\nThe fresh Spartan capture pipeline and steward system are running.\n\nTime: ${new Date().toISOString()}`);
         logger.info(`[LIVE TEST] Sent live-status DM to ${recipientId}`);
-      } catch (error) {
-        logger.error(`[LIVE TEST ERROR] ${error.stack || error.message}`);
-      }
-    } else {
-      logger.warn('[LIVE TEST] NEXUS_LIVE_TEST_MESSAGE=true but DATA_STEWARD_DISCORD_USER_ID is not configured');
+      } catch (error) { logger.error(`[LIVE TEST ERROR] ${error.stack || error.message}`); }
     }
   }
 
@@ -153,11 +112,8 @@ client.once('clientReady', async () => {
     logger.error(`[MUSIC INIT ERROR] ${error.stack || error.message}`);
   }
 
-  try {
-    await commands.register(client);
-  } catch (error) {
-    logger.error(`[COMMAND REGISTRATION ERROR] ${error.stack || error.message}`);
-  }
+  try { await commands.register(client); }
+  catch (error) { logger.error(`[COMMAND REGISTRATION ERROR] ${error.stack || error.message}`); }
 });
 
 const port = Number(process.env.PORT || 10000);
@@ -172,9 +128,5 @@ client.login(process.env.DISCORD_TOKEN)
 
 const SELF_URL = process.env.RENDER_EXTERNAL_URL || 'https://utopia-nexus.onrender.com';
 setInterval(() => {
-  require('https').get(SELF_URL, res => {
-    logger.info(`[SELF-PING] ${res.statusCode}`);
-  }).on('error', err => {
-    logger.warn(`[SELF-PING ERROR] ${err.message}`);
-  });
+  require('https').get(SELF_URL, res => logger.info(`[SELF-PING] ${res.statusCode}`)).on('error', err => logger.warn(`[SELF-PING ERROR] ${err.message}`));
 }, 10 * 60 * 1000);
