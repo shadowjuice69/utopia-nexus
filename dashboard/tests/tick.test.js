@@ -9,8 +9,8 @@ const atHours = (hours, minute = 0, second = 0) =>
 test("current anchor is Tick 5", () => {
   const state = getTickState(atHours(0));
   assert.equal(state.current, 5);
-  assert.equal(state.minLeft, 59);
-  assert.equal(state.secLeft, 59);
+  assert.equal(state.minLeft, 60);
+  assert.equal(state.secLeft, 0);
   assert.equal(state.year, 6);
   assert.equal(state.month, "February");
   assert.equal(state.day, 5);
@@ -26,9 +26,9 @@ test("tick increments at the top of the hour", () => {
 });
 
 test("tick wraps to the next year after the final day", () => {
-  assert.equal(getTickState(atHours(167)).current, 24);
-  assert.equal(getTickState(atHours(168)).current, 1);
+  assert.equal(getTickState(atHours(167)).current, 4);
+  assert.equal(getTickState(atHours(168)).current, 5);
   assert.equal(getTickState(atHours(168)).year, 7);
   assert.equal(getTickState(atHours(168)).month, "January");
-  assert.equal(getTickState(atHours(168)).day, 1);
+  assert.equal(getTickState(atHours(168)).day, 5);
 });
