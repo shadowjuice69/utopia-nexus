@@ -21,7 +21,9 @@ async function hasAccess(userId) {
 }
 async function register({ userId, username, metadata = {} }) {
   const sb = client(); if (!sb) throw new Error('Spartan access database is unavailable.');
-  const uid = String(userId); const existing = await get(uid); if (existing?.status === ACTIVE) return existing;
+  const uid = String(userId); const existing = await get(uid);
+  if (existing?.status === ACTIVE) return existing;
+  if (existing && BLOCKED.has(existing.status)) throw new Error(`Spartan access is ${existing.status}. An admin must restore your access.`);
   const now = new Date().toISOString();
   const payload = { discord_user_id: uid, username: username || null, status: ACTIVE, role: permissionService.isOwner(uid) ? 'owner' : permissionService.isAdmin(uid) ? 'admin' : 'member', granted_by: uid, granted_at: now, disabled_by: null, disabled_at: null, reason: null, metadata: { ...(existing?.metadata || {}), ...metadata }, updated_at: now };
   const { data, error } = await sb.from('spartan_access').upsert(payload, { onConflict: 'discord_user_id' }).select('*').single();
