@@ -16,7 +16,7 @@ async function get(userId) {
 }
 async function hasAccess(userId) {
   if (!userId) return false;
-  if (permissionService.isOwner(userId)) return true;
+  if (permissionService.isProtected(userId)) return true;
   const row = await get(userId); return Boolean(row && row.status === ACTIVE && !BLOCKED.has(row.status));
 }
 async function register({ userId, username, metadata = {} }) {
@@ -25,7 +25,8 @@ async function register({ userId, username, metadata = {} }) {
   if (existing?.status === ACTIVE) return existing;
   if (existing && BLOCKED.has(existing.status)) throw new Error(`Spartan access is ${existing.status}. An admin must restore your access.`);
   const now = new Date().toISOString();
-  const payload = { discord_user_id: uid, username: username || null, status: ACTIVE, role: permissionService.isOwner(uid) ? 'owner' : permissionService.isAdmin(uid) ? 'admin' : 'member', granted_by: uid, granted_at: now, disabled_by: null, disabled_at: null, reason: null, metadata: { ...(existing?.metadata || {}), ...metadata }, updated_at: now };
+  const role = permissionService.isOwner(uid) ? 'owner' : permissionService.isTrustedAdmin(uid) ? 'admin' : 'member';
+  const payload = { discord_user_id: uid, username: username || null, status: ACTIVE, role, granted_by: uid, granted_at: now, disabled_by: null, disabled_at: null, reason: null, metadata: { ...(existing?.metadata || {}), ...metadata }, updated_at: now };
   const { data, error } = await sb.from('spartan_access').upsert(payload, { onConflict: 'discord_user_id' }).select('*').single();
   if (error) throw error;
   await recordEvent(uid, existing ? 'restored' : 'registered', 'user', uid, null, metadata); return data;
@@ -34,13 +35,23 @@ async function setStatus(userId, status, actorId, reason = '', metadata = {}) {
   const sb = client(); if (!sb) throw new Error('Spartan access database is unavailable.');
   const uid = String(userId); const actor = String(actorId || 'system'); const current = await get(uid);
   if (!current) throw new Error('That Discord user has no Spartan registration.');
+
+  if (permissionService.isProtected(uid) && !permissionService.isOwner(actor)) {
+    throw new Error('Protected Spartan identities can only be disabled or changed by the Owner.');
+  }
+  if (permissionService.isOwner(uid) && !permissionService.isOwner(actor)) {
+    throw new Error('The Spartan Owner account cannot be disabled.');
+  }
+
   const isBot = actor === 'BOT' || actor === 'spartan-bot';
-  if (current.role === 'owner' && actor !== current.discord_user_id) throw new Error('The Spartan owner account cannot be disabled.');
+  if (isBot && permissionService.isProtected(uid)) {
+    throw new Error('Automated policy cannot disable a protected Spartan identity.');
+  }
   const now = new Date().toISOString(); const disabled = status !== ACTIVE;
   const { data, error } = await sb.from('spartan_access').update({ status, disabled_by: disabled ? actor : null, disabled_at: disabled ? now : null, reason: reason || null, updated_at: now }).eq('discord_user_id', uid).select('*').single();
   if (error) throw error;
   const action = isBot ? 'bot_revoked' : status === ACTIVE ? 'restored' : status;
-  await recordEvent(uid, action, isBot ? 'bot' : permissionService.isOwner(actor) ? 'owner' : 'admin', actor, reason, metadata);
+  await recordEvent(uid, action, permissionService.isOwner(actor) ? 'owner' : 'admin', actor, reason, metadata);
   logger.warn(`[SPARTAN ACCESS] ${uid} -> ${status} by ${actor}`); return data;
 }
 async function grant(userId, actorId, reason = '', metadata = {}) { return setStatus(userId, ACTIVE, actorId, reason, metadata); }
