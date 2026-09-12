@@ -12,6 +12,7 @@ const interactions = require('./core/interactions');
 const commands = require('./core/commands');
 const dataSteward = require('./services/dataStewardBootstrap');
 const universalCaptureSteward = require('./services/universalCaptureSteward');
+const spartanQueueProcessor = require('./services/spartanQueueProcessor');
 
 if (!process.env.DISCORD_TOKEN) throw new Error('DISCORD_TOKEN is required');
 
@@ -126,6 +127,7 @@ client.once('clientReady', async () => {
   logger.info(`[DATA STEWARD] enabled=${process.env.DATA_STEWARD_ENABLED !== 'false'} alert_user=${process.env.DATA_STEWARD_DISCORD_USER_ID || 'configured default'}`);
   dataSteward.start();
   universalCaptureSteward.start();
+  spartanQueueProcessor.start();
 
   if (process.env.NEXUS_LIVE_TEST_MESSAGE === 'true') {
     const recipientId = process.env.DATA_STEWARD_DISCORD_USER_ID;
