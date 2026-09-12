@@ -8,13 +8,30 @@ function clean(value) {
   return String(value ?? "").trim();
 }
 
+async function resolveKingdom(kd, kingdomId = "") {
+  const code = clean(kd);
+  const id = clean(kingdomId);
+  if (!code && !id) return "";
+
+  let query = supabase
+    .from("kingdoms")
+    .select("id,kd_code,kd_name,updated_at");
+
+  if (code) query = query.eq("kd_code", code);
+  else query = query.eq("id", id);
+
+  const { data } = await query
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  return clean(data?.kd_name);
+}
+
 async function loadFromRegisteredProvince(provinceName) {
   const requestedProvince = clean(provinceName);
   if (!requestedProvince) return null;
 
-  // Dashboard login is keyed by province name. Use the same registration
-  // lookup as auth.js instead of assuming provinces.user_id is a Supabase
-  // Auth UUID (historically it may contain a Discord/user identifier).
   const { data, error } = await supabase.rpc("nexus_registration_lookup", {
     province_name: requestedProvince,
   });
@@ -25,16 +42,11 @@ async function loadFromRegisteredProvince(provinceName) {
   const province = clean(registered.name || registered.province || requestedProvince);
   const kd = clean(registered.kd_code || registered.kingdom_code || registered.kd);
   const kingdomId = clean(registered.kingdom_id);
-  let kingdom = clean(registered.kd_name || registered.kingdom_name || registered.kingdom);
 
-  if (!kingdom && kingdomId) {
-    const { data: kingdomRow } = await supabase
-      .from("kingdoms")
-      .select("kd_id, kd_name")
-      .eq("id", kingdomId)
-      .maybeSingle();
-    kingdom = clean(kingdomRow?.kd_name);
-  }
+  // Never trust a stale kingdom name supplied by registration/session data.
+  // The KD code is the identity key; resolve the current kingdom name from
+  // the normalized kingdoms table every time.
+  const kingdom = await resolveKingdom(kd, kingdomId);
 
   return {
     kingdom,
@@ -49,12 +61,16 @@ export async function loadNexusConfig(force = false) {
   const now = Date.now();
   if (!force && cachedConfig && now - cachedAt < CONFIG_TTL_MS) return cachedConfig;
 
-  const savedProvince = clean(sessionStorage.getItem("nexus_province"));
+  const savedProvince = clean(
+    sessionStorage.getItem("nexus_province") ||
+    localStorage.getItem("nexus_province")
+  );
   const { data: { user } } = await supabase.auth.getUser();
 
-  // The province entered at login is the authoritative dashboard identity.
-  // Resolve it first for every user, including users with an existing
-  // Supabase Auth session, so each province sees its own kingdom/intel.
+  // 1. The province selected at dashboard login is the authoritative identity.
+  // It is resolved through the registration RPC, which returns the province's
+  // current KD code. This prevents the dashboard from inheriting another
+  // kingdom from global bot settings or stale age snapshots.
   if (savedProvince) {
     const registered = await loadFromRegisteredProvince(savedProvince);
     if (registered?.province && registered?.kd) {
@@ -64,19 +80,26 @@ export async function loadNexusConfig(force = false) {
     }
   }
 
-  // Fallback for sessions where the login province was not persisted.
   if (user) {
-    const [{ data: settings }, { data: province }, { data: admin }, { data: botSettings }] = await Promise.all([
-      supabase
-        .from("user_settings")
-        .select("my_kd_id, age_current")
-        .eq("user_id", user.id)
-        .maybeSingle(),
+    const [
+      { data: province },
+      { data: identity },
+      { data: admin },
+      { data: settings },
+    ] = await Promise.all([
+      // Historical provinces.user_id can contain the Discord/user identifier,
+      // so this is supplemental rather than the primary identity mechanism.
       supabase
         .from("provinces")
         .select("name, kingdom_id, kd_code")
         .eq("user_id", user.id)
+        .order("updated_at", { ascending: false })
         .limit(1)
+        .maybeSingle(),
+      supabase
+        .from("nexus_identity_profiles")
+        .select("current_province,current_kd_code,updated_at")
+        .eq("user_id", user.id)
         .maybeSingle(),
       supabase
         .from("nexus_admins")
@@ -85,45 +108,61 @@ export async function loadNexusConfig(force = false) {
         .eq("role", "owner")
         .maybeSingle(),
       supabase
-        .from("bot_settings")
-        .select("key, value"),
+        .from("user_settings")
+        .select("my_kd_id, age_current")
+        .eq("user_id", user.id)
+        .maybeSingle(),
     ]);
 
-    const botKd = botSettings?.find(s => s.key === "kingdom_code")?.value || "";
-    const current = settings?.age_current && typeof settings.age_current === "object"
-      ? settings.age_current
-      : {};
-    const kd = clean(province?.kd_code || settings?.my_kd_id || current.kd_code || current.kingdom_code || botKd);
-    const kingdom = clean(current.kingdom || current.kingdom_name || current.name);
-    const provinceName = clean(province?.name || current.province || current.province_name);
-    const kingdomId = clean(province?.kingdom_id);
+    const identityKd = clean(identity?.current_kd_code);
+    const identityProvince = clean(identity?.current_province);
+    const provinceKd = clean(province?.kd_code);
+    const provinceName = clean(province?.name);
+    const settingsKd = clean(settings?.my_kd_id);
 
-    if (provinceName || kd) {
+    // Identity profile is the persisted Nexus identity; province row is a
+    // supplemental source. user_settings is only a last-resort KD fallback.
+    const kd = identityKd || provinceKd || settingsKd;
+    const resolvedProvince = identityProvince || provinceName;
+    const kingdomId = clean(province?.kingdom_id);
+    const kingdom = await resolveKingdom(kd, kingdomId);
+
+    if (resolvedProvince || kd) {
       await supabase
         .from("nexus_identity_profiles")
         .upsert({
           user_id: user.id,
-          current_province: provinceName || null,
+          current_province: resolvedProvince || null,
           current_kd_code: kd || null,
           updated_at: new Date().toISOString(),
         }, { onConflict: "user_id" });
     }
 
-    cachedConfig = {
-      kingdom,
-      kd,
-      province: provinceName,
-      kingdomId,
-      owner: !!admin,
-    };
-    cachedAt = now;
-    return cachedConfig;
+    if (resolvedProvince || kd) {
+      cachedConfig = {
+        kingdom,
+        kd,
+        province: resolvedProvince,
+        kingdomId,
+        owner: !!admin,
+      };
+      cachedAt = now;
+      return cachedConfig;
+    }
   }
 
+  // Anonymous/admin fallback only. Never use a stale kingdom name to override
+  // an authenticated province identity.
   const { data: bs } = await supabase.from("bot_settings").select("key, value");
-  const fallbackKd = bs?.find(s => s.key === "kingdom_code")?.value || "";
-  const fallbackKdName = bs?.find(s => s.key === "kingdom_name")?.value || "";
-  cachedConfig = { kingdom: fallbackKdName, kd: fallbackKd, province: "", kingdomId: "", owner: false };
+  const fallbackKd = clean(bs?.find(s => s.key === "kingdom_code")?.value);
+  const fallbackKingdom = await resolveKingdom(fallbackKd);
+  cachedConfig = {
+    kingdom: fallbackKingdom,
+    kd: fallbackKd,
+    province: "",
+    kingdomId: "",
+    owner: false,
+  };
   cachedAt = now;
   return cachedConfig;
 }
