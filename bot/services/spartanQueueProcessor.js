@@ -13,24 +13,37 @@ function compact(value) {
   return Object.fromEntries(Object.entries(value || {}).filter(([, v]) => v !== undefined && v !== null));
 }
 
-function extractState(flow) {
+async function loadParsedCapture(sb, flow) {
+  if (!flow?.capture_id) return null;
+  const { data, error } = await sb
+    .from('intel_page_ingest')
+    .select('parsed,raw_text,url')
+    .eq('payload->>capture_id', flow.capture_id)
+    .order('id', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) logger.warn(`[SPARTAN PROCESSOR] capture lookup failed: ${error.message}`);
+  return data || null;
+}
+
+function extractState(flow, capture) {
   const payload = flow?.payload || {};
-  const parsed = payload?.result?.parsed || payload?.parsedPayload || {};
+  const parsed = capture?.parsed || payload?.result?.parsed || payload?.parsedPayload || {};
   const data = parsed?.data || payload?.data || {};
-  const state = compact({
+  return compact({
     capture_id: flow.capture_id,
     source: flow.source,
     page_kind: flow.page_kind,
     province_id: flow.province_id,
     kingdom_id: flow.kingdom_id,
-    url: flow.payload?.url || null,
+    url: capture?.url || payload?.url || null,
     parsed_type: parsed?.type || null,
     parsed_kind: parsed?.kind || null,
-    raw_length: parsed?.raw_length || flow.payload?.raw_length || null,
+    raw_length: parsed?.raw_length || payload?.raw_length || null,
     data,
+    raw_text: capture?.raw_text || null,
     processed_at: new Date().toISOString(),
   });
-  return state;
 }
 
 async function addEdge(sb, flowId, fromSystem, toSystem, eventType, payload = {}) {
@@ -53,18 +66,20 @@ async function processOne(sb, job) {
   if (flowError) throw new Error(`flow lookup: ${flowError.message}`);
   if (!flow) throw new Error(`flow ${job.flow_id} not found`);
 
-  const state = extractState(flow);
+  const capture = await loadParsedCapture(sb, flow);
+  const state = extractState(flow, capture);
+  const projectionKey = flow.province_id || flow.flow_id;
   const { data: existing } = await sb
     .from('spartan_state_projection')
     .select('version')
-    .eq('province_id', flow.province_id || flow.flow_id)
+    .eq('province_id', projectionKey)
     .maybeSingle();
   const version = Number(existing?.version || 0) + 1;
 
   const { error: projectionError } = await sb
     .from('spartan_state_projection')
     .upsert({
-      province_id: flow.province_id || flow.flow_id,
+      province_id: projectionKey,
       kingdom_id: flow.kingdom_id || null,
       state,
       version,
@@ -77,6 +92,7 @@ async function processOne(sb, job) {
     queue_id: job.id,
     processor: WORKER_ID,
     version,
+    capture_id: flow.capture_id,
   });
 
   const { error: flowUpdateError } = await sb
@@ -84,6 +100,7 @@ async function processOne(sb, job) {
     .update({
       status: 'processed',
       stage: 'projection',
+      current_stage: 'projection',
       processed_at: new Date().toISOString(),
       error: null,
     })
@@ -117,6 +134,7 @@ async function failOne(sb, job, error) {
   await sb.from('spartan_data_flow').update({
     status: terminal ? 'failed' : 'retry',
     stage: 'processor',
+    current_stage: 'processor',
     error: { message: error.message, worker: WORKER_ID, attempts },
   }).eq('flow_id', job.flow_id);
 }
