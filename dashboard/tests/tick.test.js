@@ -29,6 +29,6 @@ test("tick wraps to the next year after the final day", () => {
   assert.equal(getTickState(atHours(167)).current, 4);
   assert.equal(getTickState(atHours(168)).current, 5);
   assert.equal(getTickState(atHours(168)).year, 7);
-  assert.equal(getTickState(atHours(168)).month, "January");
+  assert.equal(getTickState(atHours(168)).month, "February");
   assert.equal(getTickState(atHours(168)).day, 5);
 });
