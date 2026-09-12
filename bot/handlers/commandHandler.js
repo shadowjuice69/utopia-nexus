@@ -29,7 +29,6 @@ const adminsHandler=require('./commands/adminsHandler');
 const logsHandler=require('./commands/logsHandler');
 const alertsHandler=require('./commands/alertsHandler');
 const broadcastHandler=require('./commands/broadcastHandler');
-
 const COMMANDS={
  spartan:{register:spartanRegister,status:spartanStatus,ask:spartanHandler,access:spartanAccessHandler,help:helpHandler},
  'spartan-music':{join:musicHandler,play:musicHandler,pause:musicHandler,resume:musicHandler,skip:musicHandler,stop:musicHandler,queue:musicHandler,nowplaying:musicHandler,volume:musicHandler},
@@ -38,20 +37,16 @@ const COMMANDS={
  'spartan-war':{analyze:analyzeWarHandler,summary:warSummaryHandler,board:warBoardHandler,status:warHandler,target:targetHandler,ambush:ambushHandler,intel:intelHandler},
  'spartan-admin':{panel:adminHandler,logs:logsHandler,admins:adminsHandler,access:spartanAccessHandler,alerts:alertsHandler,broadcast:broadcastHandler}
 };
-
-for(const [command,subs] of Object.entries(COMMANDS))for(const [sub,handler] of Object.entries(subs)){if(!commandRegistry.has(command,sub))commandRegistry.register(command,sub,handler,{access:command==='spartan'&&sub==='register'?'public':command==='spartan'&&sub==='status'?'public':command==='spartan-admin'?'admin':'registered'});}
-
+for(const [command,subs] of Object.entries(COMMANDS))for(const [sub,handler] of Object.entries(subs)){if(!commandRegistry.has(command,sub)){const access=command==='spartan'&&(sub==='register'||sub==='status')?'public':command==='spartan'&&sub==='access'?'admin':command==='spartan-admin'?'admin':'registered';commandRegistry.register(command,sub,handler,{access});}}
 async function hasSpartanAccess(userId){return spartanAccess.hasAccess(userId);}
-
 module.exports=async function commandHandler(interaction){
  const command=interaction.commandName;let sub='';try{sub=interaction.options.getSubcommand(false)||'';}catch(_){sub='';}
- const entry=commandRegistry.get(command,sub);
- console.log(`[SPARTAN COMMAND] /${command}${sub?` ${sub}`:''} entry=${entry?'found':'missing'}`);
+ const entry=commandRegistry.get(command,sub);console.log(`[SPARTAN COMMAND] /${command}${sub?` ${sub}`:''} entry=${entry?'found':'missing'}`);
  if(!entry)return interaction.reply({content:`❌ Unknown Spartan command: /${command}${sub?` ${sub}`:''}`,ephemeral:true});
- if(command!=='spartan'&&command!=='spartan-music'&&command!=='spartan-intel'&&command!=='spartan-calc'&&command!=='spartan-war'&&command!=='spartan-admin')return interaction.reply({content:'❌ This command surface has been retired. Use the new `/spartan` commands.',ephemeral:true});
+ if(!['spartan','spartan-music','spartan-intel','spartan-calc','spartan-war','spartan-admin'].includes(command))return interaction.reply({content:'❌ This command surface has been retired. Use the new `/spartan` commands.',ephemeral:true});
  if(!commandAccess.canAccess(entry,interaction.user,permissionService))return interaction.reply({content:commandAccess.denialMessage(entry),ephemeral:true});
  if(entry.access==='registered'&&!permissionService.isOwner(interaction.user.id)&&!(await hasSpartanAccess(interaction.user.id)))return interaction.reply({content:'❌ Spartan access is required. Use `/spartan register`.',ephemeral:true});
- try{interaction.nexusIdentity=await nexusIdentity.resolve(interaction.user.id);}catch(e){interaction.nexusIdentity=null;}
+ try{interaction.nexusIdentity=await nexusIdentity.resolve(interaction.user.id);}catch(_){interaction.nexusIdentity=null;}
  try{return await entry.handler(interaction);}catch(e){console.error(`[SPARTAN COMMAND] /${command} ${sub}`,e);if(!interaction.replied&&!interaction.deferred)return interaction.reply({content:`❌ ${e.message||'Spartan command failed.'}`,ephemeral:true});throw e;}
 };
 module.exports.commandRegistry=commandRegistry;
