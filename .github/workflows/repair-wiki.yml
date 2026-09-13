@@ -1,0 +1,63 @@
+name: Repair Utopia Wiki HTML
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Repair HTML structure without changing wiki content
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('utopia-wiki.html')
+          text = path.read_text(encoding='utf-8')
+
+          # The restored source has an accidental malformed closing tag followed
+          # by stray HTML. Keep the complete document and remove only that corrupt tail.
+          marker = '</html'
+          pos = text.find(marker)
+          if pos == -1:
+              raise SystemExit('ERROR: </html marker not found')
+
+          end = pos + len(marker)
+          repaired = text[:pos] + '</html>'
+
+          required = [
+              '<!DOCTYPE html>',
+              '<html',
+              '<head>',
+              '</head>',
+              '<body',
+              '</body>',
+              '</html>',
+          ]
+          missing = [x for x in required if x not in repaired]
+          if missing:
+              raise SystemExit(f'ERROR: missing required HTML markers: {missing}')
+
+          path.write_text(repaired.rstrip() + '\n', encoding='utf-8')
+          print(f'Repaired {path}; removed {len(text) - len(repaired)} trailing characters after the first closing html marker.')
+          PY
+
+      - name: Commit repaired wiki
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add utopia-wiki.html
+          if git diff --cached --quiet; then
+            echo "Wiki already clean."
+            exit 0
+          fi
+          git commit -m "Fix malformed Utopia wiki HTML"
+          git push
