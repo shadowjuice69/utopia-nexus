@@ -9,6 +9,7 @@ const INTEL_KEY = process.env.INTEL_KEY || null;
 const PORT = parseInt(process.env.PORT || '10000', 10);
 const MY_KD = process.env.MY_KD || null;
 const MY_PROV = process.env.MY_PROV || null;
+const STARTED_AT = new Date().toISOString();
 
 function compact(data) { return Object.fromEntries(Object.entries(data || {}).filter(([, value]) => value !== undefined && value !== null)); }
 
@@ -64,10 +65,22 @@ async function handleCapture(request) {
   return { ok: true, system: 'spartan', capture_id: captured.capture_id, kd: captured.kd, province: captured.prov, type: parsed.type, kind: parsed.kind, raw_length: parsed.raw_length, flow_id: queued.flow.flow_id, queue_id: queued.queue?.id || null };
 }
 
+function healthPayload() {
+  return {
+    ok: true,
+    service: 'spartan-universal-receiver',
+    status: 'healthy',
+    version: '2.1.0',
+    started_at: STARTED_AT,
+    uptime_seconds: Math.floor(process.uptime()),
+    checked_at: new Date().toISOString(),
+  };
+}
+
 function start() {
   const server = http.createServer(async (req, res) => {
     try {
-      if (req.method === 'GET' && req.url === '/health') { res.writeHead(200, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ ok: true, service: 'spartan-universal-receiver', version: '2.0.0' })); }
+      if (req.method === 'GET' && (req.url === '/health' || req.url === '/health/')) { res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); return res.end(JSON.stringify(healthPayload())); }
       if (req.method !== 'POST' || !req.url.startsWith('/intel')) { res.writeHead(404, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ ok: false, error: 'Not found' })); }
       let body = '';
       req.on('data', chunk => { body += chunk; });
@@ -94,4 +107,4 @@ function start() {
   return server;
 }
 
-module.exports = { start, decodeRequest, handleCapture };
+module.exports = { start, decodeRequest, handleCapture, healthPayload };
