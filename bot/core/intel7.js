@@ -7,6 +7,7 @@ const { parseIntel7 } = require('../intel7/parsers');
 const CHANNELS = { ops: 'OPS_CHANNEL_IDS', offensive_spells: 'OFFENSIVE_SPELL_CHANNEL_IDS', self_spells: 'SELF_OPS_CHANNEL_IDS', dragon: 'DRAGON_CHANNEL_IDS', ritual: 'RITUAL_CHANNEL_IDS', aid: 'AID_CHANNEL_IDS', attacks: 'ATTACK_CHANNEL_IDS' };
 const KD_CODE = process.env.INTEL7_KD || '6:9';
 const POLL_MS = 5000;
+const SAVE_RETRY_MS = 60000;
 
 function configuredChannels() {
   const result = new Map();
@@ -65,12 +66,47 @@ async function processMessage(message,type){
   try{const legacyType=type==='ops'?'thieves':type==='offensive_spells'?'offensive':type==='self_spells'?'self':type;legacyEvents=parseIntel7(legacyType,message.content||'');}catch(error){logger.warn(`[INTEL7 LEGACY PARSER] ${error.message}`);}
   const events=mergeEvents(type,legacyEvents,currentParsed);
   logger.info(`[INTEL7 PARSED] type=${type} current=${currentParsed.event||type} legacy=${legacyEvents.length} merged=${events.length} message=${message.id}`);
-  await save(message,type,currentParsed,events);
+  return save(message,type,currentParsed,events);
 }
 
 async function verifyChannels(client,channels){for(const [id,type] of channels){try{const c=await client.channels.fetch(id);logger.info(`[INTEL7 CHANNEL CHECK] ${type} ${id} -> FOUND guild=${c?.guild?.id||'none'} name=${c?.name||'unknown'} type=${c?.type??'unknown'}`);}catch(e){logger.error(`[INTEL7 CHANNEL CHECK] ${type} ${id} -> NOT FOUND ${e.code||''} ${e.message}`);}}}
 
-function startRestPoller(client,channels){const seen=new Map();let first=true;const poll=async()=>{for(const [id,type] of channels){try{const channel=await client.channels.fetch(id);const messages=await channel.messages.fetch({limit:10});const ordered=[...messages.values()].sort((a,b)=>a.createdTimestamp-b.createdTimestamp);if(first){const newest=ordered.at(-1);if(newest)seen.set(id,newest.id);continue;}const last=seen.get(id);for(const message of ordered){if(last&&message.id===last)continue;if(!last||message.createdTimestamp>(channel.messages.cache.get(last)?.createdTimestamp||0)){logger.info(`[INTEL7 POLL] new message channel=${id} type=${type} message=${message.id}`);await processMessage(message,type);seen.set(id,message.id);}}}catch(e){if(e.code===50001||String(e.message).includes('Missing Access'))logger.warn(`[INTEL7] No access to ${type} channel ${id} - ask admin to check permissions`);else logger.error(`[INTEL7 POLL ERROR] ${type} ${id} ${e.code||''} ${e.message}`);}}first=false;};poll().catch(e=>logger.error(`[INTEL7 POLL ERROR] ${e.stack||e.message}`));setInterval(()=>poll().catch(e=>logger.error(`[INTEL7 POLL ERROR] ${e.stack||e.message}`)),POLL_MS);logger.info(`[INTEL7] REST fallback poller active interval=${POLL_MS}ms`);}
+function startRestPoller(client,channels){
+  const seen=new Map();
+  const retryAfter=new Map();
+  let first=true;
+  const poll=async()=>{
+    for(const [id,type] of channels){
+      try{
+        const channel=await client.channels.fetch(id);
+        const messages=await channel.messages.fetch({limit:10});
+        const ordered=[...messages.values()].sort((a,b)=>a.createdTimestamp-b.createdTimestamp);
+        if(first){const newest=ordered.at(-1);if(newest)seen.set(id,newest.id);continue;}
+        const last=seen.get(id);
+        for(const message of ordered){
+          if(last&&message.id===last)continue;
+          if(!last||message.createdTimestamp>(channel.messages.cache.get(last)?.createdTimestamp||0)){
+            const retryKey=`${id}:${message.id}`;
+            if((retryAfter.get(retryKey)||0)>Date.now()) continue;
+            logger.info(`[INTEL7 POLL] new message channel=${id} type=${type} message=${message.id}`);
+            const saved=await processMessage(message,type);
+            if(saved){
+              seen.set(id,message.id);
+              retryAfter.delete(retryKey);
+            }else{
+              retryAfter.set(retryKey,Date.now()+SAVE_RETRY_MS);
+              logger.warn(`[INTEL7 POLL] persistence unavailable; retrying message=${message.id} in ${SAVE_RETRY_MS/1000}s`);
+            }
+          }
+        }
+      }catch(e){if(e.code===50001||String(e.message).includes('Missing Access'))logger.warn(`[INTEL7] No access to ${type} channel ${id} - ask admin to check permissions`);else logger.error(`[INTEL7 POLL ERROR] ${type} ${id} ${e.code||''} ${e.message}`);}
+    }
+    first=false;
+  };
+  poll().catch(e=>logger.error(`[INTEL7 POLL ERROR] ${e.stack||e.message}`));
+  setInterval(()=>poll().catch(e=>logger.error(`[INTEL7 POLL ERROR] ${e.stack||e.message}`)),POLL_MS);
+  logger.info(`[INTEL7] REST fallback poller active interval=${POLL_MS}ms saveRetry=${SAVE_RETRY_MS}ms`);
+}
 
 function initialize(client){const channels=configuredChannels();logger.info(`[INTEL7] unified listener starting; channels=${JSON.stringify(Object.fromEntries(channels))}; kd=${KD_CODE}`);client.once('clientReady',async()=>{await verifyChannels(client,channels);startRestPoller(client,channels);});client.on('messageCreate',async message=>{const type=channels.get(message.channelId);if(!type)return;logger.info(`[INTEL7 EVENT] messageCreate channel=${message.channelId} guild=${message.guildId||'DM'} author=${message.author?.tag||message.author?.username||'unknown'}`);try{await processMessage(message,type);}catch(e){logger.error(`[INTEL7 ERROR] type=${type} message=${message.id} ${e.stack||e.message}`);}});return{channels,kd:KD_CODE};}
 
