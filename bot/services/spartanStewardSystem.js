@@ -9,6 +9,12 @@ const STEWARDS = [
   { key: 'integrity', name: 'Integrity Steward', role: 'flow/queue/projection consistency validation' },
 ];
 
+const SUPERVISOR_INTERVAL_MS = Math.max(5000, Number(process.env.SPARTAN_STEWARD_INTERVAL_MS || 5000));
+const SWEEP_LIMIT = Math.max(1, Math.min(50, Number(process.env.SPARTAN_STEWARD_SWEEP_LIMIT || 10)));
+const REVALIDATE_AFTER_MS = Math.max(30000, Number(process.env.SPARTAN_STEWARD_REVALIDATE_AFTER_MS || 300000));
+let supervisorTimer = null;
+let supervisorRunning = false;
+
 function fieldPaths(value, prefix = '', out = []) {
   if (value === null || value === undefined) return out;
   if (Array.isArray(value)) {
@@ -116,21 +122,10 @@ async function updateRegistry(sb, item) {
   await sb.from('spartan_steward_registry').update({ [column]: value, last_run_at: new Date().toISOString(), last_status: item.decision, updated_at: new Date().toISOString() }).eq('steward_key', item.steward);
 }
 
-async function run(flow, capture, queueId, projectionKey, options = {}) {
-  const sb = supabaseService.getClient();
-  if (!sb) throw new Error('Supabase client unavailable for Spartan Stewards');
-  const results = [runCapture(capture), runIdentity(flow, capture), runSchema(flow, capture)];
-  if (options.afterProjection) results.push(await runIntegrity(sb, flow, queueId, projectionKey));
-
-  for (const item of results) {
-    await recordEvent(sb, flow, queueId, item);
-    await updateRegistry(sb, item);
-  }
-
+async function persistRun(sb, flow, results, capture) {
   const quarantine = results.find(item => item.decision === 'quarantine' || item.decision === 'fail');
   const decision = quarantine ? (quarantine.decision === 'fail' ? 'fail' : 'quarantine') : 'accept';
   const confidence = Math.min(...results.map(item => Number(item.confidence || 0)));
-
   await sb.from('spartan_steward_runs').insert({
     capture_id: flow?.capture_id || null,
     source: flow?.source || null,
@@ -142,13 +137,95 @@ async function run(flow, capture, queueId, projectionKey, options = {}) {
     steward_results: results,
     canonical_payload: capture?.parsed_payload || capture?.raw_payload || {},
   });
+  return { decision, confidence };
+}
 
-  return { decision, confidence, results, runId: crypto.randomUUID() };
+async function run(flow, capture, queueId, projectionKey, options = {}) {
+  const sb = supabaseService.getClient();
+  if (!sb) throw new Error('Supabase client unavailable for Spartan Stewards');
+  const results = [runCapture(capture), runIdentity(flow, capture), runSchema(flow, capture)];
+  if (options.afterProjection) results.push(await runIntegrity(sb, flow, queueId, projectionKey));
+
+  for (const item of results) {
+    await recordEvent(sb, flow, queueId, item);
+    await updateRegistry(sb, item);
+  }
+
+  const persisted = await persistRun(sb, flow, results, capture);
+  return { ...persisted, results, runId: crypto.randomUUID() };
+}
+
+async function loadCapture(sb, flow) {
+  if (!flow?.capture_id) return null;
+  const { data, error } = await sb.from('spartan_capture_vault')
+    .select('id,capture_id,source,province_id,kingdom_id,page_kind,url,raw_text,raw_payload,parsed_payload,content_hash,captured_at')
+    .eq('capture_id', flow.capture_id)
+    .order('id', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw new Error(`steward capture lookup: ${error.message}`);
+  return data || null;
+}
+
+async function sweepRecentFlows() {
+  if (supervisorRunning) return;
+  const sb = supabaseService.getClient();
+  if (!sb) return;
+  supervisorRunning = true;
+  try {
+    const cutoff = new Date(Date.now() - REVALIDATE_AFTER_MS).toISOString();
+    const { data: flows, error } = await sb.from('spartan_data_flow')
+      .select('flow_id,capture_id,source,page_kind,province_id,kingdom_id,status,processed_at,created_at')
+      .eq('status', 'processed')
+      .order('processed_at', { ascending: false })
+      .limit(SWEEP_LIMIT);
+    if (error) throw new Error(`steward flow sweep: ${error.message}`);
+
+    for (const flow of flows || []) {
+      const { data: latest } = await sb.from('spartan_steward_events')
+        .select('created_at')
+        .eq('flow_id', flow.flow_id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (latest?.created_at && latest.created_at > cutoff) continue;
+
+      const capture = await loadCapture(sb, flow);
+      if (!capture) {
+        logger.warn(`[SPARTAN STEWARD SUPERVISOR] missing capture flow=${flow.flow_id}`);
+        continue;
+      }
+      const projectionKey = flow.province_id || flow.flow_id;
+      const results = [runCapture(capture), runIdentity(flow, capture), runSchema(flow, capture)];
+      const integrity = await runIntegrity(sb, flow, null, projectionKey);
+      results.push(integrity);
+      for (const item of results) {
+        await recordEvent(sb, flow, null, item);
+        await updateRegistry(sb, item);
+      }
+      await persistRun(sb, flow, results, capture);
+
+      const bad = results.find(item => item.decision === 'fail' || item.decision === 'quarantine');
+      if (bad) logger.warn(`[SPARTAN STEWARD SUPERVISOR] ${bad.steward}=${bad.decision} flow=${flow.flow_id}: ${bad.reason}`);
+    }
+  } catch (error) {
+    logger.error(`[SPARTAN STEWARD SUPERVISOR] ${error.stack || error.message}`);
+  } finally {
+    supervisorRunning = false;
+  }
 }
 
 function start() {
-  logger.info('[SPARTAN STEWARDS] fresh steward system enabled');
+  if (supervisorTimer) return;
+  logger.info(`[SPARTAN STEWARDS] autonomous steward supervisor enabled interval=${SUPERVISOR_INTERVAL_MS}ms sweep=${SWEEP_LIMIT} revalidate=${REVALIDATE_AFTER_MS}ms`);
   for (const steward of STEWARDS) logger.info(`[SPARTAN STEWARD] ${steward.name} ready role=${steward.role}`);
+  sweepRecentFlows();
+  supervisorTimer = setInterval(sweepRecentFlows, SUPERVISOR_INTERVAL_MS);
 }
 
-module.exports = { start, run, STEWARDS };
+function stop() {
+  if (supervisorTimer) clearInterval(supervisorTimer);
+  supervisorTimer = null;
+}
+
+module.exports = { start, stop, run, sweepRecentFlows, STEWARDS };
