@@ -20,6 +20,55 @@ function extractState(flow, capture) {
   const data = parsed?.data || {};
   return compact({ capture_id: flow.capture_id, source: flow.source, page_kind: flow.page_kind, province_id: flow.province_id, kingdom_id: flow.kingdom_id, url: capture?.url || null, parsed_type: parsed?.type || null, parsed_kind: parsed?.kind || null, raw_length: parsed?.raw_length || null, data, raw_text: capture?.raw_text || null, raw_payload: capture?.raw_payload || {}, content_hash: capture?.content_hash || null, captured_at: capture?.captured_at || null, processed_at: new Date().toISOString() });
 }
+async function syncCanonicalProvince(sb, flow, state) {
+  if (flow.page_kind !== 'throne') return null;
+  const data = state?.data || {};
+  const kdCode = String(flow.kingdom_id || data.coordinates || '').trim();
+  const provinceName = String(flow.province_id || data.name || '').trim();
+  if (!kdCode || !provinceName) return null;
+
+  const { data: province, error: lookupError } = await sb.from('provinces')
+    .select('id,state_data')
+    .eq('kd_code', kdCode)
+    .eq('name', provinceName)
+    .limit(1)
+    .maybeSingle();
+  if (lookupError) throw new Error(`canonical province lookup: ${lookupError.message}`);
+  if (!province) {
+    logger.warn(`[SPARTAN PROCESSOR] canonical province not found kd=${kdCode} province=${provinceName}`);
+    return null;
+  }
+
+  const patch = compact({
+    ruler: data.ruler,
+    race: data.race,
+    acres: data.acres,
+    nw: data.nw,
+    off: data.off,
+    def: data.def,
+    peons: data.peons,
+    soldiers: data.soldiers,
+    thieves: data.thieves,
+    wizards: data.wizards,
+    war_horses: data.war_horses,
+    prisoners: data.prisoners,
+    o_tpa: data.o_tpa,
+    d_tpa: data.d_tpa,
+    o_wpa: data.o_wpa,
+    d_wpa: data.d_wpa,
+    be: data.be,
+    good_spells: data.good_spells,
+    coordinates: data.coordinates,
+    game_type: data.game_type,
+    updated_at: new Date().toISOString(),
+    state_data: { ...(province.state_data || {}), throne: data, throne_captured_at: state.captured_at || state.processed_at || new Date().toISOString() }
+  });
+
+  const { error: updateError } = await sb.from('provinces').update(patch).eq('id', province.id);
+  if (updateError) throw new Error(`canonical province update: ${updateError.message}`);
+  logger.info(`[SPARTAN PROCESSOR] canonical province synced kd=${kdCode} province=${provinceName} fields=${Object.keys(patch).length}`);
+  return { provinceId: province.id, fields: Object.keys(patch) };
+}
 async function addEdge(sb, flowId, fromSystem, toSystem, eventType, payload = {}) {
   const { error } = await sb.from('spartan_data_edges').insert({ flow_id: flowId, from_system: fromSystem, to_system: toSystem, event_type: eventType, payload });
   if (error) throw new Error(`spartan_data_edges: ${error.message}`);
@@ -49,6 +98,7 @@ async function processOne(sb, job) {
   const { error: projectionError } = await sb.from('spartan_state_projection').upsert({ province_id: projectionKey, kingdom_id: flow.kingdom_id || null, state, version, source_flow_id: flow.flow_id, updated_at: new Date().toISOString() }, { onConflict: 'province_id' });
   if (projectionError) throw new Error(`spartan_state_projection: ${projectionError.message}`);
   await addEdge(sb, flow.flow_id, 'spartan_processing_queue', 'spartan_state_projection', 'projection', { queue_id: job.id, processor: WORKER_ID, version, capture_id: flow.capture_id });
+  await syncCanonicalProvince(sb, flow, state);
   const integrity = await stewardSystem.run(flow, capture, job.id, projectionKey, { afterProjection: true });
   if (integrity.results.some(item => item.steward === 'integrity' && (item.decision === 'fail' || item.decision === 'quarantine'))) throw new Error(`Integrity Steward failed: ${integrity.results.find(item => item.steward === 'integrity')?.reason || 'unknown'}`);
   const { error: flowUpdateError } = await sb.from('spartan_data_flow').update({ status: 'processed', stage: 'projection', current_stage: 'projection', processed_at: new Date().toISOString(), error: null }).eq('flow_id', flow.flow_id);
