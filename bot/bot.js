@@ -6,7 +6,6 @@ const { Client, GatewayIntentBits, PermissionFlagsBits } = require('discord.js')
 const logger = require('./services/logger');
 const directMusicAdapter = require('./services/directMusicAdapter');
 const musicPlayer = require('./services/musicPlayerService');
-const music7 = require('./core/intel7');
 const interactions = require('./core/interactions');
 const commands = require('./core/commands');
 const spartanQueueProcessor = require('./services/spartanQueueProcessor');
@@ -18,7 +17,6 @@ const CLEANUP_CHANNEL_ID = '1546379989484830730';
 const CLEANUP_AUTHOR_ID = '1518122625354956820';
 const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.GuildVoiceStates, GatewayIntentBits.MessageContent] });
 global.__NEXUS_DISCORD_CLIENT = client;
-const intel7 = music7.initialize(client);
 
 client.on('raw', packet => { if (packet?.t === 'MESSAGE_CREATE') logger.info(`[DISCORD RAW MESSAGE_CREATE] channel=${packet.d?.channel_id || 'unknown'} guild=${packet.d?.guild_id || 'DM'} author=${packet.d?.author?.username || 'unknown'} id=${packet.d?.id || 'unknown'}`); });
 
@@ -64,7 +62,6 @@ client.on('messageCreate', async message => {
     logger.error(`[CLEARBOT ERROR] ${error.stack || error.message}`);
     if (!message.replied) message.reply(`❌ Cleanup failed: ${error.message}`).catch(() => {});
   }
-  const type = intel7.channels.get(message.channelId); if (!type) return;
 });
 
 client.on('debug', message => { if (!/heartbeat acknowledged|sending heartbeat/i.test(message)) logger.info(`[DISCORD DEBUG] ${message}`); });
@@ -89,7 +86,6 @@ const port = Number(process.env.PORT || 10000);
 const universalReceiver = require('./services/universalReceiver');
 universalReceiver.start();
 logger.info('🚀 Nexus clean core starting');
-logger.info(`[INTEL7] channel count=${intel7.channels.size} kd=${intel7.kd}`);
 client.login(process.env.DISCORD_TOKEN).then(() => logger.info('[DISCORD] Login accepted')).catch(error => logger.error(`[LOGIN ERROR] ${error.stack || error.message}`));
 const SELF_URL = process.env.RENDER_EXTERNAL_URL || 'https://utopia-nexus.onrender.com';
 setInterval(() => { require('https').get(SELF_URL, res => logger.info(`[SELF-PING] ${res.statusCode}`)).on('error', err => logger.warn(`[SELF-PING ERROR] ${err.message}`)); }, 10 * 60 * 1000);
