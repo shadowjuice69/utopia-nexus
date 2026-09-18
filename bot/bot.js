@@ -88,4 +88,4 @@ universalReceiver.start();
 logger.info('🚀 Nexus clean core starting');
 client.login(process.env.DISCORD_TOKEN).then(() => logger.info('[DISCORD] Login accepted')).catch(error => logger.error(`[LOGIN ERROR] ${error.stack || error.message}`));
 const SELF_URL = process.env.RENDER_EXTERNAL_URL || 'https://utopia-nexus.onrender.com';
-setInterval(() => { require('https').get(SELF_URL, res => logger.info(`[SELF-PING] ${res.statusCode}`)).on('error', err => logger.warn(`[SELF-PING ERROR] ${err.message}`)); }, 10 * 60 * 1000);
+const SELF_HEALTH_URL = `${SELF_URL.replace(/\/$/, '')}/health`;\nsetInterval(() => { require('https').get(SELF_HEALTH_URL, res => { res.resume(); logger.info(`[SELF-PING] ${res.statusCode} ${SELF_HEALTH_URL}`); }).on('error', err => logger.warn(`[SELF-PING ERROR] ${err.message}`)); }, 10 * 60 * 1000);
