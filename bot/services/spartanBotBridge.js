@@ -4,10 +4,38 @@ const crypto = require('crypto');
 
 function clean(value, max = 12000) { return String(value || '').slice(0, max); }
 
+async function resolveCaptureOwner(sb, event) {
+  const discordUserId = String(event.userId || '').trim();
+  if (discordUserId) {
+    const { data: account, error } = await sb
+      .from('spartan_accounts')
+      .select('id,account_status')
+      .eq('discord_user_id', discordUserId)
+      .limit(1)
+      .maybeSingle();
+    if (!error && account?.id && account.account_status === 'active') return account.id;
+  }
+
+  const configuredOwner = String(process.env.SPARTAN_CAPTURE_OWNER_ID || '').trim();
+  if (!configuredOwner) throw new Error('Spartan capture owner is not configured for this bot event');
+
+  const { data: owner, error } = await sb
+    .from('spartan_accounts')
+    .select('id,account_status')
+    .eq('id', configuredOwner)
+    .limit(1)
+    .maybeSingle();
+  if (error) throw new Error(`capture owner lookup: ${error.message}`);
+  if (!owner?.id) throw new Error('Configured Spartan capture owner does not exist');
+  if (owner.account_status !== 'active') throw new Error(`Configured Spartan capture owner is not active (status: ${owner.account_status || 'missing'})`);
+  return owner.id;
+}
+
 async function routeIntoSpartan(sb, event) {
   const captureId = `bot-${event.eventId}`;
+  const ownerId = await resolveCaptureOwner(sb, event);
   const payload = { source: 'discord-bot', event_type: event.eventType, direction: event.direction, content: event.content, metadata: event.metadata, discord: { user_id: event.userId, channel_id: event.channelId, guild_id: event.guildId, message_id: event.messageId, command: event.commandName } };
-  const { error: captureError } = await sb.from('spartan_capture_vault').insert({ capture_id: captureId, source: 'discord-bot', source_id: event.messageId || event.eventId, page_kind: 'bot_event', province_id: null, kingdom_id: null, raw_text: event.content, raw_payload: payload, parsed_payload: { type: 'bot_event', kind: 'bot_event', data: payload }, content_hash: crypto.createHash('sha256').update(JSON.stringify(payload)).digest('hex'), captured_at: new Date().toISOString() });
+  const { error: captureError } = await sb.from('spartan_capture_vault').insert({ capture_id: captureId, user_id: ownerId, source: 'discord-bot', source_id: event.messageId || event.eventId, page_kind: 'bot_event', province_id: null, kingdom_id: null, raw_text: event.content, raw_payload: payload, parsed_payload: { type: 'bot_event', kind: 'bot_event', data: payload }, content_hash: crypto.createHash('sha256').update(JSON.stringify(payload)).digest('hex'), captured_at: new Date().toISOString() });
   if (captureError) throw new Error(`capture: ${captureError.message}`);
   const { data: flow, error: flowError } = await sb.from('spartan_data_flow').insert({ source: 'discord-bot', source_id: event.messageId || event.eventId, capture_id: captureId, province_id: null, kingdom_id: null, page_kind: 'bot_event', status: 'received', stage: 'ingest', current_stage: 'ingest', payload: { capture_id: captureId, event_type: event.eventType, direction: event.direction } }).select('flow_id').maybeSingle();
   if (flowError) throw new Error(`flow: ${flowError.message}`);
