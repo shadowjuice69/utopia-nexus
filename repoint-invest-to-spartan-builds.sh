@@ -1,3 +1,20 @@
+#!/data/data/com.termux/files/usr/bin/bash
+# Run from your BOT repo root (not Spartan): cd ~/utopia-nexus && bash repoint-invest-to-spartan-builds.sh
+#
+# This repoints /spartan-calc invest (and its build-picker select-menu flow) from
+# the old ai_builds table to the new spartan_builds Build Library you built in
+# Spartan's web UI. No new Discord command or re-registration needed — invest is
+# already wired up, and investHandler.js / investInteractionHandler.js only
+# consume this service's exported functions, so they don't need to change.
+#
+# The science-allocation math is upgraded too: spartan_builds stores science as
+# category-nested weights, with support for a fixed "actual_pct" target (like
+# Artisan) that comes off the top before the rest splits by weight — the old
+# ai_builds format didn't have that concept.
+set -e
+
+echo "→ bot/services/scienceInvestService.js (overwrite)"
+cat > bot/services/scienceInvestService.js << 'EOF'
 const supabaseService = require("./supabase");
 
 async function listInvestBuilds({ search = "", page = 0, pageSize = 25 } = {}) {
@@ -82,3 +99,11 @@ async function calculateInvest(buildName, categoryBooks) {
 }
 
 module.exports = { calculateInvest, calculateInvestById, listInvestBuilds };
+EOF
+
+echo ""
+echo "Done. /spartan-calc invest now pulls from your Spartan Build Library instead of"
+echo "the old ai_builds table. Try it: /spartan-calc invest build:<name> economy_books:20000"
+echo ""
+echo "Next: git add -A && git commit -m 'Repoint invest command at Spartan Build Library' "
+echo "      git fetch && git merge origin/main && git push"
