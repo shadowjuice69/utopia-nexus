@@ -22,7 +22,17 @@ async function hasAccess(userId) {
 async function register({ userId, username, metadata = {} }) {
   const sb = client(); if (!sb) throw new Error('Spartan access database is unavailable.');
   const uid = String(userId); const existing = await get(uid);
-  if (existing?.status === ACTIVE) return existing;
+  if (existing?.status === ACTIVE) {
+    const now = new Date().toISOString();
+    const mergedMetadata = { ...(existing.metadata || {}), ...metadata };
+    const { data, error } = await sb.from('spartan_access').update({
+      username: username || existing.username || null,
+      metadata: mergedMetadata,
+      updated_at: now
+    }).eq('discord_user_id', uid).select('*').single();
+    if (error) throw error;
+    return data;
+  }
   if (existing && BLOCKED.has(existing.status)) throw new Error(`Spartan access is ${existing.status}. An admin must restore your access.`);
   const now = new Date().toISOString();
   const role = permissionService.isOwner(uid) ? 'owner' : permissionService.isTrustedAdmin(uid) ? 'admin' : 'member';
