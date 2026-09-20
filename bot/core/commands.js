@@ -23,7 +23,7 @@ const topLevel=[];
 
 async function register(client){
  const token=process.env.DISCORD_TOKEN;const clientId=process.env.CLIENT_ID;if(!token||!clientId)throw new Error('DISCORD_TOKEN and CLIENT_ID are required for command registration.');
- const rest=new REST({version:'10'}).setToken(token);const guildIds=[process.env.GUILD_ID||'1534817549374455848'];
+ const rest=new REST({version:'10'}).setToken(token);const guildIds=(process.env.GUILD_ID||'1534817549374455848').split(',').map(s=>s.trim()).filter(Boolean);
  for(const guildId of guildIds){const route=Routes.applicationGuildCommands(clientId,guildId);await rest.put(route,{body:[spartanCommand,musicCommand,intelCommand,calcCommand,warCommand,adminCommand,...topLevel]});console.log(`[SPARTAN COMMANDS] Fresh command surface registered for guild ${guildId}`);}
 }
 module.exports={register,spartanCommand,musicCommand,intelCommand,calcCommand,warCommand,adminCommand,topLevel};
