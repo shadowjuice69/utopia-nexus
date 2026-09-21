@@ -1,8 +1,7 @@
 require('dotenv').config();
 const http = require('http');
-const { WebSocket: NodeWebSocket } = require('ws');
-globalThis.WebSocket = NodeWebSocket;
 const { Client, GatewayIntentBits, PermissionFlagsBits } = require('discord.js');
+const discordJsVersion = require('discord.js').version || 'unknown';
 const logger = require('./services/logger');
 const directMusicAdapter = require('./services/directMusicAdapter');
 const musicPlayer = require('./services/musicPlayerService');
@@ -73,7 +72,7 @@ client.on('shardReconnecting', shardId => logger.warn(`[DISCORD SHARD ${shardId}
 client.on('shardReady', shardId => logger.info(`[DISCORD SHARD ${shardId} READY]`));
 
 client.once('clientReady', async () => {
-  logger.info(`✅ Bot online as ${client.user.tag}`);
+  logger.info(`[DISCORD READY] Bot online as ${client.user.tag}`);
   logger.info('[SPARTAN] Bot is an ecosystem node: Discord <-> Spartan capture/queue/stewards/projection');
   spartanAI.start();
   spartanQueueProcessor.start();
@@ -85,8 +84,16 @@ client.once('clientReady', async () => {
 const port = Number(process.env.PORT || 10000);
 const universalReceiver = require('./services/universalReceiver');
 universalReceiver.start();
-logger.info('🚀 Nexus clean core starting');
-client.login(process.env.DISCORD_TOKEN).then(() => logger.info('[DISCORD] Login accepted')).catch(error => logger.error(`[LOGIN ERROR] ${error.stack || error.message}`));
+logger.info(`🚀 Nexus clean core starting | Node ${process.version} | discord.js ${discordJsVersion}`);
+logger.info('[DISCORD] Starting gateway login...');
+const loginPromise = client.login(process.env.DISCORD_TOKEN);
+const loginTimeout = new Promise((_, reject) => setTimeout(() => reject(new Error('Discord gateway login timed out after 30 seconds')), 30000));
+Promise.race([loginPromise, loginTimeout])
+  .then(() => logger.info('[DISCORD] Login promise resolved'))
+  .catch(error => {
+    logger.error(`[DISCORD LOGIN FAILED] ${error.stack || error.message}`);
+    process.exitCode = 1;
+  });
 const SELF_URL = process.env.RENDER_EXTERNAL_URL || 'https://utopia-nexus.onrender.com';
 const SELF_HEALTH_URL = `${SELF_URL.replace(/\/$/, '')}/health`;
 setInterval(() => { require('https').get(SELF_HEALTH_URL, res => { res.resume(); logger.info(`[SELF-PING] ${res.statusCode} ${SELF_HEALTH_URL}`); }).on('error', err => logger.warn(`[SELF-PING ERROR] ${err.message}`)); }, 10 * 60 * 1000);
