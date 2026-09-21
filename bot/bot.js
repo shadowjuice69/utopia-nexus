@@ -85,15 +85,31 @@ const port = Number(process.env.PORT || 10000);
 const universalReceiver = require('./services/universalReceiver');
 universalReceiver.start();
 logger.info(`🚀 Nexus clean core starting | Node ${process.version} | discord.js ${discordJsVersion}`);
-logger.info('[DISCORD] Starting gateway login...');
-const loginPromise = client.login(process.env.DISCORD_TOKEN);
-const loginTimeout = new Promise((_, reject) => setTimeout(() => reject(new Error('Discord gateway login timed out after 30 seconds')), 30000));
-Promise.race([loginPromise, loginTimeout])
-  .then(() => logger.info('[DISCORD] Login promise resolved'))
-  .catch(error => {
-    logger.error(`[DISCORD LOGIN FAILED] ${error.stack || error.message}`);
+logger.info('[DISCORD] Starting gateway diagnostics...');
+(async () => {
+  try {
+    const response = await fetch('https://discord.com/api/v10/users/@me', {
+      headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` }
+    });
+    const body = await response.text();
+    logger.info(`[DISCORD REST] /users/@me status=${response.status} body=${body.slice(0, 300)}`);
+    if (!response.ok) throw new Error(`Discord REST authentication failed with HTTP ${response.status}`);
+    logger.info('[DISCORD] REST authentication passed; starting gateway login...');
+  } catch (error) {
+    logger.error(`[DISCORD REST FAILED] ${error.stack || error.message}`);
     process.exitCode = 1;
-  });
+    return;
+  }
+
+  const loginPromise = client.login(process.env.DISCORD_TOKEN);
+  const loginTimeout = new Promise((_, reject) => setTimeout(() => reject(new Error('Discord gateway login timed out after 30 seconds')), 30000));
+  Promise.race([loginPromise, loginTimeout])
+    .then(() => logger.info('[DISCORD] Login promise resolved'))
+    .catch(error => {
+      logger.error(`[DISCORD LOGIN FAILED] ${error.stack || error.message}`);
+      process.exitCode = 1;
+    });
+})();
 const SELF_URL = process.env.RENDER_EXTERNAL_URL || 'https://utopia-nexus.onrender.com';
 const SELF_HEALTH_URL = `${SELF_URL.replace(/\/$/, '')}/health`;
 setInterval(() => { require('https').get(SELF_HEALTH_URL, res => { res.resume(); logger.info(`[SELF-PING] ${res.statusCode} ${SELF_HEALTH_URL}`); }).on('error', err => logger.warn(`[SELF-PING ERROR] ${err.message}`)); }, 10 * 60 * 1000);
