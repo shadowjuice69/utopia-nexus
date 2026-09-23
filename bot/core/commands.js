@@ -26,7 +26,12 @@ async function register(client){
  const rest=new REST({version:'10'}).setToken(token);const guildIds=(process.env.GUILD_ID||'1534817549374455848').split(',').map(s=>s.trim()).filter(Boolean);
  const disabledGuildIds=(process.env.DISABLED_GUILD_IDS||'').split(',').map(s=>s.trim()).filter(Boolean);
  for(const guildId of guildIds){
-   if(disabledGuildIds.includes(guildId)){console.log(`[SPARTAN COMMANDS] Skipping guild ${guildId} -- listed in DISABLED_GUILD_IDS, not auto-registering`);continue;}
+   if(disabledGuildIds.includes(guildId)){
+     const route=Routes.applicationGuildCommands(clientId,guildId);
+     await rest.put(route,{body:[]});
+     console.log(`[SPARTAN COMMANDS] Guild ${guildId} is in DISABLED_GUILD_IDS -- cleared any registered commands, not re-registering`);
+     continue;
+   }
    const route=Routes.applicationGuildCommands(clientId,guildId);await rest.put(route,{body:[spartanCommand,musicCommand,intelCommand,calcCommand,warCommand,adminCommand,...topLevel]});console.log(`[SPARTAN COMMANDS] Fresh command surface registered for guild ${guildId}`);
  }
 }
