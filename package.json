@@ -1,0 +1,20 @@
+{
+  "name": "utopia-nexus-bot",
+  "version": "1.0.0",
+  "private": true,
+  "main": "bot/bot.js",
+  "type": "commonjs",
+  "dependencies": {
+    "@discordjs/rest": "^2.6.3",
+    "@discordjs/voice": "^0.19.2",
+    "@snazzah/davey": "^0.1.12",
+    "@supabase/supabase-js": "^2.110.6",
+    "axios": "^1.19.0",
+    "discord-api-types": "^0.38.49",
+    "discord.js": "^14.27.0",
+    "dotenv": "^17.4.2",
+    "lowdb": "^1.0.0",
+    "opusscript": "^0.0.8",
+    "pdf-parse": "^2.4.5"
+  }
+}
