@@ -83,7 +83,7 @@ client.once('clientReady', async () => {
 
 const port = Number(process.env.PORT || 10000);
 const universalReceiver = require('./services/universalReceiver');
-universalReceiver.start();
+if (process.env.EMBEDDED_SPARTAN !== 'true') universalReceiver.start();
 logger.info(`🚀 Nexus clean core starting | Node ${process.version} | discord.js ${discordJsVersion}`);
 
 // Retry connecting to Discord with exponential backoff instead of giving up
