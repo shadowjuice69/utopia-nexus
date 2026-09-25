@@ -11,6 +11,34 @@ const INTEL_KEY = process.env.INTEL_KEY || "";
 const PORT = parseInt(process.env.PORT || "3000", 10);
 const MY_KD = process.env.MY_KD;
 
+async function updateProvinceRegistry(sb, kdCode, provinceName, patch) {
+  if (!kdCode || !provinceName) return;
+  const { data: existing, error: lookupError } = await sb
+    .from("spartan_province_registry")
+    .select("province_id,metadata")
+    .eq("province_name", provinceName)
+    .eq("kingdom_code", kdCode)
+    .limit(1)
+    .maybeSingle();
+  if (lookupError) throw lookupError;
+
+  const metadata = {
+    ...(existing?.metadata && typeof existing.metadata === "object" ? existing.metadata : {}),
+    ...patch,
+    last_processor_update_at: new Date().toISOString()
+  };
+  const provinceId = existing?.province_id || `${kdCode}:${provinceName}`;
+  const { error } = await sb.from("spartan_province_registry").upsert({
+    province_id: provinceId,
+    province_name: provinceName,
+    kingdom_code: kdCode,
+    metadata,
+    last_seen_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  }, { onConflict: "province_id" });
+  if (error) throw error;
+}
+
 function readBody(req) {
   return new Promise((resolve, reject) => {
     let body = "";
