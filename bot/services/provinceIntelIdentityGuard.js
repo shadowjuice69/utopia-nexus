@@ -22,7 +22,7 @@ async function loadRoster(force = false) {
     if (error) throw error;
     const byProvince = new Map();
     for (const row of data || []) {
-      const name = norm(row.name);
+      const name = norm(row.province_name);
       const kd = String(row.kingdom_code || '').trim();
       if (!name || !kd) continue;
       const existing = byProvince.get(name);
