@@ -1,12 +1,12 @@
 const supabaseService = require("./supabase");
 const logger = require("./logger");
 const { parseAgeFileChunked: parseAgeFile, summarize } = require("../parsers/ageParser");
+const { recalculateBuildLibrary } = require("./buildAgeRecalculator");
 
 async function saveAgeUpdate(updateText, userId, filename) {
   const supabase = supabaseService.getClient();
   if (!supabase) return null;
 
-  // Clean invalid characters before storing in Supabase
   updateText = String(updateText)
     .replace(/\u0000/g, "")
     .replace(/\\(?!["\\/bfnrtu])/g, "");
@@ -14,51 +14,44 @@ async function saveAgeUpdate(updateText, userId, filename) {
   try {
     const match = filename?.match(/Age[_\s-]?(\d+)/i);
     const ageNumber = match ? parseInt(match[1], 10) : null;
-
     if (!ageNumber) {
       logger.info(`[AGE UPDATE] Rejected - no age number in filename: ${filename}`);
       return { error: "no_age_number" };
     }
 
-    // Duplicate check
     const { data: existing } = await supabase
       .from("age_updates")
-      .select("id, status")
+      .select("id,status")
       .eq("age_number", ageNumber)
       .eq("submitted_by", userId)
       .in("status", ["pending", "approved"])
       .limit(1);
 
-    if (existing && existing.length > 0) {
-      logger.info(`[AGE UPDATE] Duplicate rejected - Age ${ageNumber} already ${existing[0].status}`);
+    if (existing?.length) {
       return { error: "duplicate", existingId: existing[0].id, status: existing[0].status };
     }
 
-    // Pre-parse to get summary
     const parsed = parseAgeFile(updateText);
     const parsedSummary = summarize(parsed);
-
-    const { data, error } = await supabase
-      .from("age_updates")
-      .insert({
-        age_number: ageNumber,
-        raw_text: updateText,
-        source: "discord",
-        submitted_by: userId,
-        status: "pending"
-      })
-      .select()
-      .single();
+    const { data, error } = await supabase.from("age_updates").insert({
+      age_number: ageNumber,
+      raw_text: updateText,
+      source: "discord",
+      submitted_by: userId,
+      status: "pending"
+    }).select().single();
 
     if (error) throw error;
-
     logger.info(`[AGE UPDATE SAVED] ID ${data.id} AGE ${ageNumber}`);
     return { ...data, parsedSummary };
-
   } catch (err) {
     logger.error(`[AGE UPDATE ERROR] ${err.message}`);
     return null;
   }
+}
+
+function safeArray(value) {
+  return Array.isArray(value) ? value : [];
 }
 
 async function approveAgeUpdate(id, adminId) {
@@ -66,130 +59,117 @@ async function approveAgeUpdate(id, adminId) {
   if (!supabase) return null;
 
   try {
-    // Get the raw text
-    const { data: update, error: fetchError } = await supabase
-      .from("age_updates")
-      .select("*")
-      .eq("id", id)
-      .single();
-
+    const { data: update, error: fetchError } = await supabase.from("age_updates").select("*").eq("id", id).single();
     if (fetchError) throw fetchError;
 
-    // Parse it
     const parsed = parseAgeFile(update.raw_text);
-
-    console.log("[AGE DEBUG] keys:", Object.keys(parsed));
-    console.log("[AGE DEBUG] races count:", Object.keys(parsed.races || {}).length);
-    console.log("[AGE DEBUG] personalities count:", Object.keys(parsed.personalities || {}).length);
-    console.log("[AGE DEBUG] game rules count:", Object.keys(parsed.game_rules || {}).length);
-
-    console.log("[AGE DEBUG] races:", Object.keys(parsed.races || {}));
-    console.log("[AGE DEBUG] personalities:", Object.keys(parsed.personalities || {}));
-    console.log("[AGE DEBUG] game_rules:", Object.keys(parsed.game_rules || {}));
     const ageNumber = update.age_number;
 
-    // Batch insert to rules tables
-    const raceRows = [];
-    for (const [raceName, raceData] of Object.entries(parsed.races)) {
-      for (const bonus of raceData.bonuses) {
-        raceRows.push({ age_number: ageNumber, race_name: raceName, rule_name: 'bonus', value: bonus, description: bonus });
-      }
-      for (const penalty of raceData.penalties) {
-        raceRows.push({ age_number: ageNumber, race_name: raceName, rule_name: 'penalty', value: penalty, description: penalty });
-      }
-      for (const [unitName, unitStats] of Object.entries(raceData.units)) {
-        raceRows.push({ age_number: ageNumber, race_name: raceName, rule_name: `unit_${unitName}`, value: unitStats, description: `${unitName}: ${unitStats}` });
-      }
-      if (raceData.war_doctrine) {
-        raceRows.push({ age_number: ageNumber, race_name: raceName, rule_name: 'war_doctrine', value: raceData.war_doctrine, description: raceData.war_doctrine });
-      }
-      if (raceData.unique_passive) {
-        raceRows.push({ age_number: ageNumber, race_name: raceName, rule_name: 'unique_passive', value: raceData.unique_passive, description: raceData.unique_passive });
-      }
-      if (raceData.spells.length) {
-        raceRows.push({ age_number: ageNumber, race_name: raceName, rule_name: 'spells', value: raceData.spells.join(', '), description: raceData.spells.join(', ') });
-      }
-    }
+    await supabase.from("spartan_race_rules").delete().eq("age_number", ageNumber);
+    await supabase.from("spartan_personality_rules").delete().eq("age_number", ageNumber);
+    await supabase.from("spartan_game_rules").delete().eq("age_number", ageNumber);
 
-    const personalityRows = [];
-    for (const [pName, pData] of Object.entries(parsed.personalities)) {
-      for (const bonus of pData.bonuses) {
-        personalityRows.push({ age_number: ageNumber, personality_name: pName, rule_name: 'bonus', value: bonus, description: bonus });
-      }
-      if (pData.unique_passive) {
-        personalityRows.push({ age_number: ageNumber, personality_name: pName, rule_name: 'unique_passive', value: pData.unique_passive, description: pData.unique_passive });
-      }
-      if (pData.spells.length) {
-        personalityRows.push({ age_number: ageNumber, personality_name: pName, rule_name: 'spells', value: pData.spells.join(', '), description: pData.spells.join(', ') });
-      }
-      for (const s of pData.starts_with) {
-        personalityRows.push({ age_number: ageNumber, personality_name: pName, rule_name: 'starts_with', value: s, description: s });
-      }
-    }
+    const raceRows = Object.entries(parsed.races || {}).map(([race, data]) => ({
+      age_number: ageNumber,
+      race,
+      emoji: data.emoji || null,
+      archetype: data.archetype || null,
+      war_doctrine: data.war_doctrine || null,
+      unique_name: data.unique_name || null,
+      unique_desc: data.unique_passive || null,
+      bonuses: safeArray(data.bonuses).join("\n"),
+      penalties: safeArray(data.penalties).join("\n"),
+      units: JSON.stringify(data.units || {}),
+      spells: safeArray(data.spells).join(", ")
+    }));
+
+    const personalityRows = Object.entries(parsed.personalities || {}).map(([personality, data]) => ({
+      age_number: ageNumber,
+      personality,
+      emoji: data.emoji || null,
+      unique_name: data.unique_name || null,
+      unique_desc: data.unique_passive || null,
+      bonuses: safeArray(data.bonuses).join("\n"),
+      start_bonus: safeArray(data.starts_with).join("\n"),
+      spells: safeArray(data.spells).join(", ")
+    }));
 
     const gameRows = [];
-    for (const [key, val] of Object.entries(parsed.spells)) {
-      gameRows.push({ age_number: ageNumber, category: 'spell', rule_name: key, value: val, description: val });
-    }
-    for (const [key, val] of Object.entries(parsed.thievery)) {
-      gameRows.push({ age_number: ageNumber, category: 'thievery', rule_name: key, value: val, description: val });
-    }
-    for (const [key, val] of Object.entries(parsed.buildings)) {
-      gameRows.push({ age_number: ageNumber, category: 'building', rule_name: key, value: val, description: val });
-    }
-    for (const [key, val] of Object.entries(parsed.science)) {
-      gameRows.push({ age_number: ageNumber, category: 'science', rule_name: key, value: val, description: val });
-    }
-    for (const [key, val] of Object.entries(parsed.game_rules)) {
-      gameRows.push({ age_number: ageNumber, category: 'game', rule_name: key, value: val, description: val });
-    }
-
-    const dragonRows = [];
-    for (const [dName, dData] of Object.entries(parsed.dragons)) {
-      for (const effect of dData.effects) {
-        dragonRows.push({ age_number: ageNumber, category: 'dragon', rule_name: dName, value: effect, description: effect });
+    for (const [category, section] of Object.entries({
+      spell: parsed.spells,
+      thievery: parsed.thievery,
+      building: parsed.buildings,
+      science: parsed.science,
+      game: parsed.game_rules
+    })) {
+      for (const [rule_name, value] of Object.entries(section || {})) {
+        gameRows.push({
+          age_number: ageNumber,
+          category,
+          rule_name,
+          value: value ?? null,
+          description: typeof value === "string" ? value : JSON.stringify(value)
+        });
       }
     }
 
-    // Clear old rules for this age then insert fresh
-    await supabase.from("race_rules").delete().eq("age_number", ageNumber);
-    await supabase.from("personality_rules").delete().eq("age_number", ageNumber);
-    await supabase.from("game_rules").delete().eq("age_number", ageNumber);
+    for (const [name, dragon] of Object.entries(parsed.dragons || {})) {
+      for (const effect of safeArray(dragon.effects)) {
+        gameRows.push({
+          age_number: ageNumber,
+          category: "dragon",
+          rule_name: name,
+          value: effect,
+          description: String(effect)
+        });
+      }
+    }
 
-    if (raceRows.length) await supabase.from("race_rules").insert(raceRows);
-    if (personalityRows.length) await supabase.from("personality_rules").insert(personalityRows);
-    if (gameRows.length || dragonRows.length) await supabase.from("game_rules").insert([...gameRows, ...dragonRows]);
+    if (raceRows.length) {
+      const { error } = await supabase.from("spartan_race_rules").insert(raceRows);
+      if (error) throw error;
+    }
+    if (personalityRows.length) {
+      const { error } = await supabase.from("spartan_personality_rules").insert(personalityRows);
+      if (error) throw error;
+    }
+    if (gameRows.length) {
+      const { error } = await supabase.from("spartan_game_rules").insert(gameRows);
+      if (error) throw error;
+    }
 
-    // Mark approved first. The approved age becomes Nexus's runtime current age.
-    const { data, error } = await supabase
-      .from("age_updates")
+    const { data, error } = await supabase.from("age_updates")
       .update({ status: "approved", approved_by: adminId, approved_at: new Date().toISOString() })
-      .eq("id", id)
-      .select()
-      .single();
-
+      .eq("id", id).select().single();
     if (error) throw error;
 
-    const { error: ageSettingError } = await supabase
-      .from("bot_settings")
-      .upsert({ key: "current_age", value: String(ageNumber), updated_at: new Date().toISOString() }, { onConflict: "key" });
-
+    const { error: ageSettingError } = await supabase.from("bot_settings").upsert({
+      key: "current_age",
+      value: String(ageNumber),
+      updated_at: new Date().toISOString()
+    }, { onConflict: "key" });
     if (ageSettingError) throw ageSettingError;
 
-    logger.info(`[AGE UPDATE APPROVED] ID ${id} BY ${adminId} - ${raceRows.length} race rules, ${personalityRows.length} personality rules, ${gameRows.length + dragonRows.length} game rules; current age set to ${ageNumber}`);
+    let recalculation = null;
+    try {
+      recalculation = await recalculateBuildLibrary(ageNumber, id, parsed);
+    } catch (err) {
+      logger.error(`[AGE BUILD RECALC ERROR] ${err.message}`);
+      recalculation = { error: err.message };
+    }
+
+    logger.info(`[AGE UPDATE APPROVED] ID ${id} AGE ${ageNumber}; races=${raceRows.length}, personalities=${personalityRows.length}, game_rules=${gameRows.length}`);
 
     return {
       ...data,
       stats: {
-        races: Object.keys(parsed.races).length,
-        personalities: Object.keys(parsed.personalities).length,
-        raceRows: raceRows.length,
-        personalityRows: personalityRows.length,
-        gameRows: gameRows.length + dragonRows.length,
-        summary: summarize(parsed)
+        races: raceRows.length,
+        personalities: personalityRows.length,
+        gameRows: gameRows.length,
+        summary: summarize(parsed),
+        recalculation
       }
     };
-
   } catch (err) {
     logger.error(`[AGE APPROVE ERROR] ${err.message}`);
     return null;
@@ -199,19 +179,13 @@ async function approveAgeUpdate(id, adminId) {
 async function denyAgeUpdate(id, adminId) {
   const supabase = supabaseService.getClient();
   if (!supabase) return null;
-
   try {
-    const { data, error } = await supabase
-      .from("age_updates")
+    const { data, error } = await supabase.from("age_updates")
       .update({ status: "rejected", approved_by: adminId, approved_at: new Date().toISOString() })
-      .eq("id", id)
-      .select()
-      .single();
-
+      .eq("id", id).select().single();
     if (error) throw error;
     logger.info(`[AGE UPDATE REJECTED] ID ${id} BY ${adminId}`);
     return data;
-
   } catch (err) {
     logger.error(`[AGE DENY ERROR] ${err.message}`);
     return null;
