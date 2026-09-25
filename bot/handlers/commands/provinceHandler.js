@@ -7,21 +7,31 @@ module.exports = async function provinceHandler(interaction) {
 
   if (supabase) {
     const { data: province } = await supabase
-      .from("provinces")
-      .select("*")
-      .eq("discord_id", interaction.user.id)
+      .from("spartan_province_registry")
+      .select("province_name, kingdom_code, slot, metadata")
+      .eq("user_id", interaction.user.id)
       .limit(1);
 
     if (province && province.length > 0) {
       const p = province[0];
+      const metadata = p.metadata && typeof p.metadata === "object" ? p.metadata : {};
+      const throne = metadata.throne && typeof metadata.throne === "object" ? metadata.throne : {};
       return interaction.reply({
         content:
-          `🏰 **${p.name}**\n\n` +
-          `⚔️ ${p.race || "?"}/${p.personality || "?"}\n` +
-          `🎯 Role: ${p.play_role || "Member"}\n` +
-          `📍 Coordinates: ${p.coordinates || "None"}\n` +
-          `🕐 Timezone: ${p.timezone || "None"}\n` +
-          `🌊 Wave Times: ${p.wave_times || "None"}`,
+          `🏰 **${p.province_name || "Unknown"}**
+
+` +
+          `⚔️ ${throne.race || "?"}/${throne.personality || "?"}
+` +
+          `🎯 Role: ${metadata.play_role || "Member"}
+` +
+          `📍 Coordinates: ${metadata.coordinates || p.slot || "None"}
+` +
+          `🕐 Timezone: ${metadata.timezone || "None"}
+` +
+          `🌊 Wave Times: ${metadata.wave_times || "None"}
+` +
+          `🏳️ Kingdom: ${p.kingdom_code || "None"}`,
         flags: MessageFlags.Ephemeral
       });
     }
@@ -36,7 +46,8 @@ module.exports = async function provinceHandler(interaction) {
   }
 
   return interaction.reply({
-    content: `🏰 **${user.province || "Unknown"}**\n📍 ${user.coordinates || "None"}`,
+    content: `🏰 **${user.province || "Unknown"}**
+📍 ${user.coordinates || "None"}`,
     flags: MessageFlags.Ephemeral
   });
 };
