@@ -18,12 +18,12 @@ async function loadRoster(force = false) {
   loading = (async () => {
     const sb = supabaseService.getClient();
     if (!sb) return null;
-    const { data, error } = await sb.from('provinces').select('name,kd_code');
+    const { data, error } = await sb.from('spartan_province_registry').select('province_name,kingdom_code');
     if (error) throw error;
     const byProvince = new Map();
     for (const row of data || []) {
       const name = norm(row.name);
-      const kd = String(row.kd_code || '').trim();
+      const kd = String(row.kingdom_code || '').trim();
       if (!name || !kd) continue;
       const existing = byProvince.get(name);
       if (existing && existing !== kd) byProvince.set(name, null);
@@ -64,20 +64,22 @@ async function preserveRejectedCapture(row, reason, validation) {
   const raw = row.raw_text || payload.raw_text || payload.raw || payload.text || '';
   const crypto = require('crypto');
   const hash = crypto.createHash('sha256').update(JSON.stringify([row.id, row.url, row.kd_code, row.province, payload])).digest('hex');
-  const { data: existing } = await sb.from('intel_complete_vault').select('id').eq('payload_hash', hash).maybeSingle();
+  const { data: existing } = await sb.from('spartan_capture_vault').select('id').eq('payload_hash', hash).maybeSingle();
   if (existing) return existing;
-  const { data, error } = await sb.from('intel_complete_vault').insert({
-    kd_code: row.kd_code || null,
-    province: row.province || null,
+  const { data, error } = await sb.from('spartan_capture_vault').insert({
+    user_id: row.user_id || null,
+    province_id: row.province_id || null,
+    kingdom_id: row.kd_code || null,
+    captured_at: row.captured_at || new Date().toISOString(),
     source: 'universal-capture-identity-guard',
-    tab: row.tab || null,
+    source_id: String(row.id),
+    page_kind: row.tab || null,
     url: row.url || null,
-    data_type: 'universal-capture',
+    capture_id: `identity-guard-${row.id}`,
     raw_text: raw,
-    payload,
-    field_names: Object.keys(payload),
-    payload_hash: hash,
-    is_current: true
+    raw_payload: payload,
+    parsed_payload: row.parsed || {},
+    content_hash: hash
   }).select('id').single();
   if (error) throw error;
   return data;
